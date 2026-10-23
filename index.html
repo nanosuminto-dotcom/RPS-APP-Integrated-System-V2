@@ -229,6 +229,7 @@
       table.matrix-table th, table.matrix-table td, 
       table.giro-table th, table.giro-table td { 
         font-size: 13px !important; 
+        padding: 5px 8px !important; 
         border: 1px solid #000 !important;
         white-space: nowrap !important; 
         -webkit-print-color-adjust: exact !important;
@@ -4009,7 +4010,6 @@
     let currentRealYear = new Date().getFullYear();
     let currYear = filterYear ? parseInt(filterYear) : currentRealYear;
     
-    // Hitung proporsi bulan berjalan untuk target tahunan (YTD) jika tahun aktif, atau 12 bulan penuh untuk tahun lalu
     let monthsElapsed = (currYear === currentRealYear) ? (new Date().getMonth() + 1) : 12;
 
     cabangRows.forEach(r => {
@@ -4118,7 +4118,6 @@
         }
       }
 
-      // Akumulasi Bulan Berjalan untuk Target Bulanan
       if (rYear === currentRealYear && rMonthIdx === activeMonthIdx) {
         if (activeFilterBranch === 'all' || branch === activeFilterBranch) {
           monM[branch].pos += vP;
@@ -4185,17 +4184,7 @@
       matrixFreq,
       lineLabels: last7Days.map(d => d.label),
       linePos: last7Days.map(d => d.pos),
-      lineGrab: last7Days.map(d => d.grab),
-      history: [...validEntries].sort((a, b) => b.isoDate.localeCompare(a.isoDate)).slice(0, 75).map(d => ({
-        id: d.id,
-        tglStr: `${String(d.tgl.getDate()).padStart(2, '0')}/${String(d.tgl.getMonth() + 1).padStart(2, '0')}`,
-        cabang: d.cabang,
-        rawTgl: d.isoDate,
-        pos: d.pVal,
-        grab: d.gVal,
-        fP: d.fP,
-        fG: d.fG
-      }))
+      lineGrab: last7Days.map(d => d.grab)
     };
   } catch (e) {
     console.error("Error getDashboardData:", e);
@@ -4283,32 +4272,7 @@ async function updateUI() {
     }
   }
 
-  const hTableEl = document.getElementById('hTable');
-  if (hTableEl) {
-    let hHtml = "";
-    (data.history || []).slice(0, 75).forEach(r => {
-      let del = `<button onclick='confirmDelete(${r.id})' class="bg-red-500/20 text-red-500 px-2 py-1 rounded text-[8px] font-bold uppercase ml-1">Hapus</button>`;
-      const rJson = JSON.stringify(r).replace(/"/g, '&quot;');
-      const rpsBtnId = "btnRPS_" + r.id; 
-      
-      hHtml += `
-<tr class="hover:bg-white/5 border-b border-white/5">
-  <td class="p-4"><span class="font-bold text-gray-400">${r.tglStr}</span><br><span class="text-cyan-400 uppercase text-[9px]">${r.cabang}</span></td>
-  <td class="p-4"><div class="text-white font-bold">Rp ${fmt(r.pos)}</div><div class="text-[9px] text-gray-500 font-mono italic">F: ${r.fP || 0}</div></td>
-  <td class="p-4"><div class="text-green-400 font-bold">Rp ${fmt(r.grab)}</div><div class="text-[9px] text-green-700/80 font-mono italic">F: ${r.fG || 0}</div></td>
-  <td class="p-4 text-right"><div class="font-black text-white">Rp ${fmt(r.pos + r.grab)}</div><div class="text-[9px] text-white/60 font-mono italic">TF: ${(r.fP || 0) + (r.fG || 0)}</div></td>
-  <td class="p-4 text-center">
-    <div class="flex items-center justify-center gap-1">
-      <button onclick="copyCabang('${rJson}')" class="bg-blue-600/20 text-blue-500 px-2 py-1 rounded text-[8px] font-bold uppercase whitespace-nowrap"><i class="fab fa-whatsapp"></i> Cabang</button>
-      <button id="${rpsBtnId}" onclick="cekDanBukaModal(event, '${r.rawTgl}')" class="bg-emerald-600 text-white px-2 py-1 rounded text-[8px] font-bold uppercase whitespace-nowrap"><i class="fab fa-whatsapp"></i> RPS</button>
-    </div>
-  </td>
-  <td class="p-4 text-right flex items-center justify-end"><button onclick='prepEdit(${JSON.stringify(r)})' class="bg-cyan-500 text-black px-2 py-1 rounded text-[8px] font-bold uppercase">Edit</button>${del}</td>
-</tr>`;
-    });
-    hTableEl.innerHTML = hHtml || '<tr><td colspan="6" class="p-4 text-center">Kosong</td></tr>';
-  }
-
+  // Render Matriks & Chart Dashboard Saja
   renderActiveMatrix();
 
   if (typeof renderCharts === "function") renderCharts(data); 
@@ -4357,8 +4321,6 @@ function setMatrixMode(mode) {
   renderActiveMatrix();
 }
 
-// Fungsi formatter singkat untuk sumbu Y grafik (M / K)
-// Pastikan fungsi kFmt ini HANYA ADA SATU di dalam file index.html Anda
 if (typeof kFmt === 'undefined') {
   function kFmt(num) {
     if (!num || isNaN(num)) return '0';
@@ -4456,9 +4418,7 @@ function renderCharts(data) {
         maintainAspectRatio: false,
         cutout: '55%',
         plugins: {
-          legend: { 
-            display: false // Sembunyikan legenda bawah jika ingin label/persentase langsung di dalam donat
-          },
+          legend: { display: false },
           tooltip: {
             callbacks: {
               label: function(context) {
@@ -4472,7 +4432,6 @@ function renderCharts(data) {
           }
         }
       },
-      // Plugin kustom untuk merender teks persentase langsung di atas irisan donat
       plugins: [{
         id: 'doughnutLabelPercentage',
         afterDatasetsDraw(chart) {
