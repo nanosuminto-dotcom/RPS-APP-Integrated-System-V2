@@ -1,0 +1,17 @@
+<!-- ==========================================
+       HALAMAN LOGIN
+       ========================================== -->
+  <div id="loginPage" style="display: flex;" class="fixed inset-0 z-50 items-center justify-center bg-[#1a1d23]">
+    <div class="glass p-10 w-80 text-center shadow-2xl">
+      <div class="text-cyan-400 text-3xl mb-1 font-black italic tracking-tighter uppercase">RPS App Integrated</div>
+      <div class="text-gray-500 text-[10px] mb-8 font-bold tracking-widest">SALES INPUT INTEGRATED</div>
+      
+      <div onkeydown="if(event.key === 'Enter') doLogin()">
+        <input type="text" id="user" placeholder="Username" class="input-field mb-4" autocomplete="username">
+        <input type="password" id="pass" placeholder="Password" class="input-field mb-6" autocomplete="current-password">
+        <button type="button" onclick="doLogin()" class="w-full py-3 bg-cyan-500 rounded-lg font-bold text-black uppercase hover:bg-cyan-400 transition shadow-lg shadow-cyan-500/20">Masuk</button>
+      </div>
+
+      <p class="text-[8px] text-gray-600 mt-6 font-bold italic tracking-widest">VERSION V.26.10.0</p>
+    </div>
+  </div>
