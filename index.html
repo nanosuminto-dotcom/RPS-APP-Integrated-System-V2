@@ -45,10 +45,10 @@
     </script>
 
     <!-- MAIN CONTENT AREA -->
-    <main class="flex-1 w-full h-screen overflow-y-auto p-2 md:p-4 bg-[#1a1d23] relative">
+    <main class="flex-1 w-full h-full overflow-y-auto p-2 md:p-4 bg-[#1a1d23] relative">
   
       <!-- KONTROL WRAPPER VERTIKAL -->
-      <div class="flex flex-col w-full h-auto">
+      <div class="flex flex-col w-full min-h-full">
         
         <!-- HEADER DISPLAY UTAMA (Sticky Freeze) -->
         <div class="sticky top-0 z-50 bg-[#1a1d23] w-full mb-3 py-3 px-2 border-b border-white/10 flex flex-col md:flex-row justify-between items-start md:items-center gap-1 shadow-md">
@@ -56,6 +56,14 @@
             <h1 id="headerTitle" class="text-xl md:text-2xl font-black text-cyan-400 uppercase tracking-tight">DASHBOARD UTAMA</h1>
           </div>
         </div>
+
+        <!-- ISI KONTEN / DASHBOARD ANDA DI SINI -->
+        <div class="flex-1">
+            <!-- Card atau tabel Anda -->
+        </div>
+
+      </div>
+    </main>
 
     <!-- AREA KUMPULAN TAB / CARD MENU ANDA -->
     <div class="w-full">
