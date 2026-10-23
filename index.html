@@ -32,106 +32,17 @@
        ========================================== -->
   <div id="mainArea" style="display: none;" class="flex w-full h-screen overflow-hidden relative">
     
-    <!-- SIDEBAR (Khusus Desktop & Tablet) -->
-    <aside id="sidebar" class="w-fit min-w-[180px] max-w-[220px] h-screen border-r border-[#343b47] flex flex-col p-2 bg-[#1a1d23] sticky top-0 overflow-hidden shrink-0">
-      <div class="px-2 mb-4 shrink-0 border-b border-white/5 pb-2">
-        <div id="sideAppName" class="font-black text-xl italic tracking-tighter uppercase leading-tight" 
-             style="background: linear-gradient(90deg, #fbbf24, #f59e0b); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-          RPS APP Integrated System
-        </div>
-        <div id="sideVersion" class="text-[8px] text-gray-400 font-bold tracking-[0.2em] uppercase mt-1">
-          Ver V.26.10.0
-        </div>
-      </div>
+    <!-- Container untuk Sidebar modular -->
+    <div id="sidebarContainer"></div>
 
-      <nav class="flex-1 space-y-1 overflow-y-auto pr-1 custom-scroll">
-        <!-- MENU GROUP: SALES -->
-        <div class="menu-group">
-          <div onclick="toggleSubmenu(this)" class="p-2 flex justify-between items-center gap-2 cursor-pointer hover:bg-white/5 rounded-xl group">
-            <span class="menu-title truncate text-xs"><i class="fa fa-chart-line mr-1.5 text-amber-400"></i> Sales</span>
-            <i class="fa fa-chevron-down text-white/30 group-hover:text-white transition-transform text-[9px] shrink-0"></i>
-          </div>
-          <div class="submenu space-y-0.5 mt-1 pl-2 border-l border-white/10 ml-2">
-            <div id="nav-dashboard" onclick="showTab('dashboard')" class="sidebar-item px-2 py-1.5 text-xs text-white/50 hover:text-white cursor-pointer truncate">Dashboard</div>
-            <div id="nav-online" onclick="showTab('online')" class="sidebar-item px-2 py-1.5 text-xs text-white/50 hover:text-white cursor-pointer truncate">Online Dashboard</div>
-            <div id="nav-input" onclick="showTab('input')" class="sidebar-item px-2 py-1.5 text-xs text-white/50 hover:text-white cursor-pointer truncate">Sales Input</div>
-            <div id="nav-search" onclick="showTab('search')" class="sidebar-item px-2 py-1.5 text-xs text-white/50 hover:text-white cursor-pointer truncate">Sales Report</div>
-            <div id="nav-analisa" onclick="showTab('analisa')" class="sidebar-item px-2 py-1.5 text-xs text-white/50 hover:text-white cursor-pointer truncate">Sales Analysis</div>
-            <div id="nav-grafikBar" onclick="showTab('grafikBar')" class="sidebar-item px-2 py-1.5 text-xs text-white/50 cursor-pointer truncate">Report Chart Bar</div>
-            <div id="nav-grafik" onclick="showTab('grafik')" class="sidebar-item px-2 py-1.5 text-xs text-white/50 cursor-pointer truncate">Chart YOY</div>
-          </div>
-        </div>
-
-        <!-- MENU GROUP: LOGISTIK -->
-        <div class="menu-group">
-          <div onclick="toggleSubmenu(this)" class="p-2 flex justify-between items-center gap-2 cursor-pointer hover:bg-white/5 rounded-xl group">
-            <span class="menu-title truncate text-xs"><i class="fa fa-boxes mr-1.5 text-amber-400"></i> Logistik</span>
-            <i class="fa fa-chevron-down text-white/30 group-hover:text-white transition-transform text-[9px] shrink-0"></i>
-          </div>
-          <div class="submenu space-y-0.5 mt-1 pl-2 border-l border-white/10 ml-2">
-            <div id="nav-logistik" onclick="showTab('logistik')" class="sidebar-item px-2 py-1.5 text-xs text-white/50 hover:text-white cursor-pointer truncate">Logistik Dashboard</div>
-            <div id="nav-po" onclick="showTab('po')" class="sidebar-item px-2 py-1.5 text-xs text-white/50 cursor-pointer truncate">Purchase Order</div>
-            <div id="nav-purchase" onclick="showTab('purchase')" class="sidebar-item px-2 py-1.5 text-xs text-white/50 cursor-pointer truncate">Purchase</div>
-            <div id="nav-purchase-analisa" onclick="showTab('purchase-analisa')" class="sidebar-item px-2 py-1.5 text-xs text-white/50 cursor-pointer truncate">Purchase Analysis</div>
-            <div id="nav-logistikAnalysis" onclick="showTab('logistikAnalysis')" class="sidebar-item px-2 py-1.5 text-xs text-white/50 cursor-pointer truncate">Logistik Analysis</div>
-            <div id="nav-supplier-analisa" onclick="showTab('supplier-analisa')" class="sidebar-item px-2 py-1.5 text-xs text-white/50 cursor-pointer truncate">Supplier Analysis</div>
-            <div id="nav-gm" onclick="showTab('gm')" class="sidebar-item px-2 py-1.5 text-xs text-white/50 cursor-pointer truncate">GrabMerchant</div>
-            <div id="nav-info-promo" onclick="showTab('info-promo')" class="sidebar-item px-2 py-1.5 text-xs text-white/50 cursor-pointer truncate">Info Promo</div>
-          </div>
-        </div>
-
-        <!-- MENU GROUP: FINANCE -->
-        <div class="menu-group">
-          <div onclick="toggleSubmenu(this)" class="p-2 flex justify-between items-center gap-2 cursor-pointer hover:bg-white/5 rounded-xl group">
-            <span class="menu-title truncate text-xs"><i class="fa fa-wallet mr-1.5 text-amber-400"></i> Finance</span>
-            <i class="fa fa-chevron-down text-white/30 group-hover:text-white transition-transform text-[9px] shrink-0"></i>
-          </div>
-          <div class="submenu space-y-0.5 mt-1 pl-2 border-l border-white/10 ml-2">
-            <div id="nav-dashboardFinance" onclick="showTab('dashboardFinance')" class="sidebar-item px-2 py-1.5 text-xs text-white/50 hover:text-white cursor-pointer truncate">Finance Dashboard</div>
-            <div id="nav-financeInput" onclick="showTab('financeInput')" class="sidebar-item px-2 py-1.5 text-xs text-white/50 cursor-pointer truncate">Finance Input</div>
-            <div id="nav-payment-plan" onclick="showTab('payment-plan')" class="sidebar-item px-2 py-1.5 text-xs text-white/50 cursor-pointer truncate">Payment Plan</div>
-            <div id="nav-payment" onclick="showTab('payment')" class="sidebar-item px-2 py-1.5 text-xs text-white/50 cursor-pointer truncate">Payment</div>
-            <div id="nav-paymentSearch" onclick="showTab('paymentSearch')" class="sidebar-item px-2 py-1.5 text-xs text-white/50 cursor-pointer truncate">Payment Report</div>
-            <div id="nav-accountTransfer" onclick="showTab('accountTransfer')" class="sidebar-item px-2 py-1.5 text-xs text-white/50 cursor-pointer truncate">Account Transfer</div>
-          </div>
-        </div>
-
-        <!-- MENU GROUP: SETTINGS -->
-        <div class="menu-group">
-          <div onclick="toggleSubmenu(this)" class="p-2 flex justify-between items-center gap-2 cursor-pointer hover:bg-white/5 rounded-xl group">
-            <span class="menu-title truncate text-xs"><i class="fa fa-cogs mr-1.5 text-amber-400"></i> Settings</span>
-            <i class="fa fa-chevron-down text-white/30 group-hover:text-white transition-transform text-[9px] shrink-0"></i>
-          </div>
-          <div class="submenu space-y-0.5 mt-1 pl-2 border-l border-white/10 ml-2">
-            <div id="nav-settingsUsers" onclick="showTab('settingsUsers')" class="sidebar-item px-2 py-1.5 text-xs text-white/50 cursor-pointer truncate">Users</div>
-            <div id="nav-settingsCabang" onclick="showTab('settingsCabang')" class="sidebar-item px-2 py-1.5 text-xs text-white/50 cursor-pointer truncate">Cabang</div>
-            <div id="nav-settingsSupplier" onclick="showTab('settingsSupplier')" class="sidebar-item px-2 py-1.5 text-xs text-white/50 cursor-pointer truncate">Supplier</div>
-            <div id="nav-settingsApk" onclick="showTab('settingsApk')" class="sidebar-item px-2 py-1.5 text-xs text-white/50 cursor-pointer truncate">App Config</div>
-            <div id="nav-settingsZap" onclick="showTab('settingsZap')" class="sidebar-item px-2 py-1.5 text-xs text-white/50 cursor-pointer truncate">Zap Data</div>
-          </div>
-        </div>
-      </nav>
-
-      <!-- USER INFO & LOGOUT -->
-      <div class="mt-auto pt-3 border-t border-white/5 space-y-2 shrink-0">
-        <div class="flex items-center gap-2 p-1.5 rounded-xl bg-white/5 border border-white/10">
-          <div class="w-6 h-6 rounded-lg bg-cyan-500 flex items-center justify-center font-black text-black text-[11px] shadow-lg shrink-0">
-            <span id="navUserInitial">?</span>
-          </div>
-          <div class="overflow-hidden">
-            <p id="navUserName" class="text-[9px] font-black text-white truncate uppercase">UNKNOWN</p>
-            <p id="navUserRole" class="text-[7px] text-cyan-400 font-bold truncate uppercase mt-0.5">MEMUAT...</p>
-          </div>
-        </div>
-
-        <button onclick="logout()" class="w-full flex items-center gap-2 px-2 py-1.5 rounded-xl text-xs font-bold text-red-400 hover:bg-red-400/10 transition-all">
-          <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
-          </svg>
-          <span>Keluar</span>
-        </button>
-      </div>
-    </aside>
+    <!-- Script untuk memuat sidebar.html secara dinamis -->
+    <script>
+        fetch('components/sidebar.html')
+            .then(response => response.text())
+            .then(data => {
+                document.getElementById('sidebarContainer').innerHTML = data;
+            });
+    </script>
 
     <!-- MAIN CONTENT AREA -->
     <main class="flex-1 w-full h-screen overflow-y-auto p-2 md:p-4 bg-[#1a1d23] relative">
