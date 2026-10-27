@@ -4377,207 +4377,177 @@
     }
 
     function formatTanggalCabang(tglStr) {
-      if (!tglStr) return tglStr;
-      const raw = String(tglStr).trim();
-      if (!raw) return raw;
-      const datePart = raw.includes('T') ? raw.split('T')[0] : raw;
-      const normalized = datePart.includes('/') ? datePart.replace(/\//g, '-') : datePart;
+      return formatTanggalTeks(tglStr);
+    }
+
+    // --- REKAP RPS BERDASARKAN TANGGAL (FIX LIMIT & TANGGAL 26 KE ATAS) ---
+    async function getRpsSummaryByDate(dateInput) {
+      const targetDate = String(dateInput || '').trim();
+      if (!targetDate || !dbClient) return { harian: { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 }, mtd: { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 } };
+
+      const normalized = normalizeDateValue(targetDate);
+      if (!normalized) return { harian: { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 }, mtd: { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 } };
+
       const parts = normalized.split('-');
-      if (parts.length !== 3) return normalized;
+      const startOfMonth = `${parts[0]}-${parts[1]}-01`;
 
-      let tgl = parts[0];
-      let bln = parts[1];
-      let thn = parts[2];
+      const { data, error } = await dbClient
+        .from('Data_Penjualan')
+        .select('*')
+        .gte('Tanggal', startOfMonth)
+        .lte('Tanggal', normalized);
 
-      if (tgl.length === 4) {
-        thn = parts[0];
-        bln = parts[1];
-        tgl = parts[2];
+      if (error) throw error;
+
+      const harian = { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 };
+      const mtd = { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 };
+
+      for (const row of data || []) {
+        const rawDate = row.Tanggal || row.tanggal || row.Tgl || row.tgl;
+        if (!rawDate) continue;
+        const rowDateStr = String(rawDate).split('T')[0];
+
+        const pos = cleanNum(getRowValue(row, ['Sales_PosX', 'Sales_POSX', 'PosX', 'posX']));
+        const frekPos = cleanNum(getRowValue(row, ['Freq_PosX', 'Freq_POSX', 'FreqPosX', 'freqPosX']));
+        const grab = cleanNum(getRowValue(row, ['Sales_Grabmart', 'Sales_Grab', 'Grabmart', 'grab']));
+        const frekGrab = cleanNum(getRowValue(row, ['Freq_Grabmart', 'Freq_Grab', 'FreqGrabmart', 'freqGrab']));
+
+        mtd.pos += pos;
+        mtd.frekPos += frekPos;
+        mtd.grab += grab;
+        mtd.frekGrab += frekGrab;
+
+        if (rowDateStr === normalized) {
+          harian.pos += pos;
+          harian.frekPos += frekPos;
+          harian.grab += grab;
+          harian.frekGrab += frekGrab;
+        }
       }
 
-      const bulanMap = {
-        '01': 'Jan', '02': 'Feb', '03': 'Mar', '04': 'Apr',
-        '05': 'Mei', '06': 'Jun', '07': 'Jul', '08': 'Agu',
-        '09': 'Sep', '10': 'Okt', '11': 'Nov', '12': 'Des'
+      return { harian, mtd };
+    }
+
+    // --- REKAP PER CABANG (FIX AKURASI DATA TERBARU) ---
+    async function getCabangSummaryByDate(dateInput, cabangCode) {
+      const targetDate = String(dateInput || '').trim();
+      const cabangInput = String(cabangCode || '').trim();
+      if (!targetDate || !cabangInput || !dbClient) return { harian: { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 }, mtd: { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 } };
+
+      const normalizeBranchName = (value) => {
+        return String(value || '').trim().toLowerCase().replace(/[^a-z]/g, '');
       };
 
-      return `${String(tgl).padStart(2, '0')}-${bulanMap[String(bln).padStart(2, '0')] || bln}-${thn}`;
+      const branchKey = normalizeBranchName(cabangInput);
+      const branchAliases = {
+        kgd: ['kgd', 'kelapagading'],
+        cdk: ['cdk', 'cilandak'],
+        pkp: ['pkp', 'pondokkelapa'],
+        cpy: ['cpy', 'cipayung']
+      };
+
+      const normalized = normalizeDateValue(targetDate);
+      if (!normalized) return { harian: { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 }, mtd: { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 } };
+
+      const parts = normalized.split('-');
+      const startOfMonth = `${parts[0]}-${parts[1]}-01`;
+
+      const { data, error } = await dbClient
+        .from('Data_Penjualan')
+        .select('*')
+        .gte('Tanggal', startOfMonth)
+        .lte('Tanggal', normalized);
+
+      if (error) throw error;
+
+      const harian = { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 };
+      const mtd = { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 };
+
+      for (const row of data || []) {
+        const rawDate = row.Tanggal || row.tanggal || row.Tgl || row.tgl;
+        if (!rawDate) continue;
+        const rowDateStr = String(rawDate).split('T')[0];
+
+        const rowCabang = normalizeBranchName(row.ID_Cabang || row.id_cabang || row.Cabang || row.cabang || '');
+        const matchesCabang = Object.keys(branchAliases).some((key) => {
+          if (branchKey !== key) return false;
+          return branchAliases[key].includes(rowCabang);
+        });
+        if (!matchesCabang) continue;
+
+        const pos = Number(row.Sales_PosX ?? row.Sales_POSX ?? row.PosX ?? row.posX ?? 0) || 0;
+        const grab = Number(row.Sales_Grabmart ?? row.Sales_Grab ?? row.Grabmart ?? row.grab ?? 0) || 0;
+        const frekPos = Number(row.Freq_PosX ?? row.Freq_POSX ?? row.FreqPosX ?? row.freqPosX ?? 0) || 0;
+        const frekGrab = Number(row.Freq_Grabmart ?? row.Freq_Grab ?? row.FreqGrabmart ?? row.freqGrab ?? 0) || 0;
+
+        mtd.pos += pos;
+        mtd.grab += grab;
+        mtd.frekPos += frekPos;
+        mtd.frekGrab += frekGrab;
+
+        if (rowDateStr === normalized) {
+          harian.pos += pos;
+          harian.grab += grab;
+          harian.frekPos += frekPos;
+          harian.frekGrab += frekGrab;
+        }
+      }
+
+      return { harian, mtd };
     }
 
-    // --- 1. PERBAIKAN SUMMARY BERDASARKAN TANGGAL (FIX LIMIT & RANGE) ---
-async function getRpsSummaryByDate(dateInput) {
-  const targetDate = String(dateInput || '').trim();
-  if (!targetDate || !dbClient) return { harian: { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 }, mtd: { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 } };
+    // --- REKAP BERDASARKAN RANGE TANGGAL ---
+    async function getRpsSummaryByRange(startDate, endDate) {
+      if (!dbClient) return { harian: { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 }, mtd: { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 } };
 
-  const normalized = normalizeDateValue(targetDate); // Format "YYYY-MM-DD"
-  if (!normalized) return { harian: { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 }, mtd: { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 } };
+      let start = String(startDate || '').trim();
+      let end = String(endDate || '').trim();
+      if (!end && start) end = start;
+      if (!start && end) {
+        const parts = end.split('-');
+        start = `${parts[0]}-${parts[1]}-01`;
+      }
+      if (!start || !end) return { harian: { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 }, mtd: { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 } };
 
-  const parts = normalized.split('-');
-  const year = parts[0];
-  const month = parts[1];
-  const startOfMonth = `${year}-${month}-01`;
+      const normalizedStart = normalizeDateValue(start);
+      const normalizedEnd = normalizeDateValue(end);
 
-  // Ambil data langsung dengan filter rentang dari tanggal 1 sampai tanggal target (Mencegah batasan 1000 baris)
-  const { data, error } = await dbClient
-    .from('Data_Penjualan')
-    .select('*')
-    .gte('Tanggal', startOfMonth)
-    .lte('Tanggal', normalized);
+      const { data, error } = await dbClient
+        .from('Data_Penjualan')
+        .select('*')
+        .gte('Tanggal', normalizedStart)
+        .lte('Tanggal', normalizedEnd);
 
-  if (error) throw error;
+      if (error) throw error;
 
-  const harian = { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 };
-  const mtd = { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 };
+      const region = { harian: { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 }, mtd: { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 } };
 
-  for (const row of data || []) {
-    const rawDate = row.Tanggal || row.tanggal || row.Tgl || row.tgl;
-    if (!rawDate) continue;
-    const rowDateStr = String(rawDate).split('T')[0];
+      for (const row of data || []) {
+        const rawDate = row.Tanggal || row.tanggal || row.Tgl || row.tgl;
+        if (!rawDate) continue;
+        const rowDateStr = String(rawDate).split('T')[0];
 
-    const pos = cleanNum(getRowValue(row, ['Sales_PosX', 'Sales_POSX', 'PosX', 'posX']));
-    const frekPos = cleanNum(getRowValue(row, ['Freq_PosX', 'Freq_POSX', 'FreqPosX', 'freqPosX']));
-    const grab = cleanNum(getRowValue(row, ['Sales_Grabmart', 'Sales_Grab', 'Grabmart', 'grab']));
-    const frekGrab = cleanNum(getRowValue(row, ['Freq_Grabmart', 'Freq_Grab', 'FreqGrabmart', 'freqGrab']));
+        const pos = cleanNum(getRowValue(row, ['Sales_PosX', 'Sales_POSX', 'PosX', 'posX']));
+        const frekPos = cleanNum(getRowValue(row, ['Freq_PosX', 'Freq_POSX', 'FreqPosX', 'freqPosX']));
+        const grab = cleanNum(getRowValue(row, ['Sales_Grabmart', 'Sales_Grab', 'Grabmart', 'grab']));
+        const frekGrab = cleanNum(getRowValue(row, ['Freq_Grabmart', 'Freq_Grab', 'FreqGrabmart', 'freqGrab']));
 
-    // Akumulasi MTD (Dari tgl 1 sampai hari tersebut)
-    mtd.pos += pos;
-    mtd.frekPos += frekPos;
-    mtd.grab += grab;
-    mtd.frekGrab += frekGrab;
+        region.mtd.pos += pos;
+        region.mtd.frekPos += frekPos;
+        region.mtd.grab += grab;
+        region.mtd.frekGrab += frekGrab;
 
-    // Akumulasi Harian (Khusus tanggal yang dipilih, termasuk tgl 26, 27, 28, dst)
-    if (rowDateStr === normalized) {
-      harian.pos += pos;
-      harian.frekPos += frekPos;
-      harian.grab += grab;
-      harian.frekGrab += frekGrab;
+        if (rowDateStr === normalizedEnd) {
+          region.harian.pos += pos;
+          region.harian.frekPos += frekPos;
+          region.harian.grab += grab;
+          region.harian.frekGrab += frekGrab;
+        }
+      }
+
+      return region;
     }
-  }
 
-  return { harian, mtd };
-}
-
-    async function getCabangSummaryByDate(dateInput, cabangCode) {
-  const targetDate = String(dateInput || '').trim();
-  const cabangInput = String(cabangCode || '').trim();
-  if (!targetDate || !cabangInput || !dbClient) return { harian: { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 }, mtd: { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 } };
-
-  const normalizeBranchName = (value) => {
-    return String(value || '').trim().toLowerCase().replace(/[^a-z]/g, '');
-  };
-
-  const branchKey = normalizeBranchName(cabangInput);
-  const branchAliases = {
-    kgd: ['kgd', 'kelapagading'],
-    cdk: ['cdk', 'cilandak'],
-    pkp: ['pkp', 'pondokkelapa'],
-    cpy: ['cpy', 'cipayung']
-  };
-
-  const normalized = normalizeDateValue(targetDate);
-  if (!normalized) return { harian: { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 }, mtd: { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 } };
-
-  const parts = normalized.split('-');
-  const startOfMonth = `${parts[0]}-${parts[1]}-01`;
-
-  // Ambil data spesifik berdasarkan rentang tanggal bulan berjalan
-  const { data, error } = await dbClient
-    .from('Data_Penjualan')
-    .select('*')
-    .gte('Tanggal', startOfMonth)
-    .lte('Tanggal', normalized);
-
-  if (error) throw error;
-
-  const harian = { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 };
-  const mtd = { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 };
-
-  for (const row of data || []) {
-    const rawDate = row.Tanggal || row.tanggal || row.Tgl || row.tgl;
-    if (!rawDate) continue;
-    const rowDateStr = String(rawDate).split('T')[0];
-
-    const rowCabang = normalizeBranchName(row.ID_Cabang || row.id_cabang || row.Cabang || row.cabang || '');
-    const matchesCabang = Object.keys(branchAliases).some((key) => {
-      if (branchKey !== key) return false;
-      return branchAliases[key].includes(rowCabang);
-    });
-    if (!matchesCabang) continue;
-
-    const pos = Number(row.Sales_PosX ?? row.Sales_POSX ?? row.PosX ?? row.posX ?? 0) || 0;
-    const grab = Number(row.Sales_Grabmart ?? row.Sales_Grab ?? row.Grabmart ?? row.grab ?? 0) || 0;
-    const frekPos = Number(row.Freq_PosX ?? row.Freq_POSX ?? row.FreqPosX ?? row.freqPosX ?? 0) || 0;
-    const frekGrab = Number(row.Freq_Grabmart ?? row.Freq_Grab ?? row.FreqGrabmart ?? row.freqGrab ?? 0) || 0;
-
-    // MTD Bulan berjalan
-    mtd.pos += pos;
-    mtd.grab += grab;
-    mtd.frekPos += frekPos;
-    mtd.frekGrab += frekGrab;
-
-    // Harian (Termasuk tanggal 26, 27, 28)
-    if (rowDateStr === normalized) {
-      harian.pos += pos;
-      harian.grab += grab;
-      harian.frekPos += frekPos;
-      harian.frekGrab += frekGrab;
-    }
-  }
-
-  return { harian, mtd };
-}
-// --- 3. PERBAIKAN SUMMARY BERDASARKAN RANGE TANGGAL ---
-async function getRpsSummaryByRange(startDate, endDate) {
-  if (!dbClient) return { harian: { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 }, mtd: { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 } };
-
-  let start = String(startDate || '').trim();
-  let end = String(endDate || '').trim();
-  if (!end && start) end = start;
-  if (!start && end) {
-    const parts = end.split('-');
-    start = `${parts[0]}-${parts[1]}-01`;
-  }
-  if (!start || !end) return { harian: { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 }, mtd: { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 } };
-
-  const normalizedStart = normalizeDateValue(start);
-  const normalizedEnd = normalizeDateValue(end);
-
-  // Ambil data langsung difilter via Supabase Query agar tidak terbentur limit data
-  const { data, error } = await dbClient
-    .from('Data_Penjualan')
-    .select('*')
-    .gte('Tanggal', normalizedStart)
-    .lte('Tanggal', normalizedEnd);
-
-  if (error) throw error;
-
-  const region = { harian: { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 }, mtd: { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 } };
-
-  for (const row of data || []) {
-    const rawDate = row.Tanggal || row.tanggal || row.Tgl || row.tgl;
-    if (!rawDate) continue;
-    const rowDateStr = String(rawDate).split('T')[0];
-
-    const pos = cleanNum(getRowValue(row, ['Sales_PosX', 'Sales_POSX', 'PosX', 'posX']));
-    const frekPos = cleanNum(getRowValue(row, ['Freq_PosX', 'Freq_POSX', 'FreqPosX', 'freqPosX']));
-    const grab = cleanNum(getRowValue(row, ['Sales_Grabmart', 'Sales_Grab', 'Grabmart', 'grab']));
-    const frekGrab = cleanNum(getRowValue(row, ['Freq_Grabmart', 'Freq_Grab', 'FreqGrabmart', 'freqGrab']));
-
-    region.mtd.pos += pos;
-    region.mtd.frekPos += frekPos;
-    region.mtd.grab += grab;
-    region.mtd.frekGrab += frekGrab;
-
-    if (rowDateStr === normalizedEnd) {
-      region.harian.pos += pos;
-      region.harian.frekPos += frekPos;
-      region.harian.grab += grab;
-      region.harian.frekGrab += frekGrab;
-    }
-  }
-
-  return region;
-}
     function getLocalDateISO(date = new Date()) {
       const d = new Date(date);
       const year = d.getFullYear();
@@ -4806,8 +4776,8 @@ async function getRpsSummaryByRange(startDate, endDate) {
     async function copyCabang(jsonStr) {
       const raw = String(jsonStr || '').replace(/&quot;/g, '"');
       const r = JSON.parse(raw);
-      const cabang = String(r.cabang || '').toUpperCase();
-      const tanggal = r.tglStr || r.Tanggal || r.tanggal || new Date().toISOString().split('T')[0];
+      const cabang = String(r.ID_Cabang || r.id_cabang || r.cabang || r.Cabang || '').toUpperCase();
+      const tanggal = r.Tanggal || r.tanggal || r.Tgl || r.tgl || new Date().toISOString().split('T')[0];
       await copyCabangForDate(cabang, tanggal);
     }
 
@@ -4882,12 +4852,12 @@ async function getRpsSummaryByRange(startDate, endDate) {
     }
 
     function buildSalesWaText(row, mode = 'cabang') {
-      const tanggal = normalizeHistoryDate(row.Tanggal || row.tanggal || row.Tgl || row.tgl || '');
+      const tanggal = formatTanggalTeks(row.Tanggal || row.tanggal || row.Tgl || row.tgl || '');
       const cabang = String(row.ID_Cabang || row.id_cabang || row.Cabang || row.cabang || row.Unit || row.unit || 'ALL').toUpperCase();
-      const posX = numberFromValue(row.Sales_PosX ?? row.Sales_POSX ?? row.PosX ?? row.posX ?? 0);
-      const grab = numberFromValue(row.Sales_Grabmart ?? row.Sales_Grab ?? row.Grabmart ?? row.grab ?? 0);
-      const freqPos = numberFromValue(row.Freq_PosX ?? row.Freq_POSX ?? row.FreqPosX ?? row.freqPosX ?? 0);
-      const freqGrab = numberFromValue(row.Freq_Grabmart ?? row.Freq_Grab ?? row.FreqGrabmart ?? row.freqGrab ?? 0);
+      const posX = cleanNum(row.Sales_PosX ?? row.Sales_POSX ?? row.PosX ?? row.posX ?? 0);
+      const grab = cleanNum(row.Sales_Grabmart ?? row.Sales_Grab ?? row.Grabmart ?? row.grab ?? 0);
+      const freqPos = cleanNum(row.Freq_PosX ?? row.Freq_POSX ?? row.FreqPosX ?? row.freqPosX ?? 0);
+      const freqGrab = cleanNum(row.Freq_Grabmart ?? row.Freq_Grab ?? row.FreqGrabmart ?? row.freqGrab ?? 0);
       const total = posX + grab;
 
       if (mode === 'total') {
@@ -4898,15 +4868,15 @@ async function getRpsSummaryByRange(startDate, endDate) {
           '',
           '*Total Penjualan Harian Keseluruhan Outlet PT RPS*',
           `Tanggal : *${tanggal}*`,
-          `Sales : *Rp ${formatRp(posX).replace('Rp ', '')}*`,
+          `Sales : *Rp ${formatAngka(posX)}*`,
           `Frek : *${formatAngka(freqPos)}*`,
-          `GrabMart : *Rp ${formatRp(grab).replace('Rp ', '')}*`,
+          `GrabMart : *Rp ${formatAngka(grab)}*`,
           `Frek GM : *${formatAngka(freqGrab)}*`,
           '',
           `*Periode: s/d ${tanggal}*`,
-          `Sales : *Rp ${formatRp(total).replace('Rp ', '')}*`,
+          `Sales : *Rp ${formatAngka(total)}*`,
           `Frek : *${formatAngka(freqPos + freqGrab)}*`,
-          `GrabMart : *Rp ${formatRp(total).replace('Rp ', '')}*`,
+          `GrabMart : *Rp ${formatAngka(total)}*`,
           `Frek GM : *${formatAngka(freqPos + freqGrab)}*`
         ].join('\n');
       }
@@ -4916,15 +4886,15 @@ async function getRpsSummaryByRange(startDate, endDate) {
         '',
         `*Laporan Penjualan Harian STS ${cabang}*`,
         `Tanggal : *${tanggal}*`,
-        `Sales : *Rp ${formatRp(posX).replace('Rp ', '')}*`,
+        `Sales : *Rp ${formatAngka(posX)}*`,
         `Frek POS : *${formatAngka(freqPos)}*`,
-        `Grabmart : *Rp ${formatRp(grab).replace('Rp ', '')}*`,
+        `Grabmart : *Rp ${formatAngka(grab)}*`,
         `Frek GM : *${formatAngka(freqGrab)}*`,
         '',
         `*s.d Tanggal : ${tanggal}*`,
-        `Sales : *Rp ${formatRp(total).replace('Rp ', '')}*`,
+        `Sales : *Rp ${formatAngka(total)}*`,
         `Frek POS : *${formatAngka(freqPos + freqGrab)}*`,
-        `Grabmart : *Rp ${formatRp(total).replace('Rp ', '')}*`,
+        `Grabmart : *Rp ${formatAngka(total)}*`,
         `Frek GM : *${formatAngka(freqPos + freqGrab)}*`
       ].join('\n');
     }
@@ -5297,13 +5267,38 @@ async function getRpsSummaryByRange(startDate, endDate) {
         return;
       }
 
+      // --- 1. OTOMATIS HITUNG TOTAL & TOTAL FREQ ---
+      const totalSalesValue = posValue + grabValue;
+      const totalFreqValue = freqPosValue + freqGrabValue;
+
+      // --- 2. OTOMATIS TENTUKAN NAMA HARI BERDASARKAN TANGGAL ---
+      const daysList = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+      const dateObjForDay = new Date(`${dateValue}T00:00:00`);
+      const namaHari = !Number.isNaN(dateObjForDay.getTime()) ? daysList[dateObjForDay.getDay()] : '';
+
+      // --- 3. AMBIL USERNAME AKTIF DARI SESI / REF_USER ---
+      let currentUsername = session?.username || session?.Username || session?.nama || branchValue;
+      try {
+        if (session?.user_id || session?.id) {
+          const { data: userRef } = await dbClient.from('Ref_User').select('username').eq('id', session.user_id || session.id).single();
+          if (userRef && userRef.username) currentUsername = userRef.username;
+        }
+      } catch (e) {
+        console.warn('Gagal mengambil username dari Ref_User:', e);
+      }
+
+      // --- 4. SUSUN PAYLOAD LENGKAP UNTUK SUPABASE ---
       const payload = {
         Tanggal: dateValue,
         ID_Cabang: branchValue,
         Sales_PosX: posValue,
         Freq_PosX: freqPosValue,
         Sales_Grabmart: grabValue,
-        Freq_Grabmart: freqGrabValue
+        Freq_Grabmart: freqGrabValue,
+        Total_Sales: totalSalesValue, // <-- Masuk ke Supabase
+        Total_Freq: totalFreqValue,   // <-- Masuk ke Supabase
+        Input_By: currentUsername,     // <-- Masuk ke Supabase
+        Hari: namaHari                 // <-- Otomatis terisi nama hari (Senin, Selasa, dll)
       };
 
       try {
@@ -5339,7 +5334,6 @@ async function getRpsSummaryByRange(startDate, endDate) {
         Swal.fire({ icon: 'error', title: 'Gagal', text: 'Proses simpan sales gagal.' });
       }
     }
-
     async function saveOnline() {
       if (!dbClient) return;
 
@@ -5358,6 +5352,17 @@ async function getRpsSummaryByRange(startDate, endDate) {
         return;
       }
 
+      // --- AMBIL USERNAME AKTIF DARI SESI / REF_USER ---
+      let currentUsername = session?.username || session?.Username || session?.nama || 'System';
+      try {
+        if (session?.user_id || session?.id) {
+          const { data: userRef } = await dbClient.from('Ref_User').select('username').eq('id', session.user_id || session.id).single();
+          if (userRef && userRef.username) currentUsername = userRef.username;
+        }
+      } catch (e) {
+        console.warn('Gagal mengambil username dari Ref_User:', e);
+      }
+
       const payload = {
         Tanggal: dateValue,
         ID_Cabang: branchValue,
@@ -5366,7 +5371,8 @@ async function getRpsSummaryByRange(startDate, endDate) {
         Sales_Tiktok: tiktokValue,
         Freq_Tiktok: freqTiktokValue,
         Sales_Web: webValue,
-        Freq_Web: freqWebValue
+        Freq_Web: freqWebValue,
+        Input_By: currentUsername // <-- Kolom Input_By terisi otomatis
       };
 
       try {
@@ -5386,7 +5392,6 @@ async function getRpsSummaryByRange(startDate, endDate) {
         Swal.fire({ icon: 'error', title: 'Gagal', text: 'Proses simpan online gagal.' });
       }
     }
-
     async function editSalesRow(rowId, rowDate, rowBranch) {
       try {
         let row = null;
