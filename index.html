@@ -3648,15 +3648,34 @@
       bindThousandInput('#fTiktok');
       bindThousandInput('#web');
       bindThousandInput('#fWeb');
+
+      const loginPage = document.getElementById('loginPage');
+      const mainArea = document.getElementById('mainArea');
+      if (loginPage) loginPage.style.display = 'flex';
+      if (mainArea) mainArea.style.display = 'none';
+
       const savedSession = localStorage.getItem('mr_v20_session');
-      if (savedSession) {
-        try {
-          session = JSON.parse(savedSession);
-          activateMainApp(session);
-        } catch (e) {
-          console.error("Gagal memparsing sesi:", e);
-          localStorage.removeItem('mr_v20_session');
+      if (!savedSession) return;
+
+      try {
+        const parsed = JSON.parse(savedSession);
+        if (!parsed || (!parsed.Username && !parsed.username)) {
+          throw new Error('session tidak valid');
         }
+
+        session = parsed;
+        localStorage.setItem('currentUser', JSON.stringify(parsed));
+
+        requestAnimationFrame(() => {
+          activateMainApp(session);
+        });
+      } catch (e) {
+        console.error('Gagal memparsing sesi:', e);
+        localStorage.removeItem('mr_v20_session');
+        localStorage.removeItem('currentUser');
+        session = null;
+        if (loginPage) loginPage.style.display = 'flex';
+        if (mainArea) mainArea.style.display = 'none';
       }
     });
 
@@ -3716,25 +3735,32 @@
     }
 
     function activateMainApp(userObj) {
-      document.getElementById('loginPage').style.display = 'none';
-      document.getElementById('mainArea').style.display = 'flex';
+      const loginPage = document.getElementById('loginPage');
+      const mainArea = document.getElementById('mainArea');
 
-      document.getElementById('navUserName').innerText = userObj.Username || userObj.username || 'USER';
-      document.getElementById('navUserRole').innerText = userObj.Role || userObj.role || 'MEMBER';
-      
+      if (loginPage) loginPage.style.display = 'none';
+      if (mainArea) mainArea.style.display = 'flex';
+
+      const navUserName = document.getElementById('navUserName');
+      const navUserRole = document.getElementById('navUserRole');
+      const navUserInitial = document.getElementById('navUserInitial');
+
+      if (navUserName) navUserName.innerText = userObj.Username || userObj.username || 'USER';
+      if (navUserRole) navUserRole.innerText = userObj.Role || userObj.role || 'MEMBER';
+
       const uname = userObj.Username || userObj.username || 'U';
-      document.getElementById('navUserInitial').innerText = uname.charAt(0).toUpperCase();
+      if (navUserInitial) navUserInitial.innerText = uname.charAt(0).toUpperCase();
 
+      const savedTab = localStorage.getItem('mr_v20_tab');
       if (window.innerWidth < 768) {
-        const savedTab = localStorage.getItem('mr_v20_tab');
         if (!savedTab || savedTab === 'dashboard' || savedTab === 'dashboardFinance') {
-          showTab('menu'); 
+          requestAnimationFrame(() => showTab('menu'));
           return;
         }
       }
 
-      const lastTab = localStorage.getItem('mr_v20_tab') || 'dashboard';
-      showTab(lastTab);
+      const lastTab = savedTab || 'dashboard';
+      requestAnimationFrame(() => showTab(lastTab));
     }
 
     function toggleSubmenu(element) {
