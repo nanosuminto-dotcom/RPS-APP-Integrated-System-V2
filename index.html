@@ -1086,6 +1086,7 @@
       </div>
       <div class="mt-auto">
         <input type="hidden" id="editId">
+        <input type="hidden" id="editBranch">
         <button onclick="save()" id="btnS" class="w-full py-4 bg-cyan-500 rounded-xl font-black text-black uppercase shadow-lg shadow-cyan-500/20 active:scale-95 transition-all">Simpan Sales</button>
         <button onclick="cancelEdit()" id="btnCancel" class="w-full py-2 text-red-400 text-[10px] font-black hidden mt-2 uppercase">Batal Edit</button>
       </div>
@@ -1097,15 +1098,15 @@
         <p class="label-mini !mb-0 text-cyan-400 font-bold uppercase tracking-wider">Riwayat Transaksi Sales</p>
       </div>
       <div class="relative flex-1 overflow-x-auto overflow-y-auto custom-scroll bg-black/5">
-        <table class="w-full text-left border-collapse min-w-[550px]">
+        <table class="w-full text-left border-collapse min-w-[660px] table-fixed">
           <thead class="bg-[#1a1d23] sticky top-0 z-20 border-b border-[#343b47]">
             <tr>
-              <th class="p-4 text-[9px] uppercase text-gray-400 font-black">Tgl</th>
-              <th class="p-4 text-[9px] uppercase text-cyan-400 font-black">PosX</th>
-              <th class="p-4 text-[9px] uppercase text-green-400 font-black">Grab</th>
-              <th class="p-4 text-right text-[9px] uppercase text-white font-black">Total</th>
-              <th class="p-4 text-center text-[9px] uppercase text-yellow-500 font-black">Copy TO WA</th>
-              <th class="p-4 text-right text-[9px] uppercase font-black">Aksi</th>
+              <th class="p-2 text-[9px] uppercase text-gray-400 font-black w-[16%]">Tgl</th>
+              <th class="p-2 text-[9px] uppercase text-cyan-400 font-black w-[18%]">PosX</th>
+              <th class="p-2 text-[9px] uppercase text-green-400 font-black w-[18%]">Grab</th>
+              <th class="p-2 text-right text-[9px] uppercase text-white font-black w-[16%]">Total</th>
+              <th class="p-2 text-center text-[9px] uppercase text-yellow-300 font-black w-[18%]">Copy To Wa</th>
+              <th class="p-2 text-right text-[9px] uppercase font-black w-[14%]">Aksi</th>
             </tr>
           </thead>
           <tbody id="hTable" class="divide-y divide-[#343b47] text-[10px]"></tbody>
@@ -1146,6 +1147,8 @@
       </div>
       <div class="mt-auto">
         <input type="hidden" id="editIdOnline">
+        <input type="hidden" id="editOnlineKey">
+        <input type="hidden" id="editOnlineBranch">
         <button onclick="saveOnline()" id="btnO" class="w-full py-4 bg-orange-500 rounded-xl font-black text-black uppercase shadow-lg shadow-orange-500/20 active:scale-95 transition-all">Simpan Online</button>
         <button onclick="cancelEditOnline()" id="btnCancelOnline" class="w-full py-2 text-red-400 text-[10px] font-black hidden mt-2 uppercase">Batal Edit</button>
       </div>
@@ -1157,15 +1160,15 @@
         <p class="label-mini !mb-0 text-orange-400 font-bold uppercase tracking-wider">Riwayat Transaksi Online</p>
       </div>
       <div class="relative flex-1 overflow-x-auto overflow-y-auto custom-scroll bg-black/5">
-        <table class="w-full text-left border-collapse min-w-[500px]">
+        <table class="w-full text-left border-collapse min-w-[680px] table-fixed">
           <thead class="bg-[#1a1d23] sticky top-0 z-20 border-b border-[#343b47]">
             <tr>
-              <th class="p-4 text-[9px] uppercase text-gray-400 font-black">Tgl/Unit</th>
-              <th class="p-4 text-[9px] uppercase text-orange-400 font-black">Shopee</th>
-              <th class="p-4 text-[9px] uppercase text-pink-400 font-black">Tiktok</th>
-              <th class="p-4 text-[9px] uppercase text-blue-400 font-black">Web</th> 
-              <th class="p-4 text-right text-[9px] uppercase text-white font-black">Total</th>
-              <th class="p-4 text-center text-[9px] uppercase font-black">Aksi</th>
+              <th class="p-2 text-[9px] uppercase text-gray-400 font-black w-[14%]">Tgl/Unit</th>
+              <th class="p-2 text-[9px] uppercase text-orange-400 font-black w-[20%]">Shopee</th>
+              <th class="p-2 text-[9px] uppercase text-pink-400 font-black w-[20%]">Tiktok</th>
+              <th class="p-2 text-[9px] uppercase text-blue-400 font-black w-[20%]">Web</th>
+              <th class="p-2 text-right text-[9px] uppercase text-white font-black w-[14%]">Total</th>
+              <th class="p-2 text-center text-[9px] uppercase font-black w-[12%]">Aksi</th>
             </tr>
           </thead>
           <tbody id="hTableOnline" class="divide-y divide-[#343b47] text-[10px]"></tbody>
@@ -3617,6 +3620,7 @@
   <script>
     const DB_URL = 'https://btumflgeykoxjyukdhia.supabase.co';
     const DB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ0dW1mbGdleWtveGp5dWtkaGlhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIwNjUxMTQsImV4cCI6MjEwNzY0MTExNH0.jX2aAnyCPdA5bzEhxUJH2_37-SlDXwLNUWiE3AgCgAE'; 
+    const ONLINE_TABLE_CANDIDATES = ['Data_Online', 'Data_Onlie'];
 
     let dbClient;
     let session = null;
@@ -3634,6 +3638,16 @@
 
     window.addEventListener('DOMContentLoaded', () => {
       setupYearSelector();
+      bindThousandInput('#posX');
+      bindThousandInput('#fPosX');
+      bindThousandInput('#grab');
+      bindThousandInput('#fGrab');
+      bindThousandInput('#shopee');
+      bindThousandInput('#fShopee');
+      bindThousandInput('#tiktok');
+      bindThousandInput('#fTiktok');
+      bindThousandInput('#web');
+      bindThousandInput('#fWeb');
       const savedSession = localStorage.getItem('mr_v20_session');
       if (savedSession) {
         try {
@@ -3883,7 +3897,12 @@
         case 'purchase': if (typeof loadBeliTab === "function") loadBeliTab(); break;
         case 'purchase-analisa': break; 
         case 'supplier-analisa': break; 
-        case 'input': if (typeof setToday === "function") setToday(); if (typeof updateUI === "function") updateUI(); break;
+        case 'input': 
+          if (typeof setToday === "function") setToday();
+          if (typeof loadSalesHistory === "function") loadSalesHistory();
+          if (typeof loadOnlineHistory === "function") loadOnlineHistory();
+          if (typeof updateUI === "function") updateUI();
+          break;
         case 'settingsUsers': if (typeof loadUsersSettings === "function") loadUsersSettings(); break;
         case 'settingsCabang': if (typeof loadCabangSettings === "function") loadCabangSettings(); break;
         case 'settingsSupplier': if (typeof loadSupplierSettings === "function") loadSupplierSettings(); break;
@@ -3963,6 +3982,616 @@
       document.getElementById('loginPage').style.display = 'flex';
       document.getElementById('user').value = '';
       document.getElementById('pass').value = '';
+    }
+
+    function formatRp(value) {
+      const num = Number(value || 0);
+      return `Rp ${num.toLocaleString('id-ID')}`;
+    }
+
+    function normalizeHistoryDate(value) {
+      if (!value) return '-';
+      const raw = String(value).trim();
+      const base = raw.split('T')[0].split(' ')[0];
+      const cleaned = base.replace(/\//g, '-');
+      const parts = cleaned.split('-');
+      if (parts.length !== 3) return raw;
+      const [y, m, d] = parts;
+      return `${d}/${m}/${y}`;
+    }
+
+    function sanitizeNumericString(value) {
+      if (value === null || value === undefined) return '';
+      let str = String(value).trim();
+      if (!str) return '';
+      str = str.replace(/\s+/g, '');
+      str = str.replace(/\./g, '');
+      str = str.replace(/,/g, '');
+      str = str.replace(/[^\d-]/g, '');
+      if (str === '-' || str === '') return '';
+      return str;
+    }
+
+    function numberFromValue(value, fallback = 0) {
+      if (value === null || value === undefined || value === '') return fallback;
+      const cleaned = sanitizeNumericString(value);
+      if (!cleaned) return fallback;
+      const num = Number(cleaned);
+      return Number.isFinite(num) ? num : fallback;
+    }
+
+    function readNumericInput(id, fallback = 0) {
+      const el = document.getElementById(id);
+      if (!el) return fallback;
+      const raw = sanitizeNumericString(el.value);
+      if (!raw) return fallback;
+      const value = Number(raw);
+      return Number.isFinite(value) ? value : fallback;
+    }
+
+    function normalizeDateValue(value) {
+      if (!value) return '';
+      const raw = String(value).trim();
+      if (!raw) return '';
+      const iso = raw.includes('T') ? raw.split('T')[0] : raw;
+      const slash = iso.includes('/') ? iso.split('/') : null;
+      if (slash && slash.length === 3) {
+        const [d, m, y] = slash;
+        return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      }
+      const dashed = iso.replace(/\//g, '-');
+      const parts = dashed.split('-');
+      if (parts.length === 3) {
+        const [a, b, c] = parts;
+        if (a.length === 4) return `${a}-${String(b).padStart(2, '0')}-${String(c).padStart(2, '0')}`;
+        if (c.length === 4) return `${c}-${String(b).padStart(2, '0')}-${String(a).padStart(2, '0')}`;
+      }
+      return iso;
+    }
+
+    function normalizeCabangValue(value) {
+      const raw = String(value ?? '').trim();
+      if (!raw) return 'ALL';
+      const upper = raw.toUpperCase();
+      return upper.includes('ONLINE') ? 'ONLINE' : upper;
+    }
+
+    function formatInputNumber(value) {
+      if (value === null || value === undefined || value === '') return '';
+      const cleaned = sanitizeNumericString(value);
+      if (!cleaned) return '';
+      const num = Number(cleaned);
+      if (!Number.isFinite(num)) return '';
+      return num.toLocaleString('id-ID');
+    }
+
+    function applyThousandFormatInput(inputEl) {
+      if (!inputEl) return;
+      const start = inputEl.selectionStart;
+      const end = inputEl.selectionEnd;
+      const raw = sanitizeNumericString(inputEl.value);
+      const formatted = raw ? Number(raw).toLocaleString('id-ID') : '';
+      inputEl.value = formatted;
+      const nextPos = Math.max(0, Math.min(start, formatted.length));
+      inputEl.setSelectionRange(nextPos, nextPos);
+      if (typeof inputEl.oninput === 'function') {
+        inputEl.oninput = null;
+      }
+    }
+
+    function bindThousandInput(selector) {
+      const input = document.querySelector(selector);
+      if (!input) return;
+      input.addEventListener('input', (event) => {
+        const raw = sanitizeNumericString(event.target.value);
+        event.target.value = raw ? Number(raw).toLocaleString('id-ID') : '';
+      });
+    }
+
+    function bindAllNumericInputs() {
+      ['#posX', '#fPosX', '#grab', '#fGrab', '#shopee', '#fShopee', '#tiktok', '#fTiktok', '#web', '#fWeb'].forEach((selector) => {
+        const input = document.querySelector(selector);
+        if (!input) return;
+        input.addEventListener('input', (event) => {
+          const raw = sanitizeNumericString(event.target.value);
+          event.target.value = raw ? Number(raw).toLocaleString('id-ID') : '';
+        });
+      });
+    }
+
+    function getSalesRowRef(row) {
+      const id = row && (row.id ?? row.ID ?? row.Id ?? row.row_id ?? row.rowId);
+      const date = row && (row.Tanggal ?? row.tanggal ?? row.Tgl ?? row.tgl ?? '');
+      const branch = row && (row.ID_Cabang ?? row.id_cabang ?? row.Cabang ?? row.cabang ?? row.Unit ?? row.unit ?? 'ALL');
+      return {
+        id: id !== undefined && id !== null && id !== '' ? Number(id) : null,
+        date: normalizeDateValue(date),
+        branch: normalizeCabangValue(branch)
+      };
+    }
+
+    function getOnlineRowRef(row) {
+      const id = row && (row.id ?? row.ID ?? row.Id ?? row.row_id ?? row.rowId);
+      const date = row && (row.Tanggal ?? row.tanggal ?? row.Tgl ?? row.tgl ?? '');
+      const branch = row && (row.ID_Cabang ?? row.id_cabang ?? row.Cabang ?? row.cabang ?? row.Unit ?? row.unit ?? 'ONLINE');
+      return {
+        id: id !== undefined && id !== null && id !== '' ? Number(id) : null,
+        date: normalizeDateValue(date),
+        branch: normalizeCabangValue(branch)
+      };
+    }
+
+    function setSalesFormForEdit(row) {
+      const ref = getSalesRowRef(row);
+      document.getElementById('inDate').value = ref.date || '';
+      document.getElementById('posX').value = formatInputNumber(numberFromValue(row.Sales_PosX ?? row.Sales_POSX ?? row.PosX ?? row.posX ?? 0, 0));
+      document.getElementById('fPosX').value = numberFromValue(row.Freq_PosX ?? row.Freq_POSX ?? row.FreqPosX ?? row.freqPosX ?? 0, 0);
+      document.getElementById('grab').value = formatInputNumber(numberFromValue(row.Sales_Grabmart ?? row.Sales_Grab ?? row.Grabmart ?? row.grab ?? 0, 0));
+      document.getElementById('fGrab').value = numberFromValue(row.Freq_Grabmart ?? row.Freq_Grab ?? row.FreqGrabmart ?? row.freqGrab ?? 0, 0);
+      document.getElementById('editId').value = ref.id ?? '';
+      document.getElementById('editBranch').value = ref.branch || 'ALL';
+      document.getElementById('btnS').textContent = 'Update Sales';
+      document.getElementById('btnCancel').classList.remove('hidden');
+      document.getElementById('formTitle').textContent = 'EDIT SALES';
+      document.getElementById('inDate').focus();
+    }
+
+    function setOnlineFormForEdit(row) {
+      const ref = getOnlineRowRef(row);
+      document.getElementById('inDateOnline').value = ref.date || '';
+      document.getElementById('shopee').value = formatInputNumber(numberFromValue(row.Sales_Shopee ?? row.Shopee ?? row.sales_shopee ?? 0, 0));
+      document.getElementById('fShopee').value = numberFromValue(row.Freq_Shopee ?? row.freq_shopee ?? 0, 0);
+      document.getElementById('tiktok').value = formatInputNumber(numberFromValue(row.Sales_Tiktok ?? row.Tiktok ?? row.sales_tiktok ?? 0, 0));
+      document.getElementById('fTiktok').value = numberFromValue(row.Freq_Tiktok ?? row.freq_tiktok ?? 0, 0);
+      document.getElementById('web').value = formatInputNumber(numberFromValue(row.Sales_Web ?? row.Web ?? row.sales_web ?? 0, 0));
+      document.getElementById('fWeb').value = numberFromValue(row.Freq_Web ?? row.freq_web ?? 0, 0);
+      document.getElementById('editIdOnline').value = ref.id ?? '';
+      document.getElementById('editOnlineKey').value = `${ref.date}|${ref.branch}`;
+      document.getElementById('editOnlineBranch').value = ref.branch || 'ONLINE';
+      document.getElementById('btnO').textContent = 'Update Online';
+      document.getElementById('btnCancelOnline').classList.remove('hidden');
+      document.getElementById('formTitleOnline').textContent = 'EDIT ONLINE';
+      document.getElementById('inDateOnline').focus();
+    }
+
+    function cancelEdit() {
+      document.getElementById('editId').value = '';
+      document.getElementById('editBranch').value = '';
+      document.getElementById('inDate').value = '';
+      document.getElementById('posX').value = '';
+      document.getElementById('fPosX').value = '';
+      document.getElementById('grab').value = '';
+      document.getElementById('fGrab').value = '';
+      document.getElementById('btnS').textContent = 'Simpan Sales';
+      document.getElementById('btnCancel').classList.add('hidden');
+      document.getElementById('formTitle').textContent = 'INPUT SALES';
+    }
+
+    function cancelEditOnline() {
+      document.getElementById('editIdOnline').value = '';
+      document.getElementById('editOnlineKey').value = '';
+      document.getElementById('editOnlineBranch').value = '';
+      document.getElementById('inDateOnline').value = '';
+      document.getElementById('shopee').value = '';
+      document.getElementById('fShopee').value = '';
+      document.getElementById('tiktok').value = '';
+      document.getElementById('fTiktok').value = '';
+      document.getElementById('web').value = '';
+      document.getElementById('fWeb').value = '';
+      document.getElementById('btnO').textContent = 'Simpan Online';
+      document.getElementById('btnCancelOnline').classList.add('hidden');
+      document.getElementById('formTitleOnline').textContent = 'INPUT ONLINE';
+    }
+
+    async function save() {
+      if (!dbClient) return;
+
+      const dateValue = normalizeDateValue(document.getElementById('inDate').value);
+      const posValue = readNumericInput('posX', 0);
+      const freqPosValue = readNumericInput('fPosX', 0);
+      const grabValue = readNumericInput('grab', 0);
+      const freqGrabValue = readNumericInput('fGrab', 0);
+      const editId = document.getElementById('editId').value;
+      const branchValue = normalizeCabangValue(document.getElementById('editBranch').value || session?.ID_Cabang || session?.branchId || session?.Cabang || 'ALL');
+
+      if (!dateValue) {
+        Swal.fire({ icon: 'warning', title: 'Peringatan', text: 'Tanggal wajib diisi.' });
+        return;
+      }
+
+      if (posValue === 0) {
+        Swal.fire({ icon: 'warning', title: 'Peringatan', text: 'PosX wajib diisi.' });
+        return;
+      }
+
+      if (freqPosValue === 0) {
+        Swal.fire({ icon: 'warning', title: 'Peringatan', text: 'Frek PosX wajib diisi.' });
+        return;
+      }
+
+      const payload = {
+        Tanggal: dateValue,
+        ID_Cabang: branchValue,
+        Sales_PosX: posValue,
+        Freq_PosX: freqPosValue,
+        Sales_Grabmart: grabValue,
+        Freq_Grabmart: freqGrabValue
+      };
+
+      try {
+        let duplicateQuery = dbClient.from('Data_Penjualan').select('id, Tanggal, ID_Cabang').eq('Tanggal', dateValue).eq('ID_Cabang', branchValue);
+        if (editId) duplicateQuery = duplicateQuery.neq('id', Number(editId));
+
+        const { data: duplicateRows, error: duplicateError } = await duplicateQuery;
+        if (duplicateError) throw duplicateError;
+
+        if (duplicateRows && duplicateRows.length > 0) {
+          Swal.fire({
+            icon: 'warning',
+            title: 'Data sudah tersimpan',
+            text: 'Tanggal dan cabang ini sudah ada di Data_Penjualan. Silakan hapus data lama lalu input kembali.'
+          });
+          return;
+        }
+
+        if (editId) {
+          const { error } = await dbClient.from('Data_Penjualan').update(payload).eq('id', Number(editId));
+          if (error) throw error;
+        } else {
+          const { error } = await dbClient.from('Data_Penjualan').insert([payload]);
+          if (error) throw error;
+        }
+
+        cancelEdit();
+        await loadSalesHistory();
+        Swal.fire({ icon: 'success', title: 'Berhasil', text: editId ? 'Data sales berhasil diperbarui.' : 'Data sales berhasil ditambah.' });
+      } catch (error) {
+        console.error('Gagal simpan sales:', error);
+        Swal.fire({ icon: 'error', title: 'Gagal', text: 'Proses simpan sales gagal.' });
+      }
+    }
+
+    async function saveOnline() {
+      if (!dbClient) return;
+
+      const dateValue = normalizeDateValue(document.getElementById('inDateOnline').value);
+      const shopeeValue = readNumericInput('shopee', 0);
+      const freqShopeeValue = readNumericInput('fShopee', 0);
+      const tiktokValue = readNumericInput('tiktok', 0);
+      const freqTiktokValue = readNumericInput('fTiktok', 0);
+      const webValue = readNumericInput('web', 0);
+      const freqWebValue = readNumericInput('fWeb', 0);
+      const editId = document.getElementById('editIdOnline').value;
+      const branchValue = normalizeCabangValue(document.getElementById('editOnlineBranch').value || session?.ID_Cabang || session?.branchId || session?.Cabang || 'ONLINE');
+
+      if (!dateValue) {
+        Swal.fire({ icon: 'warning', title: 'Peringatan', text: 'Tanggal wajib diisi.' });
+        return;
+      }
+
+      const payload = {
+        Tanggal: dateValue,
+        ID_Cabang: branchValue,
+        Sales_Shopee: shopeeValue,
+        Freq_Shopee: freqShopeeValue,
+        Sales_Tiktok: tiktokValue,
+        Freq_Tiktok: freqTiktokValue,
+        Sales_Web: webValue,
+        Freq_Web: freqWebValue
+      };
+
+      try {
+        if (editId) {
+          const { error } = await dbClient.from('Data_Online').update(payload).eq('id', Number(editId));
+          if (error) throw error;
+        } else {
+          const { error } = await dbClient.from('Data_Online').insert([payload]);
+          if (error) throw error;
+        }
+
+        cancelEditOnline();
+        await loadOnlineHistory();
+        Swal.fire({ icon: 'success', title: 'Berhasil', text: editId ? 'Data online berhasil diperbarui.' : 'Data online berhasil ditambah.' });
+      } catch (error) {
+        console.error('Gagal simpan online:', error);
+        Swal.fire({ icon: 'error', title: 'Gagal', text: 'Proses simpan online gagal.' });
+      }
+    }
+
+    async function editSalesRow(rowId, rowDate, rowBranch) {
+      try {
+        let row = null;
+        const idValue = rowId !== null && rowId !== undefined && rowId !== '' && rowId !== 'null' ? Number(rowId) : null;
+        if (idValue) {
+          const { data, error } = await dbClient.from('Data_Penjualan').select('*').eq('id', idValue).limit(1);
+          if (!error && data && data.length) row = data[0];
+        }
+
+        if (!row && rowDate) {
+          const { data, error } = await dbClient.from('Data_Penjualan').select('*').eq('Tanggal', normalizeDateValue(rowDate)).eq('ID_Cabang', normalizeCabangValue(rowBranch || 'ALL')).limit(1);
+          if (!error && data && data.length) row = data[0];
+        }
+
+        if (!row) {
+          Swal.fire({ icon: 'error', title: 'Data tidak ditemukan', text: 'Row yang ingin di-edit tidak ditemukan di database.' });
+          return;
+        }
+
+        setSalesFormForEdit(row);
+      } catch (error) {
+        console.error('Gagal edit sales:', error);
+        Swal.fire({ icon: 'error', title: 'Gagal', text: 'Tidak bisa membuka form edit sales.' });
+      }
+    }
+
+    async function deleteSalesRow(rowId, rowDate, rowBranch) {
+      const targetId = rowId !== null && rowId !== undefined && rowId !== '' && rowId !== 'null' ? Number(rowId) : null;
+      const confirmed = await Swal.fire({
+        title: 'Yakin hapus data ini?',
+        text: 'Data yang dihapus tidak bisa dikembalikan.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Ya, Hapus',
+        cancelButtonText: 'Batal'
+      });
+
+      if (!confirmed.isConfirmed) return;
+
+      try {
+        let idValue = targetId;
+        if (!idValue && rowDate) {
+          const rowToDelete = await dbClient.from('Data_Penjualan').select('id').eq('Tanggal', normalizeDateValue(rowDate)).eq('ID_Cabang', normalizeCabangValue(rowBranch || 'ALL')).limit(1);
+          if (rowToDelete.data && rowToDelete.data.length) {
+            idValue = rowToDelete.data[0].id;
+          }
+        }
+
+        if (!idValue) {
+          Swal.fire({ icon: 'warning', title: 'Tidak ada target', text: 'Data yang akan dihapus tidak ditemukan.' });
+          return;
+        }
+
+        const { error } = await dbClient.from('Data_Penjualan').delete().eq('id', idValue);
+        if (error) throw error;
+        await loadSalesHistory();
+        Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Data sales berhasil dihapus.' });
+      } catch (error) {
+        console.error('Gagal hapus sales:', error);
+        Swal.fire({ icon: 'error', title: 'Gagal', text: 'Data sales gagal dihapus.' });
+      }
+    }
+
+    async function editOnlineRow(rowId, rowDate, rowBranch) {
+      try {
+        let row = null;
+        const idValue = rowId !== null && rowId !== undefined && rowId !== '' && rowId !== 'null' ? Number(rowId) : null;
+        if (idValue) {
+          const { data, error } = await dbClient.from('Data_Online').select('*').eq('id', idValue).limit(1);
+          if (!error && data && data.length) row = data[0];
+        }
+
+        if (!row && rowDate) {
+          const { data, error } = await dbClient.from('Data_Online').select('*').eq('Tanggal', normalizeDateValue(rowDate)).eq('ID_Cabang', normalizeCabangValue(rowBranch || 'ONLINE')).limit(1);
+          if (!error && data && data.length) row = data[0];
+        }
+
+        if (!row) {
+          Swal.fire({ icon: 'error', title: 'Data tidak ditemukan', text: 'Row online yang ingin di-edit tidak ditemukan di database.' });
+          return;
+        }
+
+        setOnlineFormForEdit(row);
+      } catch (error) {
+        console.error('Gagal edit online:', error);
+        Swal.fire({ icon: 'error', title: 'Gagal', text: 'Tidak bisa membuka form edit online.' });
+      }
+    }
+
+    async function deleteOnlineRow(rowId, rowDate, rowBranch) {
+      const targetId = rowId !== null && rowId !== undefined && rowId !== '' && rowId !== 'null' ? Number(rowId) : null;
+      const confirmed = await Swal.fire({
+        title: 'Yakin hapus data ini?',
+        text: 'Data yang dihapus tidak bisa dikembalikan.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: 'Ya, Hapus',
+        cancelButtonText: 'Batal'
+      });
+
+      if (!confirmed.isConfirmed) return;
+
+      try {
+        let idValue = targetId;
+        if (!idValue && rowDate) {
+          const rowToDelete = await dbClient.from('Data_Online').select('id').eq('Tanggal', normalizeDateValue(rowDate)).eq('ID_Cabang', normalizeCabangValue(rowBranch || 'ONLINE')).limit(1);
+          if (rowToDelete.data && rowToDelete.data.length) {
+            idValue = rowToDelete.data[0].id;
+          }
+        }
+
+        if (!idValue) {
+          Swal.fire({ icon: 'warning', title: 'Tidak ada target', text: 'Data yang akan dihapus tidak ditemukan.' });
+          return;
+        }
+
+        const { error } = await dbClient.from('Data_Online').delete().eq('id', idValue);
+        if (error) throw error;
+        await loadOnlineHistory();
+        Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Data online berhasil dihapus.' });
+      } catch (error) {
+        console.error('Gagal hapus online:', error);
+        Swal.fire({ icon: 'error', title: 'Gagal', text: 'Data online gagal dihapus.' });
+      }
+    }
+
+    async function loadSalesHistory() {
+      const table = document.getElementById('hTable');
+      if (!table || !dbClient) return;
+
+      try {
+        const { data, error } = await dbClient
+          .from('Data_Penjualan')
+          .select('*')
+          .order('Tanggal', { ascending: false })
+          .limit(75);
+
+        if (error) throw error;
+
+        if (!data || !data.length) {
+          table.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-gray-400">Belum ada data sales.</td></tr>';
+          return;
+        }
+
+        table.innerHTML = data.map((row) => {
+          const tanggal = normalizeHistoryDate(row.Tanggal || row.tanggal || row.Tgl || row.tgl || '');
+          const cabang = String(row.ID_Cabang || row.id_cabang || row.Cabang || row.cabang || 'ALL').toUpperCase();
+          const posX = numberFromValue(row.Sales_PosX ?? row.Sales_POSX ?? row.PosX ?? row.posX ?? 0);
+          const grab = numberFromValue(row.Sales_Grabmart ?? row.Sales_Grab ?? row.Grabmart ?? row.grab ?? 0);
+          const freqPos = numberFromValue(row.Freq_PosX ?? row.Freq_POSX ?? row.FreqPosX ?? row.freqPosX ?? 0);
+          const freqGrab = numberFromValue(row.Freq_Grabmart ?? row.Freq_Grab ?? row.FreqGrabmart ?? row.freqGrab ?? 0);
+          const total = posX + grab;
+          const totalFreq = freqPos + freqGrab;
+
+          const salesId = row.id ?? row.ID ?? row.Id ?? row.row_id ?? row.rowId ?? null;
+          const salesDate = normalizeDateValue(row.Tanggal || row.tanggal || row.Tgl || row.tgl || '');
+          const salesBranch = normalizeCabangValue(row.ID_Cabang || row.id_cabang || row.Cabang || row.cabang || row.Unit || row.unit || 'ALL');
+
+          return `
+            <tr class="border-b border-[#343b47] hover:bg-white/5 align-middle">
+              <td class="p-1.5 align-middle">
+                <div class="leading-[1.15]">
+                  <div class="text-[10px] font-bold text-gray-200">${tanggal}</div>
+                  <div class="mt-0.5 text-[8px] uppercase tracking-wide text-gray-400">${cabang}</div>
+                </div>
+              </td>
+              <td class="p-1.5 align-middle">
+                <div class="leading-[1.15]">
+                  <div class="text-[10px] font-bold text-cyan-300">${formatRp(posX)}</div>
+                  <div class="mt-0.5 text-[8px] text-cyan-200/80">F: ${freqPos}</div>
+                </div>
+              </td>
+              <td class="p-1.5 align-middle">
+                <div class="leading-[1.15]">
+                  <div class="text-[10px] font-bold text-green-300">${formatRp(grab)}</div>
+                  <div class="mt-0.5 text-[8px] text-green-200/80">F: ${freqGrab}</div>
+                </div>
+              </td>
+              <td class="p-1.5 align-middle text-right">
+                <div class="leading-[1.15]">
+                  <div class="text-[10px] font-black text-white">${formatRp(total)}</div>
+                  <div class="mt-0.5 text-[8px] text-gray-400">TF: ${totalFreq}</div>
+                </div>
+              </td>
+              <td class="p-1.5 align-middle">
+                <div class="flex items-center justify-center gap-1">
+                  <button type="button" class="px-1.5 py-1 rounded bg-blue-500/15 text-blue-300 border border-blue-500/30 text-[8px] font-black uppercase leading-none">Cabang</button>
+                  <button type="button" class="px-1.5 py-1 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[8px] font-black uppercase leading-none">RPS</button>
+                </div>
+              </td>
+              <td class="p-1.5 align-middle">
+                <div class="flex items-center justify-end gap-1 whitespace-nowrap">
+                  <button type="button" onclick="editSalesRow(${salesId ?? 'null'}, '${salesDate}', '${salesBranch}')" class="px-1.5 py-1 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 text-[8px] font-black uppercase leading-none">Edit</button>
+                  <button type="button" onclick="deleteSalesRow(${salesId ?? 'null'}, '${salesDate}', '${salesBranch}')" class="px-1.5 py-1 rounded bg-red-500/15 text-red-300 border border-red-500/30 text-[8px] font-black uppercase leading-none">Hapus</button>
+                </div>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      } catch (error) {
+        console.error('Gagal memuat history Data_Penjualan:', error);
+        table.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-red-300">Gagal memuat history sales.</td></tr>';
+      }
+    }
+
+    async function loadOnlineHistory() {
+      const table = document.getElementById('hTableOnline');
+      if (!table || !dbClient) return;
+
+      const candidates = ['Data_Online', 'Data_Onlie'];
+      let rows = [];
+
+      for (const tableName of candidates) {
+        try {
+          const { data, error } = await dbClient.from(tableName).select('*').order('Tanggal', { ascending: false }).limit(75);
+          if (!error && Array.isArray(data) && data.length) {
+            rows = data;
+            break;
+          }
+        } catch (err) {
+          console.warn('Cek table online gagal:', tableName, err);
+        }
+      }
+
+      try {
+        if (!rows.length) {
+          table.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-gray-400">Belum ada data online.</td></tr>';
+          return;
+        }
+
+        table.innerHTML = rows.map((row) => {
+          const tanggal = normalizeHistoryDate(row.Tanggal || row.tanggal || row.Tgl || row.tgl || '');
+          const cabang = String(row.ID_Cabang || row.id_cabang || row.Cabang || row.cabang || 'ONLINE').toUpperCase();
+          const shopee = numberFromValue(row.Sales_Shopee ?? row.Shopee ?? row.sales_shopee ?? 0);
+          const freqShopee = numberFromValue(row.Freq_Shopee ?? row.freq_shopee ?? 0);
+          const tiktok = numberFromValue(row.Sales_Tiktok ?? row.Tiktok ?? row.sales_tiktok ?? 0);
+          const freqTiktok = numberFromValue(row.Freq_Tiktok ?? row.freq_tiktok ?? 0);
+          const web = numberFromValue(row.Sales_Web ?? row.Web ?? row.sales_web ?? 0);
+          const freqWeb = numberFromValue(row.Freq_Web ?? row.freq_web ?? 0);
+          const total = shopee + tiktok + web;
+          const totalFreq = freqShopee + freqTiktok + freqWeb;
+          const onlineId = row.id ?? row.ID ?? row.Id ?? row.row_id ?? row.rowId ?? null;
+          const onlineDate = normalizeDateValue(row.Tanggal || row.tanggal || row.Tgl || row.tgl || '');
+          const onlineBranch = normalizeCabangValue(row.ID_Cabang || row.id_cabang || row.Cabang || row.cabang || row.Unit || row.unit || 'ONLINE');
+
+          return `
+            <tr class="border-b border-[#343b47] hover:bg-white/5 align-middle">
+              <td class="p-1.5 align-middle">
+                <div class="leading-[1.15]">
+                  <div class="text-[10px] font-bold text-gray-200">${tanggal}</div>
+                  <div class="mt-0.5 text-[8px] uppercase tracking-wide text-gray-400">${cabang}</div>
+                </div>
+              </td>
+              <td class="p-1.5 align-middle">
+                <div class="leading-[1.15]">
+                  <div class="text-[10px] font-bold text-orange-300">${formatRp(shopee)}</div>
+                  <div class="mt-0.5 text-[8px] text-orange-200/80">F: ${freqShopee}</div>
+                </div>
+              </td>
+              <td class="p-1.5 align-middle">
+                <div class="leading-[1.15]">
+                  <div class="text-[10px] font-bold text-pink-300">${formatRp(tiktok)}</div>
+                  <div class="mt-0.5 text-[8px] text-pink-200/80">F: ${freqTiktok}</div>
+                </div>
+              </td>
+              <td class="p-1.5 align-middle">
+                <div class="leading-[1.15]">
+                  <div class="text-[10px] font-bold text-blue-300">${formatRp(web)}</div>
+                  <div class="mt-0.5 text-[8px] text-blue-200/80">F: ${freqWeb}</div>
+                </div>
+              </td>
+              <td class="p-1.5 align-middle text-right">
+                <div class="leading-[1.15]">
+                  <div class="text-[10px] font-black text-white">${formatRp(total)}</div>
+                  <div class="mt-0.5 text-[8px] text-gray-400">F: ${totalFreq}</div>
+                </div>
+              </td>
+              <td class="p-1.5 align-middle">
+                <div class="flex items-center justify-end gap-1 whitespace-nowrap">
+                  <button type="button" onclick="editOnlineRow(${onlineId ?? 'null'}, '${onlineDate}', '${onlineBranch}')" class="px-1.5 py-1 rounded bg-orange-500/15 text-orange-300 border border-orange-500/30 text-[8px] font-black uppercase leading-none">Edit</button>
+                  <button type="button" onclick="deleteOnlineRow(${onlineId ?? 'null'}, '${onlineDate}', '${onlineBranch}')" class="px-1.5 py-1 rounded bg-red-500/15 text-red-300 border border-red-500/30 text-[8px] font-black uppercase leading-none">Hapus</button>
+                </div>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      } catch (error) {
+        console.error('Gagal memuat history Data_Online:', error);
+        table.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-red-300">Gagal memuat history online.</td></tr>';
+      }
     }
 
     async function getDashboardData(userRole, branchId, filterBranch = null, filterYear = null) {
@@ -4313,17 +4942,6 @@ function setMatrixMode(mode) {
   document.getElementById('mBtnGrab').className = mode === 'grab' ? 'matrix-btn active' : 'matrix-btn inactive';
   renderActiveMatrix();
 }
-
-if (typeof kFmt === 'undefined') {
-  function kFmt(num) {
-    if (!num || isNaN(num)) return '0';
-    if (num >= 1000000000) return (num / 1000000000).toFixed(1).replace(/\.0$/, '') + 'B';
-    if (num >= 1000000) return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
-    if (num >= 1000) return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
-    return num.toString();
-  }
-}
-
 let lChart = null;
 let pPos = null;
 let pGrab = null;
@@ -4456,6 +5074,7 @@ function renderCharts(data) {
   pPos = createDonut('piePos', data.contribPos);
   pGrab = createDonut('pieGrab', data.contribGrab);
 }
+
   </script>
 </body>
 </html>
