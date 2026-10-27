@@ -42,6 +42,17 @@
       color: white;
     }
 
+    body {
+      visibility: hidden;
+      opacity: 0;
+      transition: opacity 0.08s ease;
+    }
+
+    body.app-ready {
+      visibility: visible;
+      opacity: 1;
+    }
+
     *, *:before, *:after {
       box-sizing: inherit;
     }
@@ -3636,6 +3647,16 @@
       console.error("Gagal menginisialisasi Supabase:", err);
     }
 
+    function setAuthScreen(mode) {
+      const loginPage = document.getElementById('loginPage');
+      const mainArea = document.getElementById('mainArea');
+      if (!loginPage || !mainArea) return;
+
+      const showLogin = mode === 'login';
+      loginPage.style.display = showLogin ? 'flex' : 'none';
+      mainArea.style.display = showLogin ? 'none' : 'flex';
+    }
+
     window.addEventListener('DOMContentLoaded', () => {
       setupYearSelector();
       bindThousandInput('#posX');
@@ -3649,13 +3670,13 @@
       bindThousandInput('#web');
       bindThousandInput('#fWeb');
 
-      const loginPage = document.getElementById('loginPage');
-      const mainArea = document.getElementById('mainArea');
-      if (loginPage) loginPage.style.display = 'flex';
-      if (mainArea) mainArea.style.display = 'none';
-
       const savedSession = localStorage.getItem('mr_v20_session');
-      if (!savedSession) return;
+      setAuthScreen('login');
+
+      if (!savedSession) {
+        document.body.classList.add('app-ready');
+        return;
+      }
 
       try {
         const parsed = JSON.parse(savedSession);
@@ -3665,18 +3686,16 @@
 
         session = parsed;
         localStorage.setItem('currentUser', JSON.stringify(parsed));
-
-        requestAnimationFrame(() => {
-          activateMainApp(session);
-        });
+        activateMainApp(session);
       } catch (e) {
         console.error('Gagal memparsing sesi:', e);
         localStorage.removeItem('mr_v20_session');
         localStorage.removeItem('currentUser');
         session = null;
-        if (loginPage) loginPage.style.display = 'flex';
-        if (mainArea) mainArea.style.display = 'none';
+        setAuthScreen('login');
       }
+
+      document.body.classList.add('app-ready');
     });
 
     function setupYearSelector() { 
@@ -3735,11 +3754,7 @@
     }
 
     function activateMainApp(userObj) {
-      const loginPage = document.getElementById('loginPage');
-      const mainArea = document.getElementById('mainArea');
-
-      if (loginPage) loginPage.style.display = 'none';
-      if (mainArea) mainArea.style.display = 'flex';
+      setAuthScreen('app');
 
       const navUserName = document.getElementById('navUserName');
       const navUserRole = document.getElementById('navUserRole');
@@ -3754,13 +3769,13 @@
       const savedTab = localStorage.getItem('mr_v20_tab');
       if (window.innerWidth < 768) {
         if (!savedTab || savedTab === 'dashboard' || savedTab === 'dashboardFinance') {
-          requestAnimationFrame(() => showTab('menu'));
+          showTab('menu');
           return;
         }
       }
 
       const lastTab = savedTab || 'dashboard';
-      requestAnimationFrame(() => showTab(lastTab));
+      showTab(lastTab);
     }
 
     function toggleSubmenu(element) {
@@ -4004,8 +4019,7 @@
       localStorage.removeItem('mr_v20_session');
       localStorage.removeItem('currentUser');
       session = null;
-      document.getElementById('mainArea').style.display = 'none';
-      document.getElementById('loginPage').style.display = 'flex';
+      setAuthScreen('login');
       document.getElementById('user').value = '';
       document.getElementById('pass').value = '';
     }
@@ -4015,6 +4029,651 @@
       return `Rp ${num.toLocaleString('id-ID')}`;
     }
 
+    function formatAngka(value) {
+      const num = Number(value || 0);
+      return num.toLocaleString('id-ID');
+    }
+
+    function cleanNum(value) {
+      if (value === null || value === undefined || value === '') return 0;
+      const cleaned = String(value).replace(/[^0-9.-]/g, '');
+      if (!cleaned || cleaned === '-' || cleaned === '.') return 0;
+      const num = Number(cleaned);
+      return Number.isFinite(num) ? num : 0;
+    }
+
+    function getRowValue(row, keys) {
+      for (const key of keys) {
+        if (row && Object.prototype.hasOwnProperty.call(row, key) && row[key] !== null && row[key] !== undefined && row[key] !== '') {
+          return row[key];
+        }
+      }
+      return 0;
+    }
+
+    function formatTanggalTeks(tglStr) {
+      if (!tglStr) return tglStr;
+      const raw = String(tglStr).trim();
+      if (!raw) return raw;
+      const datePart = raw.includes('T') ? raw.split('T')[0] : raw;
+      const normalized = datePart.includes('/') ? datePart.replace(/\//g, '-') : datePart;
+      const parts = normalized.split('-');
+      if (parts.length !== 3) return normalized;
+
+      let tgl = parts[0];
+      let bln = parts[1];
+      let thn = parts[2];
+
+      if (tgl.length === 4) {
+        thn = parts[0];
+        bln = parts[1];
+        tgl = parts[2];
+      }
+
+      const bulanMap = {
+        '01': 'Jan', '02': 'Feb', '03': 'Mar', '04': 'Apr',
+        '05': 'Mei', '06': 'Jun', '07': 'Jul', '08': 'Agu',
+        '09': 'Sep', '10': 'Okt', '11': 'Nov', '12': 'Des'
+      };
+
+      return `${String(tgl).padStart(2, '0')}-${bulanMap[String(bln).padStart(2, '0')] || bln}-${thn}`;
+    }
+
+    function formatTanggalCabang(tglStr) {
+      if (!tglStr) return tglStr;
+      const raw = String(tglStr).trim();
+      if (!raw) return raw;
+      const datePart = raw.includes('T') ? raw.split('T')[0] : raw;
+      const normalized = datePart.includes('/') ? datePart.replace(/\//g, '-') : datePart;
+      const parts = normalized.split('-');
+      if (parts.length !== 3) return normalized;
+
+      let tgl = parts[0];
+      let bln = parts[1];
+      let thn = parts[2];
+
+      if (tgl.length === 4) {
+        thn = parts[0];
+        bln = parts[1];
+        tgl = parts[2];
+      }
+
+      const bulanMap = {
+        '01': 'Jan', '02': 'Feb', '03': 'Mar', '04': 'Apr',
+        '05': 'Mei', '06': 'Jun', '07': 'Jul', '08': 'Agu',
+        '09': 'Sep', '10': 'Okt', '11': 'Nov', '12': 'Des'
+      };
+
+      return `${String(tgl).padStart(2, '0')}-${bulanMap[String(bln).padStart(2, '0')] || bln}-${thn}`;
+    }
+
+    async function getRpsSummaryByDate(dateInput) {
+      const targetDate = String(dateInput || '').trim();
+      if (!targetDate || !dbClient) return { harian: { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 }, mtd: { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 } };
+
+      const normalized = normalizeDateValue(targetDate);
+      const end = new Date(`${normalized}T23:59:59`);
+      if (Number.isNaN(end.getTime())) return { harian: { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 }, mtd: { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 } };
+
+      const start = new Date(end.getFullYear(), end.getMonth(), 1, 0, 0, 0);
+      const { data, error } = await dbClient.from('Data_Penjualan').select('*');
+      if (error) throw error;
+
+      const harian = { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 };
+      const mtd = { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 };
+
+      for (const row of data || []) {
+        const rawDate = row.Tanggal || row.tanggal || row.Tgl || row.tgl;
+        if (!rawDate) continue;
+
+        const normalizedRowDate = normalizeDateValue(rawDate);
+        const rowDate = normalizedRowDate ? new Date(`${normalizedRowDate}T00:00:00`) : null;
+        if (!rowDate || Number.isNaN(rowDate.getTime())) continue;
+
+        const pos = cleanNum(getRowValue(row, ['Sales_PosX', 'Sales_POSX', 'PosX', 'posX']));
+        const frekPos = cleanNum(getRowValue(row, ['Freq_PosX', 'Freq_POSX', 'FreqPosX', 'freqPosX']));
+        const grab = cleanNum(getRowValue(row, ['Sales_Grabmart', 'Sales_Grab', 'Grabmart', 'grab']));
+        const frekGrab = cleanNum(getRowValue(row, ['Freq_Grabmart', 'Freq_Grab', 'FreqGrabmart', 'freqGrab']));
+
+        if (rowDate >= start && rowDate <= end) {
+          mtd.pos += pos;
+          mtd.frekPos += frekPos;
+          mtd.grab += grab;
+          mtd.frekGrab += frekGrab;
+        }
+
+        if (rowDate.toDateString() === end.toDateString()) {
+          harian.pos += pos;
+          harian.frekPos += frekPos;
+          harian.grab += grab;
+          harian.frekGrab += frekGrab;
+        }
+      }
+
+      return { harian, mtd };
+    }
+
+    async function getCabangSummaryByDate(dateInput, cabangCode) {
+      const targetDate = String(dateInput || '').trim();
+      const cabangInput = String(cabangCode || '').trim();
+      if (!targetDate || !cabangInput || !dbClient) return { harian: { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 }, mtd: { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 } };
+
+      const normalizeBranchName = (value) => {
+        const cleaned = String(value || '').trim().toLowerCase();
+        return cleaned.replace(/[^a-z]/g, '');
+      };
+
+      const branchKey = normalizeBranchName(cabangInput);
+      const branchAliases = {
+        kgd: ['kgd', 'kelapagading'],
+        cdk: ['cdk', 'cilandak'],
+        pkp: ['pkp', 'pondokkelapa'],
+        cpy: ['cpy', 'cipayung']
+      };
+
+      const normalized = normalizeDateValue(targetDate);
+      const end = new Date(`${normalized}T23:59:59`);
+      if (Number.isNaN(end.getTime())) return { harian: { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 }, mtd: { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 } };
+
+      const startOfMonth = new Date(end.getFullYear(), end.getMonth(), 1, 0, 0, 0);
+      const { data, error } = await dbClient.from('Data_Penjualan').select('*');
+      if (error) throw error;
+
+      const harian = { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 };
+      const mtd = { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 };
+
+      for (const row of data || []) {
+        const rawDate = row.Tanggal || row.tanggal || row.Tgl || row.tgl;
+        if (!rawDate) continue;
+
+        const normalizedRowDate = normalizeDateValue(rawDate);
+        const rowDate = normalizedRowDate ? new Date(`${normalizedRowDate}T00:00:00`) : null;
+        if (!rowDate || Number.isNaN(rowDate.getTime())) continue;
+
+        const rowCabang = normalizeBranchName(row.ID_Cabang || row.id_cabang || row.Cabang || row.cabang || '');
+        const matchesCabang = Object.keys(branchAliases).some((key) => {
+          if (branchKey !== key) return false;
+          return branchAliases[key].includes(rowCabang);
+        });
+        if (!matchesCabang) continue;
+
+        const pos = Number(row.Sales_PosX ?? row.Sales_POSX ?? row.PosX ?? row.posX ?? 0) || 0;
+        const grab = Number(row.Sales_Grabmart ?? row.Sales_Grab ?? row.Grabmart ?? row.grab ?? 0) || 0;
+        const frekPos = Number(row.Freq_PosX ?? row.Freq_POSX ?? row.FreqPosX ?? row.freqPosX ?? 0) || 0;
+        const frekGrab = Number(row.Freq_Grabmart ?? row.Freq_Grab ?? row.FreqGrabmart ?? row.freqGrab ?? 0) || 0;
+
+        if (rowDate >= startOfMonth && rowDate <= end) {
+          mtd.pos += pos;
+          mtd.grab += grab;
+          mtd.frekPos += frekPos;
+          mtd.frekGrab += frekGrab;
+        }
+
+        if (rowDate.toDateString() === end.toDateString()) {
+          harian.pos += pos;
+          harian.grab += grab;
+          harian.frekPos += frekPos;
+          harian.frekGrab += frekGrab;
+        }
+      }
+
+      return { harian, mtd };
+    }
+
+    async function getRpsSummaryByRange(startDate, endDate) {
+      if (!dbClient) return { harian: { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 }, mtd: { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 } };
+
+      let start = String(startDate || '').trim();
+      let end = String(endDate || '').trim();
+      if (!end && start) end = start;
+      if (!start && end) {
+        const firstDay = new Date(`${end}T12:00:00`);
+        start = `${firstDay.getFullYear()}-${String(firstDay.getMonth() + 1).padStart(2, '0')}-01`;
+      }
+      if (!start || !end) return { harian: { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 }, mtd: { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 } };
+
+      const normalizedStart = normalizeDateValue(start);
+      const normalizedEnd = normalizeDateValue(end);
+      const startDateObj = new Date(`${normalizedStart}T00:00:00`);
+      const endDateObj = new Date(`${normalizedEnd}T23:59:59`);
+      if (Number.isNaN(startDateObj.getTime()) || Number.isNaN(endDateObj.getTime())) return { harian: { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 }, mtd: { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 } };
+
+      const rangeStart = startDateObj <= endDateObj ? startDateObj : endDateObj;
+      const rangeEnd = startDateObj <= endDateObj ? endDateObj : startDateObj;
+      const { data, error } = await dbClient.from('Data_Penjualan').select('*');
+      if (error) throw error;
+
+      const region = { harian: { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 }, mtd: { pos: 0, frekPos: 0, frekGrab: 0, grab: 0 } };
+
+      for (const row of data || []) {
+        const rawDate = row.Tanggal || row.tanggal || row.Tgl || row.tgl;
+        if (!rawDate) continue;
+
+        const normalizedRowDate = normalizeDateValue(rawDate);
+        const rowDate = normalizedRowDate ? new Date(`${normalizedRowDate}T00:00:00`) : null;
+        if (!rowDate || Number.isNaN(rowDate.getTime())) continue;
+        if (rowDate < rangeStart || rowDate > rangeEnd) continue;
+
+        const pos = cleanNum(getRowValue(row, ['Sales_PosX', 'Sales_POSX', 'PosX', 'posX']));
+        const frekPos = cleanNum(getRowValue(row, ['Freq_PosX', 'Freq_POSX', 'FreqPosX', 'freqPosX']));
+        const grab = cleanNum(getRowValue(row, ['Sales_Grabmart', 'Sales_Grab', 'Grabmart', 'grab']));
+        const frekGrab = cleanNum(getRowValue(row, ['Freq_Grabmart', 'Freq_Grab', 'FreqGrabmart', 'freqGrab']));
+
+        region.mtd.pos += pos;
+        region.mtd.frekPos += frekPos;
+        region.mtd.grab += grab;
+        region.mtd.frekGrab += frekGrab;
+
+        if (rowDate.toDateString() === rangeEnd.toDateString()) {
+          region.harian.pos += pos;
+          region.harian.frekPos += frekPos;
+          region.harian.grab += grab;
+          region.harian.frekGrab += frekGrab;
+        }
+      }
+
+      return region;
+    }
+
+    function updateStatusTombolRPS() {
+      const btn = document.getElementById('btnRPS');
+      if (!btn) return;
+
+      const tglHariIni = new Date().toISOString().split('T')[0];
+      const cabangWajib = ['kgd', 'cdk', 'pkp', 'cpy'];
+
+      if (!dbClient) {
+        btn.disabled = true;
+        btn.classList.add('bg-gray-400', 'cursor-not-allowed');
+        btn.classList.remove('bg-emerald-600', 'text-white');
+        return;
+      }
+
+      dbClient.from('Data_Penjualan').select('Tanggal, ID_Cabang').then(({ data, error }) => {
+        if (error) {
+          btn.disabled = true;
+          btn.classList.add('bg-gray-400', 'cursor-not-allowed');
+          btn.classList.remove('bg-emerald-600', 'text-white');
+          return;
+        }
+
+        const hadir = new Set();
+        (data || []).forEach((row) => {
+          const rawDate = row.Tanggal || row.tanggal || row.Tgl || row.tgl;
+          const rowDate = String(rawDate || '').split('T')[0];
+          if (!rowDate || rowDate !== tglHariIni) return;
+          const cabang = String(row.ID_Cabang || row.id_cabang || row.Cabang || row.cabang || '').trim().toLowerCase();
+          if (cabang && cabangWajib.includes(cabang)) hadir.add(cabang);
+        });
+
+        const isLengkap = cabangWajib.every((cabang) => hadir.has(cabang));
+        btn.disabled = !isLengkap;
+
+        if (isLengkap) {
+          btn.classList.remove('bg-gray-400', 'cursor-not-allowed');
+          btn.classList.add('bg-emerald-600', 'text-white');
+        } else {
+          btn.classList.add('bg-gray-400', 'cursor-not-allowed');
+          btn.classList.remove('bg-emerald-600', 'text-white');
+        }
+      });
+    }
+
+    function cekDanBukaModal(event, tanggal) {
+      const btn = event && event.currentTarget ? event.currentTarget : document.getElementById('btnRPS');
+      if (btn && btn.disabled) {
+        Swal.fire({
+          icon: 'info',
+          title: 'Data Belum Lengkap',
+          text: 'Pastikan cabang KGD, CDK, PKP, dan CPY sudah mengisi data untuk tanggal ini!'
+        });
+        return;
+      }
+
+      const targetDate = tanggal || new Date().toISOString().split('T')[0];
+      return prosesLaporanRPS(targetDate, targetDate);
+    }
+
+    function bukaModalRPS(tanggalInput) {
+      let tglStr = tanggalInput;
+      if (!tglStr) {
+        tglStr = new Date().toISOString().split('T')[0];
+      } else {
+        const dateObj = new Date(tanggalInput);
+        if (!Number.isNaN(dateObj.getTime())) tglStr = dateObj.toISOString().split('T')[0];
+      }
+
+      const mulai = document.getElementById('tglMulai');
+      const selesai = document.getElementById('tglSelesai');
+      if (mulai) mulai.value = tglStr;
+      if (selesai) selesai.value = tglStr;
+
+      const modal = document.getElementById('modalRPS');
+      if (modal) modal.classList.remove('hidden');
+    }
+
+    async function prosesLaporanRPS(startDateInput = null, endDateInput = null) {
+      let filter = {
+        start: startDateInput,
+        end: endDateInput
+      };
+
+      const mulaiEl = document.getElementById('tglMulai');
+      const selesaiEl = document.getElementById('tglSelesai');
+      const modal = document.getElementById('modalRPS');
+
+      if (mulaiEl && selesaiEl) {
+        filter.start = mulaiEl.value || startDateInput;
+        filter.end = selesaiEl.value || endDateInput;
+      }
+
+      if (!filter.start || !filter.end) {
+        const endDate = filter.end || filter.start || new Date().toISOString().split('T')[0];
+        const endObj = new Date(`${endDate}T12:00:00`);
+        filter.start = `${endObj.getFullYear()}-${String(endObj.getMonth() + 1).padStart(2, '0')}-01`;
+        filter.end = endDate;
+      }
+
+      if (modal) {
+        modal.classList.add('hidden');
+      }
+
+      Swal.fire({ title: 'Menyusun Laporan...', didOpen: () => Swal.showLoading() });
+
+      try {
+        const res = await getRpsSummaryByRange(filter.start, filter.end);
+        Swal.close();
+
+        const tglDisplay = formatTanggalTeks(filter.end);
+        const pesan = `Alhamdulillah, Aamiin Ya Rabbal'alamiin\n\n` +
+          `Total Penjualan Keseluruhan PT RPS\n\n` +
+          `Total Penjualan Harian Keseluruhan Outlet PT RPS\n` +
+          `Tanggal : ${tglDisplay}\n` +
+          `Sales : Rp ${formatAngka(res.harian.pos)}\n` +
+          `Frek : ${formatAngka(res.harian.frekPos || 0)}\n` +
+          `GrabMart : Rp ${formatAngka(res.harian.grab)}\n` +
+          `Frek GM : ${formatAngka(res.harian.frekGrab || 0)}\n\n\n` +
+          `Periode: s/d ${tglDisplay}\n` +
+          `Sales : Rp ${formatAngka(res.mtd.pos)}\n` +
+          `Frek : ${formatAngka(res.mtd.frekPos || 0)}\n` +
+          `GrabMart : Rp ${formatAngka(res.mtd.grab)}\n` +
+          `Frek GM : ${formatAngka(res.mtd.frekGrab || 0)}`;
+
+        triggerWhatsApp(pesan, 'Laporan Total RPS');
+      } catch (error) {
+        Swal.close();
+        console.error('Gagal proses laporan RPS:', error);
+        Swal.fire({ icon: 'error', title: 'Gagal', text: 'Data laporan RPS tidak bisa diproses.' });
+      }
+    }
+
+    async function copyCabangForDate(cabangCode, dateInput) {
+      const cabang = String(cabangCode || '').toUpperCase();
+      const tanggal = normalizeDateValue(dateInput || new Date().toISOString().split('T')[0]) || dateInput || new Date().toISOString().split('T')[0];
+      const namaCabang = {
+        KGD: 'Kelapa Gading',
+        CDK: 'Cilandak',
+        PKP: 'Pondok Kelapa',
+        CPY: 'Cipayung'
+      }[cabang] || cabang || 'Cabang';
+
+      Swal.fire({
+        title: 'Sedang Menghitung...',
+        html: `Mohon tunggu, sedang memproses data <b>${namaCabang.toUpperCase()}</b>`,
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+      });
+
+      try {
+        const summary = await getCabangSummaryByDate(tanggal, cabang);
+        const dStr = formatTanggalTeks(tanggal);
+
+        Swal.close();
+        const pesan = `Assalamualaikum Warahmatullahi Wabarakatuh\n\n` +
+          `Laporan Penjualan Harian STS ${namaCabang}\n` +
+          `Tanggal : ${dStr}\n` +
+          `Sales : Rp ${formatAngka(summary.harian.pos)}\n` +
+          `Frek POS : ${formatAngka(summary.harian.frekPos || 0)}\n` +
+          `Grabmart : Rp ${formatAngka(summary.harian.grab)}\n` +
+          `Frek GM : ${formatAngka(summary.harian.frekGrab || 0)}\n\n` +
+          `s.d Tanggal : ${dStr}\n` +
+          `Sales : Rp ${formatAngka(summary.mtd.pos)}\n` +
+          `Frek POS : ${formatAngka(summary.mtd.frekPos || 0)}\n` +
+          `Grabmart : Rp ${formatAngka(summary.mtd.grab)}\n` +
+          `Frek GM : ${formatAngka(summary.mtd.frekGrab || 0)}`;
+
+        triggerWhatsApp(pesan, `Laporan Cabang ${namaCabang}`);
+      } catch (error) {
+        Swal.close();
+        console.error('Gagal copy cabang:', error);
+        Swal.fire({ icon: 'error', title: 'Gagal', text: 'Data cabang tidak bisa diolah.' });
+      }
+    }
+
+    async function copyCabang(jsonStr) {
+      const raw = String(jsonStr || '').replace(/&quot;/g, '"');
+      const r = JSON.parse(raw);
+      const cabang = String(r.cabang || '').toUpperCase();
+      const tanggal = r.tglStr || r.Tanggal || r.tanggal || new Date().toISOString().split('T')[0];
+      await copyCabangForDate(cabang, tanggal);
+    }
+
+    async function copyTotalForDate(dateInput) {
+      const rawDate = normalizeDateValue(dateInput || new Date().toISOString().split('T')[0]);
+      const tglInput = rawDate || dateInput || new Date().toISOString().split('T')[0];
+      const tglDisplay = formatTanggalTeks(tglInput);
+
+      Swal.fire({ title: 'Menghitung...', didOpen: () => Swal.showLoading() });
+
+      try {
+        const res = await getRpsSummaryByDate(tglInput);
+        Swal.close();
+        const pesan = `Alhamdulillah, Aamiin Ya Rabbal'alamiin\n\n` +
+          `Total Penjualan Keseluruhan PT RPS\n\n` +
+          `Total Penjualan Harian Keseluruhan Outlet PT RPS\n` +
+          `Tanggal : ${tglDisplay}\n` +
+          `Sales : Rp ${formatAngka(res.harian.pos)}\n` +
+          `Frek : ${formatAngka(res.harian.frekPos || 0)}\n` +
+          `GrabMart : Rp ${formatAngka(res.harian.grab)}\n` +
+          `Frek GM : ${formatAngka(res.harian.frekGrab || 0)}\n\n\n` +
+          `Periode: s/d ${tglDisplay}\n` +
+          `Sales : Rp ${formatAngka(res.mtd.pos)}\n` +
+          `Frek : ${formatAngka(res.mtd.frekPos || 0)}\n` +
+          `GrabMart : Rp ${formatAngka(res.mtd.grab)}\n` +
+          `Frek GM : ${formatAngka(res.mtd.frekGrab || 0)}`;
+
+        triggerWhatsApp(pesan, 'Laporan Total RPS');
+      } catch (error) {
+        Swal.close();
+        console.error('Gagal copy total RPS:', error);
+        Swal.fire({ icon: 'error', title: 'Gagal', text: 'Data total RPS tidak bisa diolah.' });
+      }
+    }
+
+    async function copyTotal(btn) {
+      const row = btn && btn.closest ? btn.closest('tr') : null;
+      if (!row) return;
+
+      const tglMentahInput = row.cells[0].innerText.trim().split(' ')[0];
+      const rawDate = normalizeDateValue(tglMentahInput);
+      const tglInput = rawDate || tglMentahInput;
+      await copyTotalForDate(tglInput);
+    }
+
+    function triggerWhatsApp(pesan, judul) {
+      const safeCopy = async () => {
+        try {
+          await navigator.clipboard.writeText(pesan);
+        } catch (error) {
+          const textarea = document.createElement('textarea');
+          textarea.value = pesan;
+          textarea.setAttribute('readonly', '');
+          textarea.style.position = 'fixed';
+          textarea.style.left = '-9999px';
+          document.body.appendChild(textarea);
+          textarea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textarea);
+        }
+      };
+
+      safeCopy().finally(() => {
+        Swal.fire({
+          icon: 'success',
+          title: 'Berhasil Disalin!',
+          text: judul + ' telah siap dikirim.',
+          confirmButtonText: 'OK',
+          confirmButtonColor: '#10b981'
+        });
+      });
+    }
+
+    function buildSalesWaText(row, mode = 'cabang') {
+      const tanggal = normalizeHistoryDate(row.Tanggal || row.tanggal || row.Tgl || row.tgl || '');
+      const cabang = String(row.ID_Cabang || row.id_cabang || row.Cabang || row.cabang || row.Unit || row.unit || 'ALL').toUpperCase();
+      const posX = numberFromValue(row.Sales_PosX ?? row.Sales_POSX ?? row.PosX ?? row.posX ?? 0);
+      const grab = numberFromValue(row.Sales_Grabmart ?? row.Sales_Grab ?? row.Grabmart ?? row.grab ?? 0);
+      const freqPos = numberFromValue(row.Freq_PosX ?? row.Freq_POSX ?? row.FreqPosX ?? row.freqPosX ?? 0);
+      const freqGrab = numberFromValue(row.Freq_Grabmart ?? row.Freq_Grab ?? row.FreqGrabmart ?? row.freqGrab ?? 0);
+      const total = posX + grab;
+
+      if (mode === 'total') {
+        return [
+          '_Alhamdulillah, Aamiin Ya Rabbal\'alamiin_',
+          '',
+          '*Total Penjualan Keseluruhan PT RPS*',
+          '',
+          '*Total Penjualan Harian Keseluruhan Outlet PT RPS*',
+          `Tanggal : *${tanggal}*`,
+          `Sales : *Rp ${formatRp(posX).replace('Rp ', '')}*`,
+          `Frek : *${formatAngka(freqPos)}*`,
+          `GrabMart : *Rp ${formatRp(grab).replace('Rp ', '')}*`,
+          `Frek GM : *${formatAngka(freqGrab)}*`,
+          '',
+          `*Periode: s/d ${tanggal}*`,
+          `Sales : *Rp ${formatRp(total).replace('Rp ', '')}*`,
+          `Frek : *${formatAngka(freqPos + freqGrab)}*`,
+          `GrabMart : *Rp ${formatRp(total).replace('Rp ', '')}*`,
+          `Frek GM : *${formatAngka(freqPos + freqGrab)}*`
+        ].join('\n');
+      }
+
+      return [
+        'Assalamualaikum Warahmatullahi Wabarakatuh',
+        '',
+        `*Laporan Penjualan Harian STS ${cabang}*`,
+        `Tanggal : *${tanggal}*`,
+        `Sales : *Rp ${formatRp(posX).replace('Rp ', '')}*`,
+        `Frek POS : *${formatAngka(freqPos)}*`,
+        `Grabmart : *Rp ${formatRp(grab).replace('Rp ', '')}*`,
+        `Frek GM : *${formatAngka(freqGrab)}*`,
+        '',
+        `*s.d Tanggal : ${tanggal}*`,
+        `Sales : *Rp ${formatRp(total).replace('Rp ', '')}*`,
+        `Frek POS : *${formatAngka(freqPos + freqGrab)}*`,
+        `Grabmart : *Rp ${formatRp(total).replace('Rp ', '')}*`,
+        `Frek GM : *${formatAngka(freqPos + freqGrab)}*`
+      ].join('\n');
+    }
+
+    function buildOnlineWaText(row, mode = 'cabang') {
+      const tanggal = normalizeHistoryDate(row.Tanggal || row.tanggal || row.Tgl || row.tgl || '');
+      const cabang = String(row.ID_Cabang || row.id_cabang || row.Cabang || row.cabang || row.Unit || row.unit || 'ONLINE').toUpperCase();
+      const shopee = numberFromValue(row.Sales_Shopee ?? row.Shopee ?? row.sales_shopee ?? 0);
+      const freqShopee = numberFromValue(row.Freq_Shopee ?? row.freq_shopee ?? 0);
+      const tiktok = numberFromValue(row.Sales_Tiktok ?? row.Tiktok ?? row.sales_tiktok ?? 0);
+      const freqTiktok = numberFromValue(row.Freq_Tiktok ?? row.freq_tiktok ?? 0);
+      const web = numberFromValue(row.Sales_Web ?? row.Web ?? row.sales_web ?? 0);
+      const freqWeb = numberFromValue(row.Freq_Web ?? row.freq_web ?? 0);
+      const total = shopee + tiktok + web;
+      const title = mode === 'total' ? `*TOTAL ONLINE - ${cabang}*` : `*ONLINE CABANG ${cabang}*`;
+
+      return [
+        title,
+        `Tanggal: ${tanggal}`,
+        `Shopee: ${formatRp(shopee)} | Frek: ${freqShopee}`,
+        `Tiktok: ${formatRp(tiktok)} | Frek: ${freqTiktok}`,
+        `Web: ${formatRp(web)} | Frek: ${freqWeb}`,
+        `Total: ${formatRp(total)}`,
+        '',
+        'Terima kasih.'
+      ].join('\n');
+    }
+
+    async function copyTextToClipboard(text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+        return;
+      }
+
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.setAttribute('readonly', '');
+      textarea.style.position = 'fixed';
+      textarea.style.top = '-9999px';
+      textarea.style.left = '-9999px';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+    }
+
+    async function handleCopyToWa(row, tableType, mode = 'cabang') {
+      if (tableType === 'sales') {
+        const rawDate = row.Tanggal || row.tanggal || row.Tgl || row.tgl || new Date().toISOString().split('T')[0];
+        const normalizedDate = normalizeDateValue(rawDate) || rawDate;
+        const cabangCode = String(row.ID_Cabang || row.id_cabang || row.Cabang || row.cabang || '').toUpperCase();
+
+        if (mode === 'cabang') {
+          await copyCabangForDate(cabangCode, normalizedDate);
+          return;
+        }
+
+        if (mode === 'total') {
+          await copyTotalForDate(normalizedDate);
+          return;
+        }
+      }
+
+      const text = tableType === 'sales' ? buildSalesWaText(row, mode) : buildOnlineWaText(row, mode);
+      const titleText = tableType === 'sales' ? 'Laporan Sales' : 'Laporan Online';
+
+      try {
+        await copyTextToClipboard(text);
+        Swal.fire({
+          icon: 'success',
+          title: 'Berhasil Disalin!',
+          text: titleText + ' telah siap dikirim.',
+          confirmButtonText: 'OK',
+          confirmButtonColor: '#10b981'
+        });
+      } catch (error) {
+        console.error('Gagal copy to WA:', error);
+        Swal.fire({
+          icon: 'error',
+          title: 'Gagal',
+          text: 'Teks tidak bisa disalin, silakan coba lagi.'
+        });
+      }
+    }
+
+    document.addEventListener('click', async (event) => {
+      const button = event.target.closest('[data-copy-wa]');
+      if (!button) return;
+
+      try {
+        const tableType = button.dataset.copyWa;
+        const mode = button.dataset.copyMode || 'cabang';
+        const rowText = button.dataset.row;
+        if (!rowText) return;
+
+        const row = JSON.parse(decodeURIComponent(rowText));
+        await handleCopyToWa(row, tableType, mode);
+      } catch (error) {
+        console.error('Gagal menangani tombol copy WA:', error);
+      }
+    });
+
     function normalizeHistoryDate(value) {
       if (!value) return '-';
       const raw = String(value).trim();
@@ -4022,8 +4681,24 @@
       const cleaned = base.replace(/\//g, '-');
       const parts = cleaned.split('-');
       if (parts.length !== 3) return raw;
-      const [y, m, d] = parts;
-      return `${d}/${m}/${y}`;
+
+      let y = parts[0];
+      let m = parts[1];
+      let d = parts[2];
+
+      if (d.length === 4) {
+        y = parts[2];
+        m = parts[1];
+        d = parts[0];
+      }
+
+      const bulanMap = {
+        '01': 'Jan', '02': 'Feb', '03': 'Mar', '04': 'Apr',
+        '05': 'Mei', '06': 'Jun', '07': 'Jul', '08': 'Agu',
+        '09': 'Sep', '10': 'Okt', '11': 'Nov', '12': 'Des'
+      };
+
+      return `${String(d).padStart(2, '0')}-${bulanMap[String(m).padStart(2, '0')] || m}-${y}`;
     }
 
     function sanitizeNumericString(value) {
@@ -4514,8 +5189,8 @@
               </td>
               <td class="p-1.5 align-middle">
                 <div class="flex items-center justify-center gap-1">
-                  <button type="button" class="px-1.5 py-1 rounded bg-blue-500/15 text-blue-300 border border-blue-500/30 text-[8px] font-black uppercase leading-none">Cabang</button>
-                  <button type="button" class="px-1.5 py-1 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[8px] font-black uppercase leading-none">RPS</button>
+                  <button type="button" data-copy-wa="sales" data-copy-mode="cabang" data-row="${encodeURIComponent(JSON.stringify(row))}" class="px-1.5 py-1 rounded bg-blue-500/15 text-blue-300 border border-blue-500/30 text-[8px] font-black uppercase leading-none">Cabang</button>
+                  <button type="button" data-copy-wa="sales" data-copy-mode="total" data-row="${encodeURIComponent(JSON.stringify(row))}" class="px-1.5 py-1 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[8px] font-black uppercase leading-none">RPS</button>
                 </div>
               </td>
               <td class="p-1.5 align-middle">
