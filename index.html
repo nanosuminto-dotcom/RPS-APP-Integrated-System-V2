@@ -40,6 +40,7 @@
       font-family: 'Plus Jakarta Sans', sans-serif;
       background-color: #1a1d23;
       color: white;
+      transition: background-color 0.2s ease, color 0.2s ease;
     }
 
     body {
@@ -262,42 +263,32 @@
 
       body { background: white !important; color: black !important; }
     }
+
     @media print {
-  /* Semua kode khusus cetak ditaruh di dalam sini, 
-     sehingga tidak akan mengubah atau "membocori" tampilan layar monitor. */
-  
-  #tab-grafikBar {
-    display: block !important;
-  }
-  
-  /* Sembunyikan elemen yang tidak perlu saat cetak */
-  .no-print, nav, #sidebar {
-    display: none !important;
-  }
-}
-@media print {
-  /* 1. Sembunyikan SEMUA tab lain secara mutlak saat mencetak */
-  #tab-dashboardFinance, 
-  .other-tab-class { /* sesuaikan jika ada tab lain */
-    display: none !important;
-  }
+      #tab-grafikBar {
+        display: block !important;
+      }
+      .no-print, nav, #sidebar {
+        display: none !important;
+      }
+    }
 
-  /* 2. Hanya tampilkan tab bar chart saja */
-  #tab-grafikBar {
-    display: block !important;
-    position: static !important;
-    width: 100% !important;
-    margin: 0 !important;
-    padding: 0 !important;
-  }
+    @media print {
+      #tab-dashboardFinance {
+        display: none !important;
+      }
+      #tab-grafikBar {
+        display: block !important;
+        position: static !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+    }
 
-  /* Sisa pengaturan print Anda yang lain tetap di sini */
-}
     /* ==========================================
        7. KONTROL VISIBILITAS DESKTOP VS MOBILE
        ========================================== */
-    
-    /* MODE DESKTOP & TABLET (Layar > 768px) */
     @media (min-width: 769px) {
       #sidebar { 
         display: flex !important; 
@@ -313,7 +304,6 @@
       }
     }
 
-    /* MODE MOBILE / HP (Layar <= 768px) */
     @media (max-width: 768px) {
       #sidebar { 
         display: none !important; 
@@ -359,11 +349,9 @@
 
       [id^="tab-"] {
         height: auto !important;
-        min-height: calc(100vh - 100px);
         padding-bottom: 80px !important;
       }
 
-      /* Tab Finance Input Mobile */
       #tab-financeInput:not(.hidden) {
         display: flex !important;
         flex-direction: column !important;
@@ -390,7 +378,6 @@
         max-height: none !important;
       }
 
-      /* Tab PO & Purchase Mobile */
       #tab-po:not(.hidden), 
       #tab-purchase:not(.hidden) {
         display: flex !important;
@@ -439,7 +426,6 @@
       margin: auto;
     }
 
-    /* Freeze Header di Atas (Khusus Logistik Analysis) */
     #tab-logistikAnalysis table thead th {
       position: sticky;
       top: 0;
@@ -447,7 +433,6 @@
       background-color: #1b222d !important;
     }
 
-    /* Freeze Kolom 1 (No) di Kiri (Khusus Logistik Analysis) */
     #tab-logistikAnalysis table th:nth-child(1),
     #tab-logistikAnalysis table td:nth-child(1) {
       position: sticky;
@@ -456,7 +441,6 @@
       background-color: #151a23 !important;
     }
 
-    /* Freeze Kolom 2 (Supplier) di Kiri */
     #tab-logistikAnalysis table th:nth-child(2),
     #tab-logistikAnalysis table td:nth-child(2) {
       position: sticky;
@@ -480,6 +464,97 @@
     }
     #logistikAnalysisTableBody tr:active {
       background-color: rgba(255, 255, 255, 0.1) !important;
+    }
+
+    /* ==========================================================
+       9. REDUCED, SMOOTH & GLOBAL LIGHT MODE CONFIGURATION
+       ========================================================== */
+
+    /* Latar Belakang Utama (Sedikit lebih redup, warm & smooth, tidak menyilaukan) */
+    body.light-mode {
+      background-color: #eef2f6 !important; 
+      color: #334155 !important;
+    }
+
+    /* Memastikan seluruh teks berubah gelap yang lembut dan nyaman */
+    body.light-mode p, 
+    body.light-mode span, 
+    body.light-mode h1, 
+    body.light-mode h2, 
+    body.light-mode h3, 
+    body.light-mode h4, 
+    body.light-mode h5, 
+    body.light-mode h6, 
+    body.light-mode label, 
+    body.light-mode a, 
+    body.light-mode li {
+      color: #334155 !important;
+    }
+
+    /* Sidebar, Header, Panel, Kartu, Kontainer & Semua Elemen Gelap/Sticky yang tertinggal */
+    body.light-mode aside,
+    body.light-mode nav,
+    body.light-mode header,
+    body.light-mode .glass, 
+    body.light-mode .card,
+    body.light-mode div:not([class*="bg-yellow-"]):not([class*="bg-amber-"]):not([style*="background"]):not(.progress-fill),
+    body.light-mode section,
+    body.light-mode [class*="bg-slate-"],
+    body.light-mode [class*="bg-gray-"],
+    body.light-mode [class*="bg-[#"],
+    body.light-mode #tab-logistikAnalysis table thead th,
+    body.light-mode #tab-logistikAnalysis table th,
+    body.light-mode #tab-logistikAnalysis table td {
+      background-color: #ffffff !important;
+      border-color: #cbd5e1 !important;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03) !important;
+      color: #334155 !important;
+    }
+
+    /* Tombol, Input, Select, Textarea */
+    body.light-mode button:not(.bg-cyan-500):not(.bg-amber-400):not(.bg-yellow-500),
+    body.light-mode input,
+    body.light-mode select,
+    body.light-mode textarea {
+      background-color: #f8fafc !important;
+      border: 1px solid #cbd5e1 !important;
+      color: #1e293b !important;
+    }
+
+    /* Tabel & Kolom Matriks / Logistik Analysis */
+    body.light-mode table {
+      background-color: #ffffff !important;
+      border-collapse: collapse !important;
+    }
+
+    body.light-mode th {
+      background-color: #e2e8f0 !important;
+      color: #0f172a !important;
+      border: 1px solid #cbd5e1 !important;
+    }
+
+    body.light-mode tr td:first-child,
+    body.light-mode th:first-child,
+    body.light-mode .unit-cell {
+      background-color: #e2e8f0 !important;
+      color: #0f172a !important;
+      border: 1px solid #cbd5e1 !important;
+    }
+
+    body.light-mode td {
+      background-color: #ffffff !important;
+      color: #334155 !important;
+      border: 1px solid #e2e8f0 !important;
+    }
+
+    body.light-mode tr:nth-child(even) td {
+      background-color: #f8fafc !important;
+    }
+
+    /* Judul Utama & Aksen Warna */
+    body.light-mode #headerTitle,
+    body.light-mode .text-cyan-400 {
+      color: #0284c7 !important;
     }
   </style>
 </head>
@@ -617,10 +692,17 @@
   <div class="flex flex-col w-full h-auto">
     
     <!-- HEADER DISPLAY UTAMA -->
-    <div class="w-full mb-3 pb-1 border-b border-white/10 flex flex-col md:flex-row justify-between items-start md:items-center gap-1">
+    <!-- HEADER DISPLAY UTAMA -->
+    <div class="w-full mb-3 pb-1 border-b border-white/10 flex flex-row justify-between items-center gap-2">
       <div>
         <h1 id="headerTitle" class="text-xl md:text-2xl font-black text-cyan-400 uppercase tracking-tight">DASHBOARD UTAMA</h1>
       </div>
+      
+      <!-- Tombol Toggle Mode Terang / Gelap (Posisi Pojok Kanan & Responsif HP) -->
+      <button id="themeToggleBtn" onclick="toggleTheme()" class="px-3 py-1.5 rounded-lg border border-slate-600 bg-slate-800 text-white hover:bg-slate-700 transition flex items-center gap-1.5 text-xs md:text-sm font-semibold shadow-sm flex-shrink-0">
+        <span id="themeIcon" class="text-base">☀️</span>
+        <span id="themeText" class="hidden sm:inline">Terang</span>
+      </button>
     </div>
 
     <!-- AREA KUMPULAN TAB / CARD MENU ANDA -->
@@ -3998,7 +4080,39 @@
       } 
       s.innerHTML = h; 
     }
+    function toggleTheme() {
+  const body = document.body;
+  const themeIcon = document.getElementById('themeIcon');
+  const themeText = document.getElementById('themeText');
+  
+  body.classList.toggle('light-mode');
+  
+  if (body.classList.contains('light-mode')) {
+    if (themeIcon) themeIcon.innerText = '🌙';
+    if (themeText) themeText.innerText = 'Gelap';
+    localStorage.setItem('theme', 'light');
+  } else {
+    if (themeIcon) themeIcon.innerText = '☀️';
+    if (themeText) themeText.innerText = 'Terang';
+    localStorage.setItem('theme', 'dark');
+  }
+}
 
+// Sinkronisasi saat halaman dimuat
+window.addEventListener('DOMContentLoaded', () => {
+  const savedTheme = localStorage.getItem('theme');
+  const themeIcon = document.getElementById('themeIcon');
+  const themeText = document.getElementById('themeText');
+  
+  if (savedTheme === 'light') {
+    document.body.classList.add('light-mode');
+    if (themeIcon) themeIcon.innerText = '🌙';
+    if (themeText) themeText.innerText = 'Gelap';
+  } else {
+    if (themeIcon) themeIcon.innerText = '☀️';
+    if (themeText) themeText.innerText = 'Terang';
+  }
+});
     async function doLogin() {
       const u = document.getElementById('user').value.trim();
       const p = document.getElementById('pass').value.trim();
