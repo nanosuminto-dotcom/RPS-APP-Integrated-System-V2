@@ -7056,6 +7056,369 @@ function askAnaFileName(mode) {
     }
   });
 }
+let rawGrafik = [];
+
+// --- 1. INISIALISASI DROPDOWN CABANG & TAHUN DINAMIS ---
+async function initGrafikDropdowns() {
+  try {
+    const branchSelect = document.getElementById('grBranchFilter');
+    if (branchSelect) {
+      let cabangRes = await dbClient.from('Ref_Cabang').select('*').order('No', { ascending: true });
+      let cabangRows = (cabangRes.data || []).filter(r => {
+        let id = String(r.ID_Cabang || '').trim().toLowerCase();
+        return id !== 'office' && id !== 'online';
+      });
+
+      branchSelect.innerHTML = '<option value="all">SEMUA CABANG</option>';
+      cabangRows.forEach(r => {
+        let bCode = r.ID_Cabang.toString().trim().toUpperCase();
+        let opt = document.createElement('option');
+        opt.value = bCode.toLowerCase();
+        opt.innerText = bCode;
+        branchSelect.appendChild(opt);
+      });
+    }
+
+    const yearSelect = document.getElementById('grYearTo');
+    if (yearSelect) {
+      const currentYear = new Date().getFullYear();
+      let yearHtml = '';
+      for (let i = 0; i < 5; i++) {
+        let y = currentYear - i;
+        yearHtml += `<option value="${y}">S/D ${y}</option>`;
+      }
+      yearSelect.innerHTML = yearHtml;
+    }
+  } catch (e) {
+    console.error("Gagal memuat dropdown grafik:", e);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  initGrafikDropdowns();
+});
+
+
+// --- 2. LOAD DATA DARI SUPABASE ---
+async function loadGrafikModule() {
+  Swal.fire({
+    title: 'Memuat Grafik...',
+    text: 'Mengambil data dari database',
+    allowOutsideClick: false,
+    didOpen: () => { Swal.showLoading(); }
+  });
+
+  try {
+    let { data, error } = await dbClient
+      .from('Data_Penjualan')
+      .select('*')
+      .order('Tanggal', { ascending: true });
+
+    if (error) throw error;
+
+    Swal.close();
+
+    rawGrafik = (data || []).map(row => {
+      let rawDate = row.Tanggal ? row.Tanggal.toString().trim() : '';
+      let yNum = 0, mNum = 0, dNum = 1;
+
+      if (rawDate) {
+        let datePart = rawDate.split('T')[0].split(' ')[0];
+        let p = datePart.split('-');
+        if (p.length === 3) {
+          yNum = parseInt(p[0]);
+          mNum = parseInt(p[1]) - 1; 
+          dNum = parseInt(p[2]);
+        }
+      }
+
+      let posVal = row.Sales_PosX !== null ? Number(row.Sales_PosX) : 0;
+      let fPosVal = row.Freq_PosX !== null ? Number(row.Freq_PosX) : 0;
+      let grabVal = row.Sales_Grabmart !== null ? Number(row.Sales_Grabmart) : 0;
+      let fGrabVal = row.Freq_Grabm !== null ? Number(row.Freq_Grabm) : (row.Freq_Grabmart !== null ? Number(row.Freq_Grabmart) : 0);
+
+      return {
+        tahun: yNum,
+        bulan: mNum,
+        hari: dNum,
+        cabang: row.ID_Cabang ? row.ID_Cabang.toString().toLowerCase().trim() : "",
+        sPos: posVal,
+        fPos: fPosVal,
+        sGrab: grabVal,
+        fGrab: fGrabVal
+      };
+    }).filter(item => item.tahun > 0);
+
+    updateGrafikDashboard();
+
+  } catch (err) {
+    Swal.close();
+    console.error("Error loadGrafikModule Supabase:", err);
+    Swal.fire({ icon: 'error', title: 'Gagal', text: 'Gagal memuat data grafik dari database!' });
+  }
+}
+
+
+// --- 3. LOGIKA UTAMA DASHBOARD ---
+function updateGrafikDashboard() {
+  const branchElement = document.getElementById('grBranchFilter');
+  const sourceElement = document.getElementById('grSourceSwitch');
+  const yearElement = document.getElementById('grYearTo');
+
+  const branch = branchElement ? branchElement.value.toLowerCase() : 'all';
+  const source = sourceElement ? sourceElement.value : 'pos'; 
+  const yearTo = yearElement ? parseInt(yearElement.value) || new Date().getFullYear() : new Date().getFullYear();
+  
+  const metricEl = document.getElementById('grMetricSwitch');
+  const metric = metricEl ? metricEl.value : 'sales'; 
+  
+  // Batas tanggal H-1 untuk tahun berjalan
+  const today = new Date();
+  const tglBatas = new Date(today);
+  tglBatas.setDate(today.getDate() - 1); 
+  
+  const cM = tglBatas.getMonth();
+  const cD = tglBatas.getDate();
+
+  let salesNowAcc = 0; 
+  let salesLastAcc = 0;
+  let yearDataS = {}; 
+  let yearDataF = {}; 
+
+  // Kumpulkan data bulanan dikelompokkan unik dan dijumlahkan (+=) per tahun & bulan
+  rawGrafik.forEach(item => {
+    if (branch !== 'all' && item.cabang !== branch) return;
+
+    const y = item.tahun;
+    const m = item.bulan;
+    const d = item.hari;
+
+    if (isNaN(y) || isNaN(m) || m < 0 || m > 11) return;
+
+    const valS = (source === 'pos') ? item.sPos : item.sGrab;
+    const valF = (source === 'pos') ? item.fPos : item.fGrab;
+
+    if (!yearDataS[y]) yearDataS[y] = Array(12).fill(0);
+    if (!yearDataF[y]) yearDataF[y] = Array(12).fill(0);
+    
+    yearDataS[y][m] += valS;
+    yearDataF[y][m] += valF;
+
+    // Perbandingan YTD akurat s.d tanggal dan bulan yang sama (H-1) pada tahun berjalan & tahun lalu
+    if (y === yearTo && (m < cM || (m === cM && d <= cD))) {
+      salesNowAcc += valS;
+    }
+    if (y === (yearTo - 1) && (m < cM || (m === cM && d <= cD))) {
+      salesLastAcc += valS;
+    }
+  });
+
+  let activeRawData = (metric === 'freq') ? yearDataF : yearDataS;
+
+  let yearDataAcc = {};
+  Object.keys(activeRawData).forEach(y => {
+    yearDataAcc[y] = Array(12).fill(0);
+    let runningSum = 0;
+    for(let i = 0; i < 12; i++) {
+      runningSum += (activeRawData[y][i] || 0);
+      yearDataAcc[y][i] = runningSum;
+    }
+  });
+
+  const tglBatasLastYear = new Date(yearTo - 1, cM, cD);
+
+  // Update Cards & Labels
+  const isFreqMode = (metric === 'freq');
+  const setCardVal = (id, v) => { 
+    const el = document.getElementById(id);
+    if(el) el.innerText = isFreqMode ? fmt(v) : "Rp " + fmt(v); 
+  };
+  
+  setCardVal('grSalesNow', salesNowAcc);
+  setCardVal('grSalesLast', salesLastAcc);
+  
+  const gap = salesNowAcc - salesLastAcc;
+  const growth = salesLastAcc > 0 ? ((gap / salesLastAcc) * 100).toFixed(1) : 0;
+  
+  if(document.getElementById('grGap')) {
+    const formattedGap = isFreqMode ? fmt(Math.abs(gap)) : "Rp " + fmt(Math.abs(gap));
+    document.getElementById('grGap').innerText = (gap >= 0 ? "+ " : "- ") + formattedGap;
+  }
+  if(document.getElementById('grGrowth')) document.getElementById('grGrowth').innerText = growth + "%";
+  
+  if(document.getElementById('grDateNow')) document.getElementById('grDateNow').innerText = "s.d " + tglBatas.toLocaleDateString('id-ID');
+  if(document.getElementById('grDateLast')) document.getElementById('grDateLast').innerText = "s.d " + tglBatasLastYear.toLocaleDateString('id-ID');
+
+  const activeTitle = document.getElementById('grActiveChartTitle');
+  let chartLabelText = '';
+  let chartColor = '#06b6d4';
+
+  const monthlyTableTitle = document.getElementById('monthlyTableTitle');
+  const accumTableTitle = document.getElementById('accumTableTitle');
+  const statsTableTitle = document.getElementById('statsTableTitle');
+  const tableHeaderMetric = document.getElementById('tableHeaderMetric');
+
+  if (isFreqMode) {
+    if (activeTitle) activeTitle.innerText = "YoY Frequency Performance";
+    chartLabelText = 'Freq (Qty)';
+    chartColor = '#a855f7';
+    if(monthlyTableTitle) monthlyTableTitle.innerText = `Monthly Frequency Table (${yearTo})`;
+    if(accumTableTitle) accumTableTitle.innerText = `YTD Accum Frequency Table (${yearTo})`;
+    if(statsTableTitle) statsTableTitle.innerText = "Monthly Stats (Frequency)";
+    if(tableHeaderMetric) tableHeaderMetric.innerText = "Freq";
+  } else {
+    if (activeTitle) activeTitle.innerText = "YoY Sales Performance";
+    chartLabelText = 'Sales (Rp)';
+    chartColor = '#06b6d4';
+    if(monthlyTableTitle) monthlyTableTitle.innerText = `Monthly Sales Table (${yearTo})`;
+    if(accumTableTitle) accumTableTitle.innerText = `YTD Accum Sales Table (${yearTo})`;
+    if(statsTableTitle) statsTableTitle.innerText = "Monthly Stats (Sales)";
+    if(tableHeaderMetric) tableHeaderMetric.innerText = "Sales";
+  }
+
+  const currentYearData = activeRawData[yearTo] || Array(12).fill(0);
+  const currentAccData = yearDataAcc[yearTo] || Array(12).fill(0);
+
+  renderGrafikTables(currentYearData, yearTo, metric);      
+  renderAccTable(currentAccData, yearTo, metric);           
+  
+  renderYoYChart('cLineSalesMulti', activeRawData, chartLabelText, chartColor);             
+  renderYoYChart('cLineSalesAcc', yearDataAcc, 'Accum ' + chartLabelText, chartColor);       
+}
+
+
+// --- 4. RENDER TABEL & GRAFIK ---
+function renderGrafikTables(dataArray, year, metric = 'sales') {
+  const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  const body = document.getElementById('grMonthlyTableBody');
+  if(document.getElementById('tableYearLabel')) document.getElementById('tableYearLabel').innerText = year;
+  
+  if(!body) return;
+  if(!dataArray) { body.innerHTML = ""; return; }
+
+  let html = "";
+  let maxVal = -1; let minVal = Infinity;
+  let maxIdx = 0; let minIdx = 0;
+  let totalSum = 0;
+  let activeCount = 0;
+  const isFreq = (metric === 'freq');
+
+  dataArray.forEach((val, i) => {
+    const displayVal = isFreq ? fmt(val) : 'Rp ' + fmt(val);
+    html += `<tr class="border-b border-white/5 hover:bg-white/5 transition-all">
+      <td class="py-2 text-white/50">${months[i]}</td>
+      <td class="py-2 text-right font-bold text-white">${displayVal}</td>
+    </tr>`;
+
+    if(val > maxVal) { maxVal = val; maxIdx = i; }
+    if(val > 0 && val < minVal) { minVal = val; minIdx = i; }
+
+    if(val > 0) {
+      totalSum += val;
+      activeCount++;
+    }
+  });
+
+  body.innerHTML = html;
+  
+  let avgVal = activeCount > 0 ? Math.round(totalSum / activeCount) : 0;
+
+  if(document.getElementById('grMaxMonth')) document.getElementById('grMaxMonth').innerText = months[maxIdx];
+  if(document.getElementById('grMaxVal')) document.getElementById('grMaxVal').innerText = isFreq ? fmt(maxVal) : 'Rp ' + fmt(maxVal);
+  
+  if(document.getElementById('grMinMonth')) document.getElementById('grMinMonth').innerText = (minVal === Infinity) ? "-" : months[minIdx];
+  if(document.getElementById('grMinVal')) document.getElementById('grMinVal').innerText = (minVal === Infinity) ? "0" : (isFreq ? fmt(minVal) : 'Rp ' + fmt(minVal));
+
+  if(document.getElementById('grAvgVal')) document.getElementById('grAvgVal').innerText = isFreq ? fmt(avgVal) : 'Rp ' + fmt(avgVal);
+  if(document.getElementById('grAvgLabel')) document.getElementById('grAvgLabel').innerText = `${activeCount} Bulan Aktif`;
+}
+
+function renderAccTable(accArray, year, metric = 'sales') {
+  const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  const body = document.getElementById('grAccMonthlyTableBody');
+  const label = document.getElementById('tableYearAccLabel');
+  
+  if(label) label.innerText = year;
+  if(!body) return;
+  if(!accArray) { body.innerHTML = ""; return; }
+
+  let html = "";
+  const isFreq = (metric === 'freq');
+  accArray.forEach((val, i) => {
+    const displayVal = isFreq ? fmt(val) : 'Rp ' + fmt(val);
+    html += `<tr class="border-b border-white/5 hover:bg-white/5 transition-all">
+      <td class="py-2 text-white/50">${months[i]}</td>
+      <td class="py-2 text-right font-bold text-cyan-400">${displayVal}</td>
+    </tr>`;
+  });
+  body.innerHTML = html;
+}
+
+function renderYoYChart(canvasId, yearData, labelText, defaultColor = '#06b6d4') {
+  const canvas = document.getElementById(canvasId);
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  
+  if (window['myChart' + canvasId]) window['myChart' + canvasId].destroy();
+
+  const colors = { 
+    2026: '#06b6d4', 2025: '#fb923c', 2024: '#a855f7', 2023: '#10b981', 2022: '#f43f5e'
+  };
+
+  const datasets = Object.keys(yearData).sort().map(y => ({
+    label: `Th ${y}`,
+    data: yearData[y],
+    borderColor: colors[y] || defaultColor,
+    backgroundColor: (colors[y] || defaultColor) + '15',
+    borderWidth: 2,
+    tension: 0.4,
+    pointRadius: 2,
+    pointHoverRadius: 6,
+    fill: true,
+    datalabels: { display: false }
+  }));
+
+  window['myChart' + canvasId] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'],
+      datasets: datasets
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { 
+        datalabels: { display: false },
+        legend: { 
+          position: 'top', 
+          align: 'end', 
+          labels: { color: 'rgba(255,255,255,0.5)', font: { size: 9 }, usePointStyle: true, boxWidth: 6 } 
+        },
+        tooltip: { 
+          enabled: true,
+          backgroundColor: '#1a1d23', 
+          titleColor: '#fff', 
+          callbacks: {
+            label: function(context) {
+              let label = context.dataset.label || '';
+              if (label) label += ': ';
+              if (context.parsed.y !== null) {
+                const isFreq = labelText.toLowerCase().includes('freq');
+                label += isFreq ? fmt(context.parsed.y) : 'Rp ' + fmt(context.parsed.y);
+              }
+              return label;
+            }
+          }
+        }
+      },
+      scales: {
+        y: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: 'rgba(255,255,255,0.3)', font: { size: 8 } } },
+        x: { grid: { display: false }, ticks: { color: 'rgba(255,255,255,0.3)', font: { size: 8 } } }
+      }
+    }
+  });
+}
   </script>
 </body>
 </html>
