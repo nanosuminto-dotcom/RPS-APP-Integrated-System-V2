@@ -7099,7 +7099,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 
-// --- 2. LOAD DATA DARI SUPABASE ---
+// --- 2. LOAD DATA DARI SUPABASE (MENGATASI LIMIT 1000 BARIS) ---
 async function loadGrafikModule() {
   Swal.fire({
     title: 'Memuat Grafik...',
@@ -7109,16 +7109,38 @@ async function loadGrafikModule() {
   });
 
   try {
-    let { data, error } = await dbClient
-      .from('Data_Penjualan')
-      .select('*')
-      .order('Tanggal', { ascending: true });
+    let allData = [];
+    let pageSize = 1000;
+    let page = 0;
+    let fetchMore = true;
 
-    if (error) throw error;
+    // Loop otomatis untuk mengambil semua data jika jumlahnya > 1000 baris
+    while (fetchMore) {
+      let { data, error } = await dbClient
+        .from('Data_Penjualan')
+        .select('*')
+        .order('Tanggal', { ascending: true })
+        .range(page * pageSize, (page + 1) * pageSize - 1);
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        allData = allData.concat(data);
+        if (data.length < pageSize) {
+          fetchMore = false; // Berhenti jika data kurang dari 1000 (sudah habis)
+        } else {
+          page++;
+        }
+      } else {
+        fetchMore = false;
+      }
+    }
 
     Swal.close();
 
-    rawGrafik = (data || []).map(row => {
+    console.log("TOTAL KESELURUHAN DATA DARI SUPABASE:", allData.length);
+
+    rawGrafik = (allData || []).map(row => {
       let rawDate = row.Tanggal ? row.Tanggal.toString().trim() : '';
       let yNum = 0, mNum = 0, dNum = 1;
 
@@ -7149,6 +7171,8 @@ async function loadGrafikModule() {
       };
     }).filter(item => item.tahun > 0);
 
+    console.log("DATA SETELAH DIPERIKSA (RAWGRAFIK):", rawGrafik);
+
     updateGrafikDashboard();
 
   } catch (err) {
@@ -7157,7 +7181,6 @@ async function loadGrafikModule() {
     Swal.fire({ icon: 'error', title: 'Gagal', text: 'Gagal memuat data grafik dari database!' });
   }
 }
-
 
 // --- 3. LOGIKA UTAMA DASHBOARD ---
 function updateGrafikDashboard() {
@@ -7185,7 +7208,7 @@ function updateGrafikDashboard() {
   let yearDataS = {}; 
   let yearDataF = {}; 
 
-  // Kumpulkan data bulanan dikelompokkan unik dan dijumlahkan (+=) per tahun & bulan
+  // Kumpulkan data bulanan, FILTER: HANYA TAHUN YANG KECIL ATAU SAMA DENGAN `yearTo` YANG DITAMPILKAN
   rawGrafik.forEach(item => {
     if (branch !== 'all' && item.cabang !== branch) return;
 
@@ -7194,6 +7217,9 @@ function updateGrafikDashboard() {
     const d = item.hari;
 
     if (isNaN(y) || isNaN(m) || m < 0 || m > 11) return;
+
+    // Batasi data hanya sampai tahun pilihan dropdown (yearTo) dan ke belakang
+    if (y > yearTo) return;
 
     const valS = (source === 'pos') ? item.sPos : item.sGrab;
     const valF = (source === 'pos') ? item.fPos : item.fGrab;
@@ -7204,7 +7230,7 @@ function updateGrafikDashboard() {
     yearDataS[y][m] += valS;
     yearDataF[y][m] += valF;
 
-    // Perbandingan YTD akurat s.d tanggal dan bulan yang sama (H-1) pada tahun berjalan & tahun lalu
+    // Perbandingan YTD akurat s.d tanggal dan bulan yang sama (H-1) pada tahun pilihan & tahun lalunya
     if (y === yearTo && (m < cM || (m === cM && d <= cD))) {
       salesNowAcc += valS;
     }
@@ -7285,7 +7311,6 @@ function updateGrafikDashboard() {
   renderYoYChart('cLineSalesMulti', activeRawData, chartLabelText, chartColor);             
   renderYoYChart('cLineSalesAcc', yearDataAcc, 'Accum ' + chartLabelText, chartColor);       
 }
-
 
 // --- 4. RENDER TABEL & GRAFIK ---
 function renderGrafikTables(dataArray, year, metric = 'sales') {
