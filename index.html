@@ -841,22 +841,18 @@
   <option value="sales">METRIC: SALES</option>
   <option value="freq">METRIC: FREQUENCY</option> <!-- Diperbaiki -->
 </select>
-          <select id="grBranchFilter" onchange="updateGrafikDashboard()" class="chart-select">
-            <option value="all">SEMUA CABANG</option>
-            <option value="kgd">KGD</option><option value="cdk">CDK</option>
-            <option value="pkp">PKP</option><option value="cpy">CPY</option>
-          </select>
+          <!-- Di dalam bagian Filter & Switcher Grafik -->
+<select id="grBranchFilter" onchange="updateGrafikDashboard()" class="chart-select uppercase">
+  <option value="all">SEMUA CABANG</option>
+  <!-- Akan diisi otomatis oleh fungsi initGrafikDropdowns() -->
+</select>
           <select id="grSourceSwitch" onchange="updateGrafikDashboard()" class="chart-select">
             <option value="pos">SOURCE: POSX</option>
             <option value="grab">SOURCE: GRABMART</option>
           </select>
           <select id="grYearTo" onchange="updateGrafikDashboard()" class="chart-select">
-            <option value="2026">S/D 2026</option>
-            <option value="2025">S/D 2025</option>
-            <option value="2024">S/D 2024</option>
-            <option value="2023">S/D 2023</option>
-            <option value="2022">S/D 2022</option>
-          </select>
+  <!-- Akan diisi otomatis opsi 5 tahun ke belakang oleh fungsi initGrafikDropdowns() -->
+</select>
         </div>
       </div>
       <!-- Canvas Utama (Bisa dipakai bergantian via fungsi JS Anda, atau digabung ke cLineSalesMulti) -->
@@ -7056,6 +7052,333 @@ function askAnaFileName(mode) {
       const name = result.value || 'Export_Analisa';
       if (mode === 'excel') exportAnaExcel(name);
       if (mode === 'pdf') exportAnaPDF(name);
+    }
+  });
+}
+let rawGrafik = [];
+
+// --- INISIALISASI DROPDOWN CABANG & TAHUN DINAMIS ---
+async function initGrafikDropdowns() {
+  try {
+    // 1. Load Cabang Dinamis dari Ref_Cabang (kecuali office & online)
+    const branchSelect = document.getElementById('grBranchFilter');
+    if (branchSelect) {
+      let cabangRes = await dbClient.from('Ref_Cabang').select('*').order('No', { ascending: true });
+      let cabangRows = (cabangRes.data || []).filter(r => {
+        let id = String(r.ID_Cabang || '').trim().toLowerCase();
+        return id !== 'office' && id !== 'online';
+      });
+
+      branchSelect.innerHTML = '<option value="all">SEMUA CABANG</option>';
+      cabangRows.forEach(r => {
+        let bCode = r.ID_Cabang.toString().trim().toUpperCase();
+        let opt = document.createElement('option');
+        opt.value = bCode.toLowerCase();
+        opt.innerText = bCode;
+        branchSelect.appendChild(opt);
+      });
+    }
+
+    // 2. Load Tahun Dinamis (5 tahun ke belakang dari tahun sekarang)
+    const yearSelect = document.getElementById('grYearTo');
+    if (yearSelect) {
+      const currentYear = new Date().getFullYear();
+      let yearHtml = '';
+      for (let i = 0; i < 5; i++) {
+        let y = currentYear - i;
+        yearHtml += `<option value="${y}">S/D ${y}</option>`;
+      }
+      yearSelect.innerHTML = yearHtml;
+    }
+  } catch (e) {
+    console.error("Gagal memuat dropdown grafik:", e);
+  }
+}
+
+// Panggil inisialisasi saat DOM siap atau saat menu grafik dibuka
+document.addEventListener('DOMContentLoaded', () => {
+  initGrafikDropdowns();
+});
+
+
+// --- LOAD DATA GRAFIK LANGSUNG DARI SUPABASE ---
+async function loadGrafikModule() {
+  Swal.fire({
+    title: 'Memuat Grafik...',
+    text: 'Mengambil data dari database',
+    allowOutsideClick: false,
+    didOpen: () => { Swal.showLoading(); }
+  });
+
+  try {
+    // Ambil seluruh data dari tabel Data_Penjualan Supabase
+    let { data, error } = await dbClient
+      .from('Data_Penjualan')
+      .select('*')
+      .order('Tanggal', { ascending: true });
+
+    if (error) throw error;
+
+    Swal.close();
+
+    // Transformasi data Supabase agar sesuai dengan struktur rawGrafik
+    rawGrafik = (data || []).map(row => {
+      let tglStr = row.Tanggal ? row.Tanggal.toString().split('T')[0] : '';
+      let posVal = Number(row.Sales_PosX) || 0;
+      let fPosVal = Number(row.Freq_PosX) || 0;
+      let grabVal = Number(row.Sales_Grabmart) || 0;
+      let fGrabVal = Number(row.Freq_Grabm) || Number(row.Freq_Grabmart) || 0;
+
+      return {
+        tgl: tglStr,
+        cabang: (row.ID_Cabang || '').toLowerCase().trim(),
+        sPos: posVal,
+        fPos: fPosVal,
+        sGrab: grabVal,
+        fGrab: fGrabVal
+      };
+    });
+
+    updateGrafikDashboard();
+
+  } catch (err) {
+    Swal.close();
+    console.error("Error loadGrafikModule Supabase:", err);
+    Swal.fire({ icon: 'error', title: 'Gagal', text: 'Gagal memuat data grafik dari database!' });
+  }
+}
+
+function updateGrafikDashboard() {
+  const branch = document.getElementById('grBranchFilter').value.toLowerCase();
+  const source = document.getElementById('grSourceSwitch').value; 
+  const yearTo = parseInt(document.getElementById('grYearTo').value) || new Date().getFullYear();
+  const metric = document.getElementById('grMetricSwitch') ? document.getElementById('grMetricSwitch').value : 'sales';
+  
+  const today = new Date();
+  const cM = today.getMonth();
+  const cD = today.getDate();
+
+  let salesNowAcc = 0; 
+  let salesLastAcc = 0;
+  let yearDataS = {}; 
+  let yearDataF = {}; 
+
+  // 1. KUMPULKAN DATA BULANAN
+  rawGrafik.forEach(item => {
+    if (branch !== 'all' && item.cabang !== branch) return;
+    if (!item.tgl) return;
+    const p = item.tgl.split('-');
+    const y = parseInt(p[0]);
+    const m = parseInt(p[1]) - 1;
+    const d = parseInt(p[2]);
+    const valS = (source === 'pos') ? item.sPos : item.sGrab;
+    const valF = (source === 'pos') ? item.fPos : item.fGrab;
+
+    if (y <= yearTo) {
+      if (!yearDataS[y]) yearDataS[y] = Array(12).fill(0);
+      if (!yearDataF[y]) yearDataF[y] = Array(12).fill(0);
+      yearDataS[y][m] += valS;
+      yearDataF[y][m] += valF;
+
+      if (y === yearTo && (m < cM || (m === cM && d <= cD))) salesNowAcc += valS;
+      if (y === (yearTo - 1) && (m < cM || (m === cM && d <= cD))) salesLastAcc += valS;
+    }
+  });
+
+  let activeRawData = (metric === 'freq') ? yearDataF : yearDataS;
+
+  let yearDataAcc = {};
+  Object.keys(activeRawData).forEach(y => {
+    yearDataAcc[y] = Array(12).fill(0);
+    let runningSum = 0;
+    for(let i = 0; i < 12; i++) {
+      runningSum += activeRawData[y][i];
+      yearDataAcc[y][i] = runningSum;
+    }
+  });
+
+  const tglBatas = new Date(today);
+  tglBatas.setDate(today.getDate() - 1); 
+  
+  const cM_Acc = tglBatas.getMonth();
+  const cD_Acc = tglBatas.getDate();
+  const tglBatasLastYear = new Date(yearTo - 1, cM_Acc, cD_Acc);
+
+  const set = (id, v) => { if(document.getElementById(id)) document.getElementById(id).innerText = "Rp " + fmt(v); };
+  set('grSalesNow', salesNowAcc);
+  set('grSalesLast', salesLastAcc);
+  
+  const gap = salesNowAcc - salesLastAcc;
+  const growth = salesLastAcc > 0 ? ((gap / salesLastAcc) * 100).toFixed(1) : 0;
+  if(document.getElementById('grGap')) document.getElementById('grGap').innerText = (gap >= 0 ? "+ " : "- ") + "Rp " + fmt(Math.abs(gap));
+  if(document.getElementById('grGrowth')) document.getElementById('grGrowth').innerText = growth + "%";
+  
+  if(document.getElementById('grDateNow')) document.getElementById('grDateNow').innerText = "s.d " + tglBatas.toLocaleDateString('id-ID');
+  if(document.getElementById('grDateLast')) document.getElementById('grDateLast').innerText = "s.d " + tglBatasLastYear.toLocaleDateString('id-ID');
+
+  const activeTitle = document.getElementById('grActiveChartTitle');
+  let chartLabelText = '';
+  let chartColor = '#06b6d4';
+
+  const monthlyTableTitle = document.getElementById('monthlyTableTitle');
+  const accumTableTitle = document.getElementById('accumTableTitle');
+  const statsTableTitle = document.getElementById('statsTableTitle');
+
+  if (metric === 'freq') {
+    if (activeTitle) activeTitle.innerText = "YoY Frequency Performance";
+    chartLabelText = 'Freq (Qty)';
+    chartColor = '#a855f7';
+    if(monthlyTableTitle) monthlyTableTitle.innerText = `Monthly Frequency Table (${yearTo})`;
+    if(accumTableTitle) accumTableTitle.innerText = `YTD Accum Frequency Table (${yearTo})`;
+    if(statsTableTitle) statsTableTitle.innerText = "Monthly Stats (Frequency)";
+  } else {
+    if (activeTitle) activeTitle.innerText = "YoY Sales Performance";
+    chartLabelText = 'Sales (Rp)';
+    chartColor = '#06b6d4';
+    if(monthlyTableTitle) monthlyTableTitle.innerText = `Monthly Sales Table (${yearTo})`;
+    if(accumTableTitle) accumTableTitle.innerText = `YTD Accum Sales Table (${yearTo})`;
+    if(statsTableTitle) statsTableTitle.innerText = "Monthly Stats (Sales)";
+  }
+
+  const currentYearData = activeRawData[yearTo] || Array(12).fill(0);
+  const currentAccData = yearDataAcc[yearTo] || Array(12).fill(0);
+
+  renderGrafikTables(currentYearData, yearTo, metric);      
+  renderAccTable(currentAccData, yearTo, metric);           
+  
+  renderYoYChart('cLineSalesMulti', activeRawData, chartLabelText, chartColor);             
+  renderYoYChart('cLineSalesAcc', yearDataAcc, 'Accum ' + chartLabelText, chartColor);       
+}
+
+function renderGrafikTables(dataArray, year, metric = 'sales') {
+  const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  const body = document.getElementById('grMonthlyTableBody');
+  if(document.getElementById('tableYearLabel')) document.getElementById('tableYearLabel').innerText = year;
+  
+  if(!body) return;
+  if(!dataArray) { body.innerHTML = ""; return; }
+
+  let html = "";
+  let maxVal = -1; let minVal = Infinity;
+  let maxIdx = 0; let minIdx = 0;
+  let totalSum = 0;
+  let activeCount = 0;
+  const isFreq = (metric === 'freq');
+
+  dataArray.forEach((val, i) => {
+    const displayVal = isFreq ? fmt(val) : 'Rp ' + fmt(val);
+    html += `<tr class="border-b border-white/5 hover:bg-white/5 transition-all">
+      <td class="py-2 text-white/50">${months[i]}</td>
+      <td class="py-2 text-right font-bold text-white">${displayVal}</td>
+    </tr>`;
+
+    if(val > maxVal) { maxVal = val; maxIdx = i; }
+    if(val > 0 && val < minVal) { minVal = val; minIdx = i; }
+
+    if(val > 0) {
+      totalSum += val;
+      activeCount++;
+    }
+  });
+
+  body.innerHTML = html;
+  
+  let avgVal = activeCount > 0 ? Math.round(totalSum / activeCount) : 0;
+
+  if(document.getElementById('grMaxMonth')) document.getElementById('grMaxMonth').innerText = months[maxIdx];
+  if(document.getElementById('grMaxVal')) document.getElementById('grMaxVal').innerText = isFreq ? fmt(maxVal) : 'Rp ' + fmt(maxVal);
+  
+  if(document.getElementById('grMinMonth')) document.getElementById('grMinMonth').innerText = (minVal === Infinity) ? "-" : months[minIdx];
+  if(document.getElementById('grMinVal')) document.getElementById('grMinVal').innerText = (minVal === Infinity) ? "0" : (isFreq ? fmt(minVal) : 'Rp ' + fmt(minVal));
+
+  if(document.getElementById('grAvgVal')) document.getElementById('grAvgVal').innerText = isFreq ? fmt(avgVal) : 'Rp ' + fmt(avgVal);
+  if(document.getElementById('grAvgLabel')) document.getElementById('grAvgLabel').innerText = `${activeCount} Bulan Aktif`;
+}
+
+function renderAccTable(accArray, year, metric = 'sales') {
+  const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  const body = document.getElementById('grAccMonthlyTableBody');
+  const label = document.getElementById('tableYearAccLabel');
+  
+  if(label) label.innerText = year;
+  if(!body) return;
+  if(!accArray) { body.innerHTML = ""; return; }
+
+  let html = "";
+  const isFreq = (metric === 'freq');
+  accArray.forEach((val, i) => {
+    const displayVal = isFreq ? fmt(val) : 'Rp ' + fmt(val);
+    html += `<tr class="border-b border-white/5 hover:bg-white/5 transition-all">
+      <td class="py-2 text-white/50">${months[i]}</td>
+      <td class="py-2 text-right font-bold text-cyan-400">${displayVal}</td>
+    </tr>`;
+  });
+  body.innerHTML = html;
+}
+
+function renderYoYChart(canvasId, yearData, labelText, defaultColor = '#06b6d4') {
+  const canvas = document.getElementById(canvasId);
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  
+  if (window['myChart' + canvasId]) window['myChart' + canvasId].destroy();
+
+  const colors = { 
+    2026: '#06b6d4', 2025: '#fb923c', 2024: '#a855f7', 2023: '#10b981', 2022: '#f43f5e',
+    2021: '#38bdf8', 2020: '#f472b6'
+  };
+
+  const datasets = Object.keys(yearData).sort().map(y => ({
+    label: `Th ${y}`,
+    data: yearData[y],
+    borderColor: colors[y] || defaultColor,
+    backgroundColor: (colors[y] || defaultColor) + '15',
+    borderWidth: 2,
+    tension: 0.4,
+    pointRadius: 2,
+    pointHoverRadius: 6,
+    fill: true,
+    datalabels: { display: false }
+  }));
+
+  window['myChart' + canvasId] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'],
+      datasets: datasets
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { 
+        datalabels: { display: false },
+        legend: { 
+          position: 'top', 
+          align: 'end', 
+          labels: { color: 'rgba(255,255,255,0.5)', font: { size: 9 }, usePointStyle: true, boxWidth: 6 } 
+        },
+        tooltip: { 
+          enabled: true,
+          backgroundColor: '#1a1d23', 
+          titleColor: '#fff', 
+          callbacks: {
+            label: function(context) {
+              let label = context.dataset.label || '';
+              if (label) label += ': ';
+              if (context.parsed.y !== null) {
+                const isFreq = labelText.toLowerCase().includes('freq');
+                label += isFreq ? fmt(context.parsed.y) : 'Rp ' + fmt(context.parsed.y);
+              }
+              return label;
+            }
+          }
+        }
+      },
+      scales: {
+        y: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: 'rgba(255,255,255,0.3)', font: { size: 8 } } },
+        x: { grid: { display: false }, ticks: { color: 'rgba(255,255,255,0.3)', font: { size: 8 } } }
+      }
     }
   });
 }
