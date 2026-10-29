@@ -262,7 +262,37 @@
 
       body { background: white !important; color: black !important; }
     }
+    @media print {
+  /* Semua kode khusus cetak ditaruh di dalam sini, 
+     sehingga tidak akan mengubah atau "membocori" tampilan layar monitor. */
+  
+  #tab-grafikBar {
+    display: block !important;
+  }
+  
+  /* Sembunyikan elemen yang tidak perlu saat cetak */
+  .no-print, nav, #sidebar {
+    display: none !important;
+  }
+}
+@media print {
+  /* 1. Sembunyikan SEMUA tab lain secara mutlak saat mencetak */
+  #tab-dashboardFinance, 
+  .other-tab-class { /* sesuaikan jika ada tab lain */
+    display: none !important;
+  }
 
+  /* 2. Hanya tampilkan tab bar chart saja */
+  #tab-grafikBar {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Sisa pengaturan print Anda yang lain tetap di sini */
+}
     /* ==========================================
        7. KONTROL VISIBILITAS DESKTOP VS MOBILE
        ========================================== */
@@ -7881,6 +7911,37 @@ function renderBarChartsCanvas(rows) {
     const ctxFreq = document.getElementById('cBarFreqMulti').getContext('2d');
     if (barFreqChartInstance) barFreqChartInstance.destroy();
     barFreqChartInstance = new Chart(ctxFreq, createConfig(freqData, false));
+}
+async function printBarChartReport(fileName) {
+  const title = (typeof fileName === 'string' && fileName.trim() !== '') ? fileName : 'Laporan_Analisa_Grafik_Bar';
+
+  Swal.fire({ title: 'Menyiapkan Cetak Laporan...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+
+  // 1. Ambil logo dari Supabase Storage (seperti pada contoh fungsi PDF Anda)
+  let logoBase64 = null;
+  try {
+    const { data, error } = await dbClient.storage.from('logo').download('logo.jpg');
+    if (!error && data) {
+      logoBase64 = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(data);
+      });
+    }
+  } catch (e) {
+    console.warn("Logo tidak dimuat, melanjutkan cetak tanpa logo:", e);
+  }
+
+  const namaUser = document.getElementById('navUserName')?.innerText || 'ADMIN';
+  const now = new Date().toLocaleString('id-ID', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+  Swal.close();
+
+  // 2. Buka jendela cetak atau manfaatkan print window
+  // Jika menggunakan trik window.print() langsung dengan elemen tersembunyi, 
+  // pastikan elemen kop berlogo sudah ada di dalam #tab-grafikBar atau disisipkan via JS sebelum print.
+  
+  window.print();
 }
   </script>
 </body>
