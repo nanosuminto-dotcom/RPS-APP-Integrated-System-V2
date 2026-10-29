@@ -595,43 +595,14 @@
 
     <!-- AREA KUMPULAN TAB / CARD MENU ANDA -->
     <div class="w-full">
-      <div id="tab-dashboard" class="w-full space-y-6">
+  <div id="tab-dashboard" class="w-full space-y-6">
  
-    <!-- PANEL ATAS: 5 Card Utama & 3 Card Ringkasan (Fix Sejajar, Tanpa Geser) -->
+    <!-- PANEL ATAS: Card Cabang Dinamis & 3 Card Ringkasan -->
     <div id="ownerPanel" class="space-y-4">
-      
-      <!-- 5 Card Utama (Disusun Grid Flexibel Sejajar dengan Kerangka Default) -->
+     
+      <!-- Card Cabang Dinamis (Akan di-generate otomatis via JS berdasarkan Ref_Cabang) -->
       <div id="rowY" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-        <!-- Card 1: KGD -->
-        <div class="glass p-4 border-l-4 border-amber-500 bg-[#21252d]">
-          <p class="label-mini truncate">KGD (POS)</p>
-          <p id="card-kgd-pos" class="text-lg font-black text-amber-400 italic">Rp 0</p>
-          <p id="card-kgd-grab" class="text-[10px] text-gray-400 mt-1">Grab: Rp 0</p>
-        </div>
-        <!-- Card 2: CDK -->
-        <div class="glass p-4 border-l-4 border-cyan-500 bg-[#21252d]">
-          <p class="label-mini truncate">CDK (POS)</p>
-          <p id="card-cdk-pos" class="text-lg font-black text-cyan-400 italic">Rp 0</p>
-          <p id="card-cdk-grab" class="text-[10px] text-gray-400 mt-1">Grab: Rp 0</p>
-        </div>
-        <!-- Card 3: PKP -->
-        <div class="glass p-4 border-l-4 border-emerald-500 bg-[#21252d]">
-          <p class="label-mini truncate">PKP (POS)</p>
-          <p id="card-pkp-pos" class="text-lg font-black text-emerald-400 italic">Rp 0</p>
-          <p id="card-pkp-grab" class="text-[10px] text-gray-400 mt-1">Grab: Rp 0</p>
-        </div>
-        <!-- Card 4: CPY -->
-        <div class="glass p-4 border-l-4 border-indigo-500 bg-[#21252d]">
-          <p class="label-mini truncate">CPY (POS)</p>
-          <p id="card-cpy-pos" class="text-lg font-black text-indigo-400 italic">Rp 0</p>
-          <p id="card-cpy-grab" class="text-[10px] text-gray-400 mt-1">Grab: Rp 0</p>
-        </div>
-        <!-- Card 5: TOTAL KESELURUHAN -->
-        <div class="glass p-4 border-l-4 border-purple-500 bg-[#21252d] col-span-2 md:col-span-1">
-          <p class="label-mini truncate">TOTAL KESELURUHAN</p>
-          <p id="card-total-pos" class="text-lg font-black text-purple-400 italic">Rp 0</p>
-          <p id="card-total-grab" class="text-[10px] text-gray-400 mt-1">Grab: Rp 0</p>
-        </div>
+        <!-- Container card cabang akan diisi secara dinamis oleh JavaScript -->
       </div>
 
       <!-- 3 Card Ringkasan Bawah (Sejajar & Terbuka untuk Semua User) -->
@@ -664,12 +635,9 @@
       <div class="glass p-5 lg:col-span-2 relative flex flex-col">
         <div class="absolute top-4 right-4 z-10" id="filterContainer">
            <select id="branchFilter" onchange="updateUI()" class="chart-select">
-  <option value="all">SEMUA CABANG</option>
-  <option value="kgd">KGD</option>
-  <option value="cdk">CDK</option>
-  <option value="pkp">PKP</option>
-  <option value="cpy">CPY</option>
-</select>
+             <option value="all">SEMUA CABANG</option>
+             <!-- Opsi cabang akan di-generate otomatis via JS -->
+           </select>
         </div>
         <p class="label-mini mb-4">Grafik Penjualan Mingguan (K-Fmt)</p>
         <div style="height:180px"><canvas id="cLine"></canvas></div>
@@ -681,7 +649,9 @@
               <button onclick="setMatrixMode('pos')" id="mBtnPos" class="matrix-btn active">POSX</button>
               <button onclick="setMatrixMode('grab')" id="mBtnGrab" class="matrix-btn inactive">GRABMART</button>
             </div>
-            <select id="matrixYear" onchange="updateUI()" class="chart-select"></select>
+            <select id="matrixYear" onchange="updateUI()" class="chart-select">
+              <!-- Tahun otomatis 4 tahun kebelakang di-generate via JS -->
+            </select>
           </div>
         </div>
         <div class="matrix-scroll-container mb-6">
@@ -1208,12 +1178,10 @@
                 </div>
                 <div>
                     <label class="block text-[7px] text-gray-500 font-black uppercase mb-0.5">Cabang</label>
+                    <!-- Dropdown Cabang Dinamis Berdasarkan Ref_Cabang -->
                     <select id="sBranch" tabindex="3" class="input-field !py-1 !px-2 !text-[10px] h-7 bg-[#1a1f26] focus:ring-2 focus:ring-yellow-400/50">
-                        <option value="all">Semua</option>
-                        <option value="kgd">KGD</option>
-                        <option value="cdk">CDK</option>
-                        <option value="pkp">PKP</option>
-                        <option value="cpy">CPY</option>
+                        <option value="all">SEMUA CABANG</option>
+                        <!-- Opsi cabang akan di-generate otomatis via JS -->
                     </select>
                 </div>
                 
@@ -1269,6 +1237,7 @@
                         <th class="py-2 px-3 text-white">Total Qty</th>
                     </tr>
                 </thead>
+                <!-- ID penampung hasil pencarian/laporan yang akan dirender dinamis -->
                 <tbody id="searchResult" class="divide-y divide-white/5"></tbody>
             </table>
         </div>
@@ -1276,6 +1245,7 @@
         <!-- Footer Terkunci Permanen di Bawah Kontainer -->
         <div class="absolute bottom-0 left-0 right-0 z-20 bg-[#161920] border-t-2 border-[#343b47] shadow-2xl">
             <table class="archive-table w-full">
+                <!-- ID penampung footer total dinamis -->
                 <tfoot id="searchFooter"></tfoot>
             </table>
         </div>
@@ -5335,63 +5305,79 @@
       }
     }
     async function saveOnline() {
-      if (!dbClient) return;
+  if (!dbClient) return;
 
-      const dateValue = normalizeDateValue(document.getElementById('inDateOnline').value);
-      const shopeeValue = readNumericInput('shopee', 0);
-      const freqShopeeValue = readNumericInput('fShopee', 0);
-      const tiktokValue = readNumericInput('tiktok', 0);
-      const freqTiktokValue = readNumericInput('fTiktok', 0);
-      const webValue = readNumericInput('web', 0);
-      const freqWebValue = readNumericInput('fWeb', 0);
-      const editId = document.getElementById('editIdOnline').value;
-      const branchValue = normalizeCabangValue(document.getElementById('editOnlineBranch').value || session?.ID_Cabang || session?.branchId || session?.Cabang || 'ONLINE');
+  const dateValue = normalizeDateValue(document.getElementById('inDateOnline').value);
+  const shopeeValue = readNumericInput('shopee', 0);
+  const freqShopeeValue = readNumericInput('fShopee', 0);
+  const tiktokValue = readNumericInput('tiktok', 0);
+  const freqTiktokValue = readNumericInput('fTiktok', 0);
+  const webValue = readNumericInput('web', 0);
+  const freqWebValue = readNumericInput('fWeb', 0);
+  const editId = document.getElementById('editIdOnline').value;
+  const branchValue = normalizeCabangValue(document.getElementById('editOnlineBranch').value || session?.ID_Cabang || session?.branchId || session?.Cabang || 'ONLINE');
 
-      if (!dateValue) {
-        Swal.fire({ icon: 'warning', title: 'Peringatan', text: 'Tanggal wajib diisi.' });
-        return;
-      }
+  if (!dateValue) {
+    Swal.fire({ icon: 'warning', title: 'Peringatan', text: 'Tanggal wajib diisi.' });
+    return;
+  }
 
-      // --- AMBIL USERNAME AKTIF DARI SESI / REF_USER ---
-      let currentUsername = session?.username || session?.Username || session?.nama || 'System';
-      try {
-        if (session?.user_id || session?.id) {
-          const { data: userRef } = await dbClient.from('Ref_User').select('username').eq('id', session.user_id || session.id).single();
-          if (userRef && userRef.username) currentUsername = userRef.username;
-        }
-      } catch (e) {
-        console.warn('Gagal mengambil username dari Ref_User:', e);
-      }
+  // --- HITUNG TOTAL SALES & TOTAL FREQ ---
+  const totalSalesValue = shopeeValue + tiktokValue + webValue;
+  const totalFreqValue = freqShopeeValue + freqTiktokValue + freqWebValue;
 
-      const payload = {
-        Tanggal: dateValue,
-        ID_Cabang: branchValue,
-        Sales_Shopee: shopeeValue,
-        Freq_Shopee: freqShopeeValue,
-        Sales_Tiktok: tiktokValue,
-        Freq_Tiktok: freqTiktokValue,
-        Sales_Web: webValue,
-        Freq_Web: freqWebValue,
-        Input_By: currentUsername // <-- Kolom Input_By terisi otomatis
-      };
-
-      try {
-        if (editId) {
-          const { error } = await dbClient.from('Data_Online').update(payload).eq('id', Number(editId));
-          if (error) throw error;
-        } else {
-          const { error } = await dbClient.from('Data_Online').insert([payload]);
-          if (error) throw error;
-        }
-
-        cancelEditOnline();
-        await loadOnlineHistory();
-        Swal.fire({ icon: 'success', title: 'Berhasil', text: editId ? 'Data online berhasil diperbarui.' : 'Data online berhasil ditambah.' });
-      } catch (error) {
-        console.error('Gagal simpan online:', error);
-        Swal.fire({ icon: 'error', title: 'Gagal', text: 'Proses simpan online gagal.' });
-      }
+  // --- AMBIL USERNAME AKTIF ---
+  let currentUsername = session?.username || session?.Username || session?.nama || 'System';
+  try {
+    if (session?.user_id || session?.id) {
+      const { data: userRef } = await dbClient.from('Ref_User').select('username').eq('id', session.user_id || session.id).single();
+      if (userRef && userRef.username) currentUsername = userRef.username;
     }
+  } catch (e) {
+    console.warn('Gagal mengambil username dari Ref_User:', e);
+  }
+
+  // Menyesuaikan dengan nama kolom di Supabase: Total_Online & Total_Freqon
+  const payload = {
+    Tanggal: dateValue,
+    ID_Cabang: branchValue,
+    Sales_Shopee: shopeeValue,
+    Freq_Shopee: freqShopeeValue,
+    Sales_Tiktok: tiktokValue,
+    Freq_Tiktok: freqTiktokValue,
+    Sales_Web: webValue,
+    Freq_Web: freqWebValue,
+    Total_Online: totalSalesValue,
+    Total_Freqon: totalFreqValue,
+    Input_By: currentUsername
+  };
+
+  try {
+    let result;
+    if (editId) {
+      result = await dbClient.from('Data_Online').update(payload).eq('id', Number(editId));
+    } else {
+      result = await dbClient.from('Data_Online').insert([payload]);
+    }
+
+    if (result.error) {
+      console.error('Detail Error Supabase:', result.error);
+      throw result.error;
+    }
+
+    cancelEditOnline();
+    if (typeof loadOnlineHistory === 'function') await loadOnlineHistory();
+    
+    Swal.fire({ icon: 'success', title: 'Berhasil', text: editId ? 'Data online berhasil diperbarui.' : 'Data online berhasil ditambah.' });
+  } catch (error) {
+    console.error('Gagal simpan online:', error);
+    Swal.fire({ 
+      icon: 'error', 
+      title: 'Gagal', 
+      text: 'Proses simpan online gagal: ' + (error.message || JSON.stringify(error)) 
+    });
+  }
+}
     async function editSalesRow(rowId, rowDate, rowBranch) {
       try {
         let row = null;
@@ -5715,7 +5701,17 @@
 
     async function getDashboardData(userRole, branchId, filterBranch = null, filterYear = null) {
   try {
-    console.log("Memuat seluruh data dashboard dari Supabase (Bypass Limit 1000 & Strict Match)...");
+    console.log("Memuat seluruh data dashboard dari Supabase (Bypass Limit 1000 & Strict Match Dinamis Ref_Cabang)...");
+
+    // 1. Ambil data referensi cabang dari tabel Ref_Cabang (Urut berdasarkan kolom 'No')
+    let cabangRes = await dbClient.from('Ref_Cabang').select('*').order('No', { ascending: true });
+    let cabangRows = (cabangRes.data || []).filter(r => {
+      let id = String(r.ID_Cabang || '').trim().toLowerCase();
+      return id !== 'office' && id !== 'online';
+    });
+
+    // Buat daftar cabang dinamis berdasarkan Ref_Cabang
+    let dynamicBranches = cabangRows.map(r => r.ID_Cabang.toString().toLowerCase().trim());
 
     let allSalesRows = [];
     let pageSize = 1000;
@@ -5749,10 +5745,6 @@
       }
     }
 
-    // Ambil data referensi cabang dari tabel Ref_Cabang
-    let cabangRes = await dbClient.from('Ref_Cabang').select('*');
-    let cabangRows = cabangRes.data || [];
-
     let targetsM = {};
     let targetsY = {};
     let currentRealYear = new Date().getFullYear();
@@ -5770,12 +5762,11 @@
     });
 
     const activeFilterBranch = (filterBranch && filterBranch !== 'all' && filterBranch !== '') ? filterBranch.toLowerCase().trim() : 'all';
-    const branches = ['kgd', 'cdk', 'pkp', 'cpy'];
 
     let matrixSales = { pos: {}, grab: {} };
     let matrixFreq = { pos: {}, grab: {} };
 
-    branches.forEach(b => {
+    dynamicBranches.forEach(b => {
       matrixSales.pos[b] = new Array(12).fill(0);
       matrixSales.grab[b] = new Array(12).fill(0);
       matrixFreq.pos[b] = new Array(12).fill(0);
@@ -5794,10 +5785,18 @@
     }
 
     const createDataObj = () => ({ pos: 0, grab: 0 });
-    let monY = { kgd: createDataObj(), cdk: createDataObj(), pkp: createDataObj(), cpy: createDataObj(), total: createDataObj() };
-    let monM = { kgd: createDataObj(), cdk: createDataObj(), pkp: createDataObj(), cpy: createDataObj(), total: createDataObj() };
-    let monYearTotal = { kgd: createDataObj(), cdk: createDataObj(), pkp: createDataObj(), cpy: createDataObj(), total: createDataObj() };
-    let contribPos = { kgd: 0, cdk: 0, pkp: 0, cpy: 0 }, contribGrab = { kgd: 0, cdk: 0, pkp: 0, cpy: 0 };
+    let monY = { total: createDataObj() };
+    let monM = { total: createDataObj() };
+    let monYearTotal = { total: createDataObj() };
+    let contribPos = {}, contribGrab = {};
+
+    dynamicBranches.forEach(b => {
+      monY[b] = createDataObj();
+      monM[b] = createDataObj();
+      monYearTotal[b] = createDataObj();
+      contribPos[b] = 0;
+      contribGrab[b] = 0;
+    });
     
     let totalPos = 0, totalGrab = 0, totalFreqP = 0, totalFreqG = 0, validEntries = [];
 
@@ -5809,12 +5808,12 @@
     let ytdStartDate = `${currYear}-01-01`;
     let ytdEndDate = (currYear === currentRealYear) ? targetYesterdayStr : `${currYear}-12-31`;
 
-    let cardCollected = { kgd: false, cdk: false, pkp: false, cpy: false };
+    let cardCollected = {};
+    dynamicBranches.forEach(b => cardCollected[b] = false);
 
     allSalesRows.forEach((row, index) => {
       if (!row.Tanggal || !row.ID_Cabang) return;
 
-      // PARSING TANGGAL YANG AMAN & ROBUST (Menangani format T, spasi, atau garis miring /)
       let rawTanggal = row.Tanggal ? row.Tanggal.toString().trim() : '';
       let rawTglStr = rawTanggal.split('T')[0].split(' ')[0].replace(/\//g, '-');
       let dateParts = rawTglStr.split('-');
@@ -5825,12 +5824,10 @@
       let rDateStr = rawTglStr;
 
       let rawBranch = row.ID_Cabang.toString().toLowerCase().trim();
-      let branch = branches.includes(rawBranch) ? rawBranch : null;
+      let branch = dynamicBranches.includes(rawBranch) ? rawBranch : null;
       if (!branch) {
-        if (rawBranch.includes('kgd')) branch = 'kgd';
-        else if (rawBranch.includes('cdk')) branch = 'cdk';
-        else if (rawBranch.includes('pkp')) branch = 'pkp';
-        else if (rawBranch.includes('cpy')) branch = 'cpy';
+        let matched = dynamicBranches.find(b => rawBranch.includes(b));
+        if (matched) branch = matched;
       }
       if (!branch) return;
 
@@ -5839,8 +5836,7 @@
       let vG = Number(row.Sales_Grabmart) || 0;
       let fG = Number(row.Freq_Grabmart) || 0;
 
-      // Tangkap data untuk 5 card kemarin (Target Yesterday)
-      if (rDateStr === targetYesterdayStr && !cardCollected[branch]) {
+      if (rDateStr === targetYesterdayStr && cardCollected.hasOwnProperty(branch) && !cardCollected[branch]) {
         monY[branch].pos = vP;
         monY[branch].grab = vG;
         cardCollected[branch] = true;
@@ -5848,13 +5844,15 @@
 
       if (rYear === currYear) {
         if (activeFilterBranch === 'all' || branch === activeFilterBranch) {
-          matrixSales.pos[branch][rMonthIdx] += vP;
-          matrixSales.grab[branch][rMonthIdx] += vG;
-          matrixFreq.pos[branch][rMonthIdx] += fP;
-          matrixFreq.grab[branch][rMonthIdx] += fG;
+          if (matrixSales.pos[branch]) {
+            matrixSales.pos[branch][rMonthIdx] += vP;
+            matrixSales.grab[branch][rMonthIdx] += vG;
+            matrixFreq.pos[branch][rMonthIdx] += fP;
+            matrixFreq.grab[branch][rMonthIdx] += fG;
 
-          monYearTotal[branch].pos += vP;
-          monYearTotal[branch].grab += vG;
+            monYearTotal[branch].pos += vP;
+            monYearTotal[branch].grab += vG;
+          }
         }
 
         if (rDateStr >= ytdStartDate && rDateStr <= ytdEndDate) {
@@ -5869,13 +5867,15 @@
 
       if (rYear === currentRealYear && rMonthIdx === activeMonthIdx) {
         if (activeFilterBranch === 'all' || branch === activeFilterBranch) {
-          monM[branch].pos += vP;
-          monM[branch].grab += vG;
-          monM.total.pos += vP;
-          monM.total.grab += vG;
-          if (contribPos.hasOwnProperty(branch)) {
-            contribPos[branch] += vP;
-            contribGrab[branch] += vG;
+          if (monM[branch]) {
+            monM[branch].pos += vP;
+            monM[branch].grab += vG;
+            monM.total.pos += vP;
+            monM.total.grab += vG;
+            if (contribPos.hasOwnProperty(branch)) {
+              contribPos[branch] += vP;
+              contribGrab[branch] += vG;
+            }
           }
         }
       }
@@ -5888,24 +5888,17 @@
           }
         }
       });
-
-      if (rYear === currYear) {
-        validEntries.push({
-          id: row.id || (index + 2),
-          tgl: new Date(rYear, rMonthIdx, Number(dateParts[2])),
-          cabang: branch.toUpperCase(),
-          pVal: vP,
-          gVal: vG,
-          fP: fP,
-          fG: fG,
-          isoDate: rDateStr
-        });
-      }
     });
 
-    // Hitung total keseluruhan untuk 5 card kemarin secara aman (jika kosong tetap tampil 0)
-    monY.total.pos = monY.kgd.pos + monY.cdk.pos + monY.pkp.pos + monY.cpy.pos;
-    monY.total.grab = monY.kgd.grab + monY.cdk.grab + monY.pkp.grab + monY.cpy.grab;
+    // Hitung total keseluruhan untuk 5 card kemarin secara dinamis
+    monY.total.pos = 0;
+    monY.total.grab = 0;
+    dynamicBranches.forEach(b => {
+      if (monY[b]) {
+        monY.total.pos += monY[b].pos;
+        monY.total.grab += monY[b].grab;
+      }
+    });
 
     return {
       status: "success",
@@ -5923,6 +5916,8 @@
       contribGrab,
       matrixSales,
       matrixFreq,
+      branches: dynamicBranches,
+      cabangRows,
       lineLabels: last7Days.map(d => d.label),
       linePos: last7Days.map(d => d.pos),
       lineGrab: last7Days.map(d => d.grab)
@@ -5938,18 +5933,8 @@ async function updateUI() {
   const matrixYearEl = document.getElementById('matrixYear');
 
   const f = branchFilterEl ? branchFilterEl.value : 'all';
-  const y = matrixYearEl ? matrixYearEl.value : new Date().getFullYear(); 
-
-  if (matrixYearEl && matrixYearEl.options.length === 0) {
-    const currentY = new Date().getFullYear();
-    for (let yr = currentY; yr >= currentY - 4; yr--) {
-      let opt = document.createElement('option');
-      opt.value = yr;
-      opt.innerText = yr;
-      if (yr == y) opt.selected = true;
-      matrixYearEl.appendChild(opt);
-    }
-  }
+  const currentRealYear = new Date().getFullYear();
+  const y = matrixYearEl ? matrixYearEl.value : currentRealYear; 
 
   let role = (typeof session !== 'undefined' && session && session.role) ? session.role : 'OWNER';
   let bId = (typeof session !== 'undefined' && session && session.branchId) ? session.branchId : 'all';
@@ -5962,6 +5947,32 @@ async function updateUI() {
   }
 
   currentData = data; 
+
+  // --- DINAMIS PAS 5 TAHUN KEBELAKANG (Contoh: 2026 s.d. 2022) ---
+  if (matrixYearEl) {
+    let selectedYear = matrixYearEl.value || y;
+    matrixYearEl.innerHTML = '';
+    for (let yr = currentRealYear; yr >= currentRealYear - 4; yr--) {
+      let opt = document.createElement('option');
+      opt.value = yr;
+      opt.innerText = yr;
+      if (String(yr) === String(selectedYear)) opt.selected = true;
+      matrixYearEl.appendChild(opt);
+    }
+  }
+
+  // Inisialisasi Dropdown Filter Cabang secara Dinamis Berdasarkan Ref_Cabang
+  if (branchFilterEl) {
+    let currentSelectedBranch = branchFilterEl.value || f;
+    branchFilterEl.innerHTML = '<option value="all">SEMUA CABANG</option>';
+    data.branches.forEach(b => {
+      let opt = document.createElement('option');
+      opt.value = b;
+      opt.innerText = b.toUpperCase();
+      if (b === currentSelectedBranch) opt.selected = true;
+      branchFilterEl.appendChild(opt);
+    });
+  }
 
   const vPosEl = document.getElementById('vPos');
   if (vPosEl) {
@@ -5978,32 +5989,38 @@ async function updateUI() {
     if (barGrab) barGrab.style.width = (data.totalGrab / totAll * 100) + "%"; 
 
     if (document.getElementById('rowY')) {
-      const brs = ['kgd', 'cdk', 'pkp', 'cpy'], cls = ['border-cyan-500', 'border-purple-500', 'border-orange-500', 'border-pink-500']; 
+      const cls = ['border-cyan-500', 'border-purple-500', 'border-orange-500', 'border-pink-500', 'border-indigo-500', 'border-emerald-500']; 
       
-      const buildCards = (source, label) => [...brs, 'total'].map((b, i) => { 
-        let cardBrd = i < 4 ? cls[i] : 'border-white'; 
-        let posVal = source[b] ? source[b].pos : 0;
-        let grabVal = source[b] ? source[b].grab : 0;
-        return `<div class="card-mon ${cardBrd} glass p-4 bg-[#21252d]"><p class="label-mini mb-3">${b.toUpperCase()} ${label}</p><div class="flex justify-between items-center mb-2"><span class="text-[8px] text-cyan-400 font-black">PosX</span><span class="val-mini text-white font-bold text-[11px]">Rp ${fmt(posVal)}</span></div><div class="flex justify-between items-center"><span class="text-[8px] text-green-400 font-black">Grab</span><span class="val-mini text-white font-bold text-[11px]">Rp ${fmt(grabVal)}</span></div></div>`; 
-      }).join('');
+      const buildCards = (source, label) => {
+        let htmlCards = '';
+        data.branches.forEach((b, i) => {
+          let cardBrd = cls[i % cls.length];
+          let posVal = source[b] ? source[b].pos : 0;
+          let grabVal = source[b] ? source[b].grab : 0;
+          htmlCards += `<div class="card-mon ${cardBrd} glass p-4 bg-[#21252d]"><p class="label-mini mb-3">${b.toUpperCase()} ${label}</p><div class="flex justify-between items-center mb-2"><span class="text-[8px] text-cyan-400 font-black">PosX</span><span class="val-mini text-white font-bold text-[11px]">Rp ${fmt(posVal)}</span></div><div class="flex justify-between items-center"><span class="text-[8px] text-green-400 font-black">Grab</span><span class="val-mini text-white font-bold text-[11px]">Rp ${fmt(grabVal)}</span></div></div>`;
+        });
+        let totPosVal = source['total'] ? source['total'].pos : 0;
+        let totGrabVal = source['total'] ? source['total'].grab : 0;
+        htmlCards += `<div class="card-mon border-white glass p-4 bg-[#21252d]"><p class="label-mini mb-3">TOTAL ${label}</p><div class="flex justify-between items-center mb-2"><span class="text-[8px] text-cyan-400 font-black">PosX</span><span class="val-mini text-white font-bold text-[11px]">Rp ${fmt(totPosVal)}</span></div><div class="flex justify-between items-center"><span class="text-[8px] text-green-400 font-black">Grab</span><span class="val-mini text-white font-bold text-[11px]">Rp ${fmt(totGrabVal)}</span></div></div>`;
+        return htmlCards;
+      };
       
       document.getElementById('rowY').innerHTML = buildCards(data.monY, 'KEMARIN'); 
 
-      // Render Bar Target Bulanan & Tahunan Berdasarkan Ref_Cabang Supabase
       const buildTargetsWithRPS = (targetSource, currentSource, listId) => { 
         let totalGoal = 0, totalCurr = 0; 
         let h = ""; 
-        brs.forEach((b, i) => { 
+        data.branches.forEach((b, i) => { 
           let curr = currentSource[b] ? currentSource[b].pos : 0; 
           let goal = targetSource[b] || 0; 
           totalGoal += goal; 
           totalCurr += curr; 
           let prg = goal > 0 ? ((curr / goal) * 100).toFixed(1) : 0; 
-          const bgCls = ['bg-cyan-500', 'bg-purple-500', 'bg-orange-500', 'bg-pink-500'];
-          h += `<div><div class="flex justify-between text-[9px] font-bold mb-1"><span class="text-gray-400 uppercase">${b}</span><span class="${prg >= 100 ? 'text-green-400' : 'text-cyan-400'}">${prg}%</span></div><div class="progress-bar"><div class="progress-fill ${bgCls[i]}" style="width: ${Math.min(prg, 100)}%"></div></div></div>`; 
+          const bgCls = ['bg-cyan-500', 'bg-purple-500', 'bg-orange-500', 'bg-pink-500', 'bg-indigo-500', 'bg-emerald-500'];
+          h += `<div><div class="flex justify-between text-[9px] font-bold mb-1"><span class="text-gray-400 uppercase">${b}</span><span class="${prg >= 100 ? 'text-green-400' : 'text-cyan-400'}">${prg}%</span></div><div class="progress-bar"><div class="progress-fill ${bgCls[i % bgCls.length]}" style="width: ${Math.min(prg, 100)}%"></div></div></div>`; 
         }); 
         let rpsPrg = totalGoal > 0 ? ((totalCurr / totalGoal) * 100).toFixed(1) : 0; 
-        let rpsHtml = `<div class="mb-4 bg-white/5 p-2 rounded-lg border border-white/10 shadow-inner"><div class="flex justify-between text-[10px] font-black mb-1"><span class="text-yellow-400 tracking-wider">RPS PERFORMANCE</span><span class="text-yellow-400">${rpsPrg}%</span></div><div class="progress-bar !h-2.5 !bg-black/40"><div class="progress-fill bg-gradient-to-r from-yellow-600 to-yellow-400" style="width: ${Math.min(rpsPrg, 100)}%"></div></div></div>`; 
+        let rpsHtml = `<div class="mb-4 bg-white/5 p-2 rounded-lg border border-white/10 shadow-inner"><div class="flex justify-between text-[10px] font-black mb-1"><span class="text-yellow-400 tracking-wider">PERFORMANCE</span><span class="text-yellow-400">${rpsPrg}%</span></div><div class="progress-bar !h-2.5 !bg-black/40"><div class="progress-fill bg-gradient-to-r from-yellow-600 to-yellow-400" style="width: ${Math.min(rpsPrg, 100)}%"></div></div></div>`; 
         const targetEl = document.getElementById(listId);
         if (targetEl) targetEl.innerHTML = rpsHtml + h; 
       }; 
@@ -6013,7 +6030,6 @@ async function updateUI() {
     }
   }
 
-  // Render Matriks & Chart Dashboard Saja
   renderActiveMatrix();
 
   if (typeof renderCharts === "function") renderCharts(data); 
@@ -6022,7 +6038,7 @@ async function updateUI() {
 function renderActiveMatrix() { 
   if (!currentData) return;
   let currentMode = window.matrixMode || 'pos';
-  const brs = ['kgd', 'cdk', 'pkp', 'cpy'];
+  const brs = currentData.branches || [];
 
   const renderMatrixTable = (matrixObj, tbodyId) => {
     const tbody = document.getElementById(tbodyId);
@@ -6061,6 +6077,7 @@ function setMatrixMode(mode) {
   document.getElementById('mBtnGrab').className = mode === 'grab' ? 'matrix-btn active' : 'matrix-btn inactive';
   renderActiveMatrix();
 }
+
 let lChart = null;
 let pPos = null;
 let pGrab = null;
@@ -6070,8 +6087,8 @@ function renderCharts(data) {
   if (pPos) pPos.destroy();
   if (pGrab) pGrab.destroy();
   
-  const chartCls = ['#22d3ee', '#a855f7', '#f97316', '#ec4899'];
-  const labels = ['KGD', 'CDK', 'PKP', 'CPY'];
+  const chartCls = ['#22d3ee', '#a855f7', '#f97316', '#ec4899', '#10b981', '#3b82f6'];
+  const labels = (data.branches || []).map(b => b.toUpperCase());
   
   const ctxWeekly = document.getElementById('weeklyChart') || document.getElementById('cLine');
   if (ctxWeekly) {
@@ -6133,12 +6150,15 @@ function renderCharts(data) {
   const createDonut = (id, source) => {
     const el = document.getElementById(id);
     if (!el) return null;
+
+    let chartDataValues = (data.branches || []).map(b => source && source[b] ? source[b] : 0);
+
     return new Chart(el, {
       type: 'doughnut',
       data: {
         labels: labels,
         datasets: [{
-          data: [source?.kgd || 0, source?.cdk || 0, source?.pkp || 0, source?.cpy || 0],
+          data: chartDataValues,
           backgroundColor: chartCls,
           borderWidth: 0
         }]
@@ -6193,7 +6213,409 @@ function renderCharts(data) {
   pPos = createDonut('piePos', data.contribPos);
   pGrab = createDonut('pieGrab', data.contribGrab);
 }
+// --- DEKLARASI VARIABEL GLOBAL (MENCEGAH ERROR REFERENCE) ---
+let reportMode = 'hari';
+let reportData = [];
+let reportSums = null;
 
+
+// --- 1. INISIALISASI & RENDER DROPDOWN CABANG DINAMIS ---
+async function initReportBranchDropdown() {
+  const branchSelect = document.getElementById('sBranch');
+  if (!branchSelect) return;
+
+  try {
+    let cabangRes = await dbClient.from('Ref_Cabang').select('*').order('No', { ascending: true });
+    let cabangRows = (cabangRes.data || []).filter(r => {
+      let id = String(r.ID_Cabang || '').trim().toLowerCase();
+      return id !== 'office' && id !== 'online';
+    });
+
+    branchSelect.innerHTML = '<option value="all">SEMUA CABANG</option>';
+    cabangRows.forEach(r => {
+      let bCode = r.ID_Cabang.toString().trim().toUpperCase();
+      let opt = document.createElement('option');
+      opt.value = bCode.toLowerCase();
+      opt.innerText = bCode;
+      branchSelect.appendChild(opt);
+    });
+  } catch (e) {
+    console.error("Gagal memuat referensi cabang untuk laporan:", e);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  initReportBranchDropdown();
+});
+
+
+// --- 2. PENGATURAN MODE LAPORAN ---
+function setReportMode(m) { 
+  reportMode = m; 
+  
+  ['btnHari', 'btnBulan', 'btnTahun', 'btnAvg'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.replace('active', 'inactive');
+  }); 
+  
+  const activeId = 'btn' + m.charAt(0).toUpperCase() + m.slice(1);
+  const activeBtn = document.getElementById(activeId);
+  if (activeBtn) activeBtn.classList.replace('inactive', 'active'); 
+  
+  if(document.getElementById('sDate').value) runSearch(); 
+}
+
+
+// --- 3. AMBIL DATA DARI SUPABASE (PERBAIKAN FILTER CABANG HURUF KECIL/KAPITAL) ---
+async function runSearch() { 
+  const start = document.getElementById('sDate').value;
+  const end = document.getElementById('eDate').value;
+  const branch = document.getElementById('sBranch').value;
+
+  if (!start || !end) {
+    Swal.fire({ icon: 'warning', title: 'Peringatan', text: 'Pilih rentang tanggal!' });
+    return;
+  }
+
+  Swal.fire({
+    title: 'Memproses Data...',
+    text: 'Mohon tunggu sebentar',
+    allowOutsideClick: false,
+    didOpen: () => { Swal.showLoading(); }
+  });
+
+  try {
+    let query = dbClient
+      .from('Data_Penjualan')
+      .select('*')
+      .gte('Tanggal', start)
+      .lte('Tanggal', end)
+      .order('Tanggal', { ascending: true });
+
+    // Jangan di-uppercase otomatis jika di database menggunakan huruf kecil
+    if (branch && branch !== 'all') {
+      query = query.eq('ID_Cabang', branch); 
+    }
+
+    let { data, error } = await query;
+    if (error) throw error;
+
+    Swal.close();
+
+    let formattedData = (data || []).map(row => {
+      let tglStr = row.Tanggal ? row.Tanggal.toString().split('T')[0] : '';
+      let hariStr = row.Hari || '';
+
+      let posVal = Number(row.Sales_PosX) || 0;
+      let fPVal = Number(row.Freq_PosX) || 0;
+      let grabVal = Number(row.Sales_Grabmart) || 0;
+      let fGVal = Number(row.Freq_Grabm) || Number(row.Freq_Grabmart) || 0;
+      
+      let totalVal = Number(row.Total_Sales) || (posVal + grabVal);
+      let totalFreq = Number(row.Total_Freq) || (fPVal + fGVal);
+
+      return {
+        tgl: tglStr,
+        hari: hariStr,
+        cabang: (row.ID_Cabang || '').toUpperCase(), // Tampilkan di tabel tetap huruf kapital agar rapi
+        pos: posVal,
+        fP: fPVal,
+        grab: grabVal,
+        fG: fGVal,
+        totalVal: totalVal,
+        totalFreq: totalFreq
+      };
+    });
+
+    if (reportMode === 'bulan' || reportMode === 'tahun') {
+      let aggregatedMap = {};
+      formattedData.forEach(item => {
+        let key = reportMode === 'bulan' ? item.tgl.substring(0, 7) : item.tgl.substring(0, 4);
+        let groupKey = key + "_" + item.cabang;
+        if (!aggregatedMap[groupKey]) {
+          aggregatedMap[groupKey] = {
+            tgl: key,
+            hari: '',
+            cabang: item.cabang,
+            pos: 0, fP: 0, grab: 0, fG: 0, totalVal: 0, totalFreq: 0
+          };
+        }
+        aggregatedMap[groupKey].pos += item.pos;
+        aggregatedMap[groupKey].fP += item.fP;
+        aggregatedMap[groupKey].grab += item.grab;
+        aggregatedMap[groupKey].fG += item.fG;
+        aggregatedMap[groupKey].totalVal += item.totalVal;
+        aggregatedMap[groupKey].totalFreq += item.totalFreq;
+      });
+      formattedData = Object.values(aggregatedMap);
+    }
+
+    reportData = formattedData;
+    renderReportTable(formattedData);
+
+  } catch (err) {
+    Swal.close();
+    Swal.fire({ icon: 'error', title: 'Gagal', text: 'Gagal memuat data dari database!' });
+    console.error("Error runSearch Supabase:", err);
+  }
+}
+
+
+// --- 4. RENDER TABEL LAPORAN (MENGUBAH RPS MENJADI SEMUA CABANG) ---
+function renderReportTable(data) {
+  let h = "", tP = 0, tFP = 0, tG = 0, tFG = 0, tV = 0, tFT = 0;
+  const selectedBranch = document.getElementById('sBranch')?.value || 'all';
+
+  let displayData = data;
+  if (selectedBranch === "all") {
+    const grouped = {};
+    data.forEach(r => {
+      const tgl = r.tgl;
+      if (!grouped[tgl]) {
+        // Diubah dari 'RPS' menjadi 'SEMUA CABANG'
+        grouped[tgl] = { tgl: tgl, cabang: 'SEMUA CABANG', pos: 0, fP: 0, grab: 0, fG: 0, totalVal: 0, totalFreq: 0, hari: r.hari };
+      }
+      grouped[tgl].pos += (r.pos || 0);
+      grouped[tgl].fP += (r.fP || 0);
+      grouped[tgl].grab += (r.grab || 0);
+      grouped[tgl].fG += (r.fG || 0);
+      grouped[tgl].totalVal += (r.totalVal || 0);
+      grouped[tgl].totalFreq += (r.totalFreq || 0);
+    });
+    displayData = Object.values(grouped);
+  }
+
+  displayData.forEach(r => {
+    tP += (r.pos || 0); tFP += (r.fP || 0); tG += (r.grab || 0); 
+    tFG += (r.fG || 0); tV += (r.totalVal || 0); tFT += (r.totalFreq || 0);
+
+    const hari = (r.hari || "").toString().trim().toLowerCase(); 
+    const isWeekend = (hari === "sabtu" || hari === "minggu");
+    const weekendClass = isWeekend ? 'bg-red-500/[0.15] !bg-red-500/[0.15]' : '';
+    const displayHari = (r.hari || "").toString().trim();
+
+    h += `
+    <tr class="hover:bg-white/[0.05] border-b border-white/[0.02] ${weekendClass}">
+      <td class="py-2 px-2 text-white font-bold text-xs">
+        <div class="flex flex-col">
+          <span>${r.tgl}</span>
+          <span class="text-[9px] capitalize opacity-90">${displayHari}</span>
+        </div>
+      </td>
+      <td class="py-2 px-2 font-black ${selectedBranch === 'all' ? 'text-yellow-400' : 'text-white'} uppercase text-xs">${r.cabang}</td>
+      <td class="py-2 px-2 text-cyan-400 font-semibold italic text-xs text-right">Rp ${fmt(Math.round(r.pos || 0))}</td>
+      <td class="py-2 px-2 text-cyan-400/60 font-bold text-xs text-center">${fmt(Math.round(r.fP || 0))}</td>
+      <td class="py-2 px-2 text-green-400 font-semibold italic text-xs text-right">Rp ${fmt(Math.round(r.grab || 0))}</td>
+      <td class="py-2 px-2 text-green-400/60 font-bold text-xs text-center">${fmt(Math.round(r.fG || 0))}</td>
+      <td class="py-2 px-2 text-white font-black italic text-sm text-right">Rp ${fmt(Math.round(r.totalVal || 0))}</td>
+      <td class="py-2 px-2 text-gray-400 font-bold text-xs text-center">${fmt(Math.round(r.totalFreq || 0))}</td>
+    </tr>`;
+  });
+
+  reportSums = { tP, tFP, tG, tFG, tV, tFT };
+  document.getElementById('searchResult').innerHTML = h;
+
+  document.getElementById('searchFooter').innerHTML = `
+    <tr class="bg-white/[0.03] font-bold border-t border-white/10">
+      <td colspan="2" class="py-3 px-4 text-right text-[8px] uppercase tracking-wider text-gray-500">Summary</td>
+      <td class="py-3 px-2 text-cyan-400 text-sm text-right">Rp ${fmt(Math.round(tP))}</td>
+      <td class="py-3 px-2 text-cyan-400/70 text-sm text-center">${fmt(Math.round(tFP))}</td>
+      <td class="py-3 px-2 text-green-400 text-sm text-right">Rp ${fmt(Math.round(tG))}</td>
+      <td class="py-3 px-2 text-green-400/70 text-sm text-center">${fmt(Math.round(tFG))}</td>
+      <td class="py-3 px-2 text-white text-base text-right bg-white/[0.05]">Rp ${fmt(Math.round(tV))}</td>
+      <td class="py-3 px-2 text-gray-400 text-sm text-center">${fmt(Math.round(tFT))}</td>
+    </tr>`;
+}
+
+
+// --- 5. FILTER MAX / MIN & RESET ---
+function filterReport(type, col) {
+    if (!reportData || reportData.length === 0) return;
+
+    const activeId = 'btn' + type.charAt(0).toUpperCase() + type.slice(1) + col.charAt(0).toUpperCase() + col.slice(1);
+    
+    ['btnMaxPos', 'btnMaxGrab', 'btnMinPos', 'btnMinGrab'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.classList.remove('active');
+            el.classList.add('inactive');
+        }
+    });
+
+    const activeBtn = document.getElementById(activeId);
+    if (activeBtn) {
+        activeBtn.classList.remove('inactive');
+        activeBtn.classList.add('active');
+    }
+
+    let sorted = [...reportData];
+    const key = col === 'pos' ? 'pos' : 'grab';
+    if (type === 'max') sorted.sort((a, b) => b[key] - a[key]);
+    else sorted.sort((a, b) => a[key] - b[key]);
+    
+    renderReportTable([sorted[0]]);
+}
+
+function clearSearch() { 
+  ["sDate", "eDate"].forEach(id => document.getElementById(id).value = ""); 
+  document.getElementById('sBranch').value = "all"; 
+  document.getElementById('searchResult').innerHTML = ""; 
+  document.getElementById('searchFooter').innerHTML = ""; 
+}
+
+
+// --- 6. EKSPOR EXCEL & PDF ---
+function askFileName(mode) {
+  if (reportData.length === 0) {
+    return Swal.fire({ icon: 'warning', title: 'Data kosong!' });
+  }
+  Swal.fire({
+    title: 'Ekspor Data',
+    input: 'text',
+    inputLabel: 'Masukkan Nama File',
+    inputValue: 'Laporan_Sales',
+    showCancelButton: true,
+    confirmButtonColor: '#22d3ee',
+    confirmButtonText: 'EKSPOR SEKARANG'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      const name = result.value || 'Export_File';
+      if (mode === 'excel') exportExcel(name);
+      if (mode === 'pdf') exportPDF(name);
+    }
+  });
+}
+
+function getMeta() {
+  const s = document.getElementById('sDate').value || '-';
+  const e = document.getElementById('eDate').value || '-';
+  const b = document.getElementById('sBranch').value.toUpperCase();
+  const time = new Date().toLocaleString('id-ID');
+  
+  // Mengambil nama user yang konsisten dengan PDF (dari elemen halaman atau session)
+  const namaUser = document.getElementById('navUserName')?.innerText || (session?.username || 'ADMIN');
+
+  return { 
+    title: "LAPORAN PENJUALAN", 
+    period: `${s} s/d ${e}`, 
+    branch: b, 
+    user: namaUser.toUpperCase(), 
+    time: time 
+  };
+}
+
+function exportExcel(fileName) {
+  const m = getMeta();
+  const head = [
+    ["JUDUL:", m.title], 
+    ["PERIODE:", m.period], 
+    ["CABANG:", m.branch], 
+    ["USER:", m.user], 
+    ["WAKTU:", m.time], 
+    []
+  ];
+
+  const exportList = reportData.map(r => ({ 
+    "Periode": r.tgl, 
+    "Cabang": r.cabang, 
+    "PosX Sales": r.pos, 
+    "PosX Qty": r.fP, 
+    "Grab Sales": r.grab, 
+    "Grab Qty": r.fG, 
+    "Total Sales": r.totalVal, 
+    "Total Qty": r.totalFreq 
+  }));
+
+  if(reportSums) { 
+    exportList.push({ 
+      "Periode": "SUMMARY TOTAL", 
+      "Cabang": "-", 
+      "PosX Sales": reportSums.tP, 
+      "PosX Qty": reportSums.tFP, 
+      "Grab Sales": reportSums.tG, 
+      "Grab Qty": reportSums.tFG, 
+      "Total Sales": reportSums.tV, 
+      "Total Qty": reportSums.tFT 
+    }); 
+  }
+
+  const ws = XLSX.utils.aoa_to_sheet(head);
+  XLSX.utils.sheet_add_json(ws, exportList, { origin: -1 });
+
+  ws['!cols'] = [
+    { wch: 20 }, { wch: 12 }, { wch: 15 }, { wch: 10 }, 
+    { wch: 15 }, { wch: 10 }, { wch: 18 }, { wch: 12 }
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Laporan");
+  XLSX.writeFile(wb, `${fileName}.xlsx`);
+}
+// --- FUNGSI EKSPOR PDF DENGAN KONVERSI LOGO BASE64 SUPABASE ---
+async function exportPDF(fileName) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF('l');
+  const m = getMeta();
+  const namaUser = document.getElementById('navUserName')?.innerText || m.user;
+  const now = new Date().toLocaleString('id-ID', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+  let logoBase64 = null;
+
+  try {
+    // 1. Ambil file logo langsung sebagai Blob dari Supabase Storage
+    const { data, error } = await dbClient.storage.from('logo').download('logo.jpg');
+    if (!error && data) {
+      // 2. Konversi Blob menjadi Base64 agar dapat dibaca sempurna oleh jsPDF
+      logoBase64 = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(data);
+      });
+    }
+  } catch (e) {
+    console.warn("Gagal memuat logo dari Supabase Storage:", e);
+  }
+
+  // 3. Cetak PDF (dengan atau tanpa logo)
+  generatePDFContent(doc, m, namaUser, now, fileName, logoBase64);
+}
+
+function generatePDFContent(doc, m, namaUser, now, fileName, logoBase64) {
+  // Jika logo berhasil dimuat dalam bentuk base64, masukkan ke PDF
+  if (logoBase64) {
+    doc.addImage(logoBase64, 'JPEG', 14, 8, 14, 16);
+  }
+
+  let body = reportData.map(r => [r.tgl, r.cabang, fmt(r.pos), r.fP, fmt(r.grab), r.fG, fmt(r.totalVal), fmt(r.totalFreq)]);
+  if(reportSums) { 
+    body.push([{content: 'SUMMARY TOTAL', colSpan: 2, styles: {fillColor: [200, 200, 200], fontStyle: 'bold'}}, fmt(reportSums.tP), reportSums.tFP, fmt(reportSums.tG), reportSums.tFG, fmt(reportSums.tV), fmt(reportSums.tFT)]); 
+  }
+
+  doc.setFontSize(14);
+  doc.setFont("helvetica", "bold");
+  doc.text("PT. RITEL PERKAKAS SOLUSINDO", 32, 12);
+
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.text(`${m.title} (${fileName})`, 32, 17);
+
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "normal");
+  doc.text(`Periode: ${m.period} | Cabang: ${m.branch} | User: ${namaUser} | Dicetak: ${now}`, 32, 22);
+
+  doc.setLineWidth(0.5);
+  doc.line(14, 25, 283, 25);
+
+  doc.autoTable({ 
+    startY: 28, 
+    head: [['Periode', 'Unit', 'PosX', 'Qty P', 'Grab', 'Qty G', 'Total Val', 'Total Qty']], 
+    body: body, 
+    headStyles: { fillColor: [26, 29, 35] }, 
+    styles: { fontSize: 8 } 
+  });
+
+  doc.save(`${fileName}.pdf`);
+}
   </script>
 </body>
 </html>
