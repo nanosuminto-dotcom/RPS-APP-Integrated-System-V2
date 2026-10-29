@@ -1297,9 +1297,9 @@
         </div>
 
         <div class="flex gap-1">
-          <button type="button" onclick="askFileName('anaExcel')" class="bg-green-600/25 hover:bg-green-600 text-green-400 hover:text-white border border-green-600/40 px-3 py-1 rounded text-[8px] font-black uppercase transition active:scale-95">Excel</button>
-          <button type="button" onclick="askFileName('anaPDF')" class="bg-red-600/25 hover:bg-red-600 text-red-400 hover:text-white border border-red-600/40 px-3 py-1 rounded text-[8px] font-black uppercase transition active:scale-95">PDF</button>
-        </div>
+  <button type="button" onclick="askAnaFileName('excel')" class="bg-green-600/25 hover:bg-green-600 text-green-400 hover:text-white border border-green-600/40 px-3 py-1 rounded text-[8px] font-black uppercase transition active:scale-95">Excel</button>
+  <button type="button" onclick="askAnaFileName('pdf')" class="bg-red-600/25 hover:bg-red-600 text-red-400 hover:text-white border border-red-600/40 px-3 py-1 rounded text-[8px] font-black uppercase transition active:scale-95">PDF</button>
+</div>
       </div>
 
     </form>
@@ -6615,6 +6615,449 @@ function generatePDFContent(doc, m, namaUser, now, fileName, logoBase64) {
   });
 
   doc.save(`${fileName}.pdf`);
+}
+// --- VARIABEL GLOBAL ANALISA ---
+let anaData = [];
+let anaSums = null;
+let currentAnaTab = 'pos'; // 'pos', 'grab', 'avg'
+
+// --- 1. PENGATURAN TAB ANALISA ---
+function setAnaTab(mode) {
+  currentAnaTab = mode;
+  
+  const tabs = ['anaBtnPos', 'anaBtnGrab', 'anaBtnAvg'];
+  tabs.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.classList.replace('active', 'inactive');
+    }
+  });
+
+  const activeId = 'anaBtn' + mode.charAt(0).toUpperCase() + mode.slice(1);
+  const activeBtn = document.getElementById(activeId);
+  if (activeBtn) {
+    activeBtn.classList.replace('inactive', 'active');
+  }
+
+  if (anaData && anaData.length > 0) { 
+    renderAnaTable(); 
+  }
+}
+
+
+// --- 2. AMBIL & PROSES DATA ANALISA DARI SUPABASE ---
+async function runAnalysis() {
+  const baseStart = document.getElementById('anaBaseStart').value;
+  const baseEnd = document.getElementById('anaBaseEnd').value;
+  const compStart = document.getElementById('anaCompStart').value;
+  const compEnd = document.getElementById('anaCompEnd').value;
+  
+  if (!baseStart || !baseEnd) {
+    return Swal.fire({ icon: 'info', title: 'Informasi', text: 'Isi range tanggal baru (A) terlebih dahulu!' });
+  }
+
+  Swal.fire({
+    title: 'Menganalisis Data...',
+    text: 'Mohon tunggu, sedang membandingkan data dari database',
+    allowOutsideClick: false,
+    didOpen: () => { Swal.showLoading(); }
+  });
+
+  try {
+    // 1. Ambil daftar cabang aktif dari Ref_Cabang (kecuali office & online)
+    let cabangRes = await dbClient.from('Ref_Cabang').select('*').order('No', { ascending: true });
+    let activeBranches = (cabangRes.data || []).filter(r => {
+      let id = String(r.ID_Cabang || '').trim().toLowerCase();
+      return id !== 'office' && id !== 'online';
+    }).map(r => r.ID_Cabang.toString().trim().toUpperCase());
+
+    // 2. Ambil data Range Baru (A)
+    let queryBase = dbClient.from('Data_Penjualan').select('*').gte('Tanggal', baseStart).lte('Tanggal', baseEnd);
+    let resBase = await queryBase;
+    if (resBase.error) throw resBase.error;
+
+    // 3. Ambil data Range Pembanding (B) jika diisi
+    let resComp = { data: [] };
+    if (compStart && compEnd) {
+      let queryComp = dbClient.from('Data_Penjualan').select('*').gte('Tanggal', compStart).lte('Tanggal', compEnd);
+      resComp = await queryComp;
+      if (resComp.error) throw resComp.error;
+    }
+
+    Swal.close();
+
+    // 4. Agregasi data per cabang secara dinamis
+    let branchMap = {};
+    activeBranches.forEach(b => {
+      branchMap[b] = {
+        branch: b,
+        posV: { valBaru: 0, valLama: 0, countBaru: 0, countLama: 0 },
+        posF: { valBaru: 0, valLama: 0, countBaru: 0, countLama: 0 },
+        grabV: { valBaru: 0, valLama: 0, countBaru: 0, countLama: 0 },
+        grabF: { valBaru: 0, valLama: 0, countBaru: 0, countLama: 0 },
+        totalV: { avgBaru: 0, avgLama: 0, growthAvg: 0 }
+      };
+    });
+
+    // Hitung Range Baru (A)
+    (resBase.data || []).forEach(row => {
+      let b = (row.ID_Cabang || '').toUpperCase();
+      if (!branchMap[b]) {
+        branchMap[b] = {
+          branch: b,
+          posV: { valBaru: 0, valLama: 0, countBaru: 0, countLama: 0 },
+          posF: { valBaru: 0, valLama: 0, countBaru: 0, countLama: 0 },
+          grabV: { valBaru: 0, valLama: 0, countBaru: 0, countLama: 0 },
+          grabF: { valBaru: 0, valLama: 0, countBaru: 0, countLama: 0 },
+          totalV: { avgBaru: 0, avgLama: 0, growthAvg: 0 }
+        };
+      }
+      branchMap[b].posV.valBaru += Number(row.Sales_PosX) || 0;
+      branchMap[b].posF.valBaru += Number(row.Freq_PosX) || 0;
+      branchMap[b].grabV.valBaru += Number(row.Sales_Grabmart) || 0;
+      branchMap[b].grabF.valBaru += Number(row.Freq_Grabm) || Number(row.Freq_Grabmart) || 0;
+      branchMap[b].posV.countBaru += 1;
+    });
+
+    // Hitung Range Pembanding (B)
+    (resComp.data || []).forEach(row => {
+      let b = (row.ID_Cabang || '').toUpperCase();
+      if (!branchMap[b]) {
+        branchMap[b] = {
+          branch: b,
+          posV: { valBaru: 0, valLama: 0, countBaru: 0, countLama: 0 },
+          posF: { valBaru: 0, valLama: 0, countBaru: 0, countLama: 0 },
+          grabV: { valBaru: 0, valLama: 0, countBaru: 0, countLama: 0 },
+          grabF: { valBaru: 0, valLama: 0, countBaru: 0, countLama: 0 },
+          totalV: { avgBaru: 0, avgLama: 0, growthAvg: 0 }
+        };
+      }
+      branchMap[b].posV.valLama += Number(row.Sales_PosX) || 0;
+      branchMap[b].posF.valLama += Number(row.Freq_PosX) || 0;
+      branchMap[b].grabV.valLama += Number(row.Sales_Grabmart) || 0;
+      branchMap[b].grabF.valLama += Number(row.Freq_Grabm) || Number(row.Freq_Grabmart) || 0;
+      branchMap[b].posV.countLama += 1;
+    });
+
+    // Hitung Diff, Growth, dan Average
+    Object.values(branchMap).forEach(item => {
+      // POSX
+      item.posV.diff = item.posV.valBaru - item.posV.valLama;
+      item.posV.growth = item.posV.valLama > 0 ? (((item.posV.valBaru - item.posV.valLama) / item.posV.valLama) * 100).toFixed(1) : (item.posV.valBaru > 0 ? 100 : 0);
+
+      item.posF.diff = item.posF.valBaru - item.posF.valLama;
+      item.posF.growth = item.posF.valLama > 0 ? (((item.posF.valBaru - item.posF.valLama) / item.posF.valLama) * 100).toFixed(1) : (item.posF.valBaru > 0 ? 100 : 0);
+
+      // GRABMART
+      item.grabV.diff = item.grabV.valBaru - item.grabV.valLama;
+      item.grabV.growth = item.grabV.valLama > 0 ? (((item.grabV.valBaru - item.grabV.valLama) / item.grabV.valLama) * 100).toFixed(1) : (item.grabV.valBaru > 0 ? 100 : 0);
+
+      item.grabF.diff = item.grabF.valBaru - item.grabF.valLama;
+      item.grabF.growth = item.grabF.valLama > 0 ? (((item.grabF.valBaru - item.grabF.valLama) / item.grabF.valLama) * 100).toFixed(1) : (item.grabF.valBaru > 0 ? 100 : 0);
+
+      // AVERAGE (Gabungan PosX + Grabmart)
+      let totalBaruA = item.posV.valBaru + item.grabV.valBaru;
+      let totalLamaB = item.posV.valLama + item.grabV.valLama;
+      let daysBaru = item.posV.countBaru || 1;
+      let daysLama = item.posV.countLama || 1;
+
+      item.totalV.avgBaru = totalBaruA / daysBaru;
+      item.totalV.avgLama = totalLamaB / daysLama;
+      item.totalV.growthAvg = item.totalV.avgLama > 0 ? (((item.totalV.avgBaru - item.totalV.avgLama) / item.totalV.avgLama) * 100).toFixed(1) : (item.totalV.avgBaru > 0 ? 100 : 0);
+    });
+
+    anaData = Object.values(branchMap);
+    renderAnaTable();
+
+  } catch (err) {
+    Swal.close();
+    Swal.fire({ icon: 'error', title: 'Kesalahan', text: 'Gagal memproses data analisis!' });
+    console.error("Error runAnalysis Supabase:", err);
+  }
+}
+
+function clearAnalysis() {
+  ["anaBaseStart", "anaBaseEnd", "anaCompStart", "anaCompEnd"].forEach(id => document.getElementById(id).value = "");
+  anaData = []; anaSums = null;
+  document.getElementById('anaResult').innerHTML = "";
+  document.getElementById('anaFooter').innerHTML = "";
+}
+
+
+// --- 3. RENDER TABEL ANALISA ---
+function renderAnaTable() {
+  if (!anaData || anaData.length === 0) return;
+  let h = ""; 
+  
+  const isPos = currentAnaTab === 'pos';
+  const isAvg = currentAnaTab === 'avg';
+  
+  const badge = (diff, g) => {
+    const val = parseFloat(g); 
+    const color = val >= 0 ? 'text-green-400' : 'text-red-400'; 
+    const icon = val >= 0 ? '▲' : '▼';
+    let diffLabel = fmt(Math.round(Math.abs(diff))); 
+    return `<div class="${color} font-black leading-tight">
+              <span class="gap-val" style="font-size: 10px;">${icon} ${diffLabel}</span>
+              <span class="growth-pct" style="font-size: 8px; opacity: 0.7;">${g}%</span>
+            </div>`;
+  };
+
+  let labelBaru = isAvg ? "Avg Sales (A)" : (isPos ? "Sales Baru (A)" : "Grab Baru (A)");
+  let labelLama = isAvg ? "Avg Sales (B)" : (isPos ? "Sales Lama (B)" : "Grab Lama (B)");
+  
+  document.getElementById('anaCol1').innerText = labelBaru;
+  document.getElementById('anaCol2').innerText = labelLama;
+
+  let tB = 0, tL = 0, tFB = 0, tFL = 0;
+
+  anaData.forEach(r => {
+    let valBaru, valLama, diff, growth, fBaru, fLama, fDiff, fGrowth;
+
+    if (isAvg) {
+      valBaru = r.totalV.avgBaru;
+      valLama = r.totalV.avgLama;
+      diff    = valBaru - valLama;
+      growth  = r.totalV.growthAvg;
+      
+      fBaru   = (r.posF.valBaru + r.grabF.valBaru) / (r.posV.countBaru || 1); 
+      fLama   = (r.posF.valLama + r.grabF.valLama) / (r.posV.countLama || 1);
+      fDiff   = fBaru - fLama;
+      fGrowth = fLama > 0 ? (((fBaru - fLama) / fLama) * 100).toFixed(1) : (fBaru > 0 ? 100 : 0);
+    } else {
+      const vSet = isPos ? r.posV : r.grabV; 
+      const fSet = isPos ? r.posF : r.grabF;
+      valBaru = vSet.valBaru; valLama = vSet.valLama; diff = vSet.diff; growth = vSet.growth;
+      fBaru   = fSet.valBaru; fLama   = fSet.valLama; fDiff = fSet.diff; fGrowth = fSet.growth;
+    }
+
+    tB += valBaru; tL += valLama; tFB += fBaru; tFL += fLama;
+
+    h += `
+      <tr class="hover:bg-white/[0.02]">
+        <td class="p-4 font-black text-cyan-400 uppercase sticky left-0 bg-[#252a33] border-r border-white/5">${r.branch}</td>
+        <td class="p-4 text-center font-bold text-white">Rp ${fmt(Math.round(valBaru))}</td>
+        <td class="p-4 text-center text-gray-500 italic">Rp ${fmt(Math.round(valLama))}</td>
+        <td class="p-4 text-center bg-white/5">${badge(diff, growth)}</td>
+        <td class="p-4 text-center font-bold text-white">${fmt(Math.round(fBaru))}</td>
+        <td class="p-4 text-center text-gray-500 italic">${fmt(Math.round(fLama))}</td>
+        <td class="p-4 text-center bg-white/5">${badge(fDiff, fGrowth)}</td>
+      </tr>`;
+  });
+
+  const growV = tL > 0 ? (((tB - tL) / tL) * 100).toFixed(1) : (tB > 0 ? 100 : 0);
+  const growF = tFL > 0 ? (((tFB - tFL) / tFL) * 100).toFixed(1) : (tFB > 0 ? 100 : 0);
+  
+  anaSums = { tB, tL, tFB, tFL, growV, growF };
+  
+  document.getElementById('anaResult').innerHTML = h;
+  document.getElementById('anaFooter').innerHTML = `
+    <tr class="bg-slate-900 font-black border-t-2 border-cyan-500/30">
+      <td class="p-4 text-white uppercase sticky left-0 bg-slate-900">TOTAL</td>
+      <td class="p-4 text-center text-cyan-400">Rp ${fmt(Math.round(tB))}</td>
+      <td class="p-4 text-center text-gray-400">Rp ${fmt(Math.round(tL))}</td>
+      <td class="p-4 text-center bg-black/40">${badge(tB - tL, growV)}</td>
+      <td class="p-4 text-center text-cyan-400">${fmt(Math.round(tFB))}</td>
+      <td class="p-4 text-center text-gray-400">${fmt(Math.round(tFL))}</td>
+      <td class="p-4 text-center bg-black/40">${badge(tFB - tFL, growF)}</td>
+    </tr>`;
+}
+
+
+// --- HELPER METADATA ANALISA ---
+function getAnaMeta() {
+  const baseStart = document.getElementById('anaBaseStart')?.value || '-';
+  const baseEnd = document.getElementById('anaBaseEnd')?.value || '-';
+  const compStart = document.getElementById('anaCompStart')?.value || '-';
+  const compEnd = document.getElementById('anaCompEnd')?.value || '-';
+  const branch = document.getElementById('anaBranch')?.value.toUpperCase() || 'SEMUA CABANG';
+  const time = new Date().toLocaleString('id-ID');
+  const namaUser = document.getElementById('navUserName')?.innerText || (session?.username || 'ADMIN');
+
+  return {
+    periodA: `${baseStart} s/d ${baseEnd}`,
+    periodB: (compStart && compEnd) ? `${compStart} s/d ${compEnd}` : 'Tidak Ada Pembanding',
+    branch: branch,
+    user: namaUser.toUpperCase(),
+    time: time
+  };
+}
+
+
+// --- 1. EKSPOR EXCEL ANALISA ---
+function exportAnaExcel(fileName) {
+  const m = getAnaMeta();
+  const isPos = currentAnaTab === 'pos';
+  const isAvg = currentAnaTab === 'avg';
+  const title = `ANALISA ${isAvg ? 'AVERAGE' : (isPos ? 'POSX' : 'GRABMART')}`;
+
+  const head = [
+    ["JUDUL:", title],
+    ["PERIODE BARU (A):", m.periodA],
+    ["PERIODE PEMBANDING (B):", m.periodB],
+    ["CABANG:", m.branch],
+    ["USER:", m.user],
+    ["WAKTU:", m.time],
+    []
+  ];
+
+  const exportList = anaData.map(r => {
+    let valBaru, valLama, diff, growth;
+    if (isAvg) {
+      valBaru = r.totalV.avgBaru;
+      valLama = r.totalV.avgLama;
+      diff = valBaru - valLama;
+      growth = r.totalV.growthAvg;
+    } else {
+      const v = isPos ? r.posV : r.grabV;
+      valBaru = v.valBaru; valLama = v.valLama; diff = v.diff; growth = v.growth;
+    }
+
+    return {
+      "Unit": r.branch,
+      "Baru (A)": Math.round(valBaru),
+      "Lama (B)": Math.round(valLama),
+      "Gap": Math.round(diff),
+      "Growth (%)": growth
+    };
+  });
+
+  if (anaSums) {
+    exportList.push({
+      "Unit": "SUMMARY TOTAL",
+      "Baru (A)": Math.round(anaSums.tB),
+      "Lama (B)": Math.round(anaSums.tL),
+      "Gap": Math.round(anaSums.tB - anaSums.tL),
+      "Growth (%)": anaSums.growV
+    });
+  }
+
+  const ws = XLSX.utils.aoa_to_sheet(head);
+  XLSX.utils.sheet_add_json(ws, exportList, { origin: -1 });
+
+  ws['!cols'] = [{ wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Analisa");
+  XLSX.writeFile(wb, `${fileName}.xlsx`);
+}
+
+
+// --- 2. EKSPOR PDF ANALISA ---
+async function exportAnaPDF(fileName) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF('l');
+  const m = getAnaMeta();
+  const isPos = currentAnaTab === 'pos';
+  const isAvg = currentAnaTab === 'avg';
+  const title = `ANALISA ${isAvg ? 'AVERAGE' : (isPos ? 'POSX' : 'GRABMART')}`;
+
+  // Ambil logo dari Supabase Storage secara asinkron
+  let logoBase64 = null;
+  try {
+    const { data, error } = await dbClient.storage.from('logo').download('logo.jpg');
+    if (!error && data) {
+      logoBase64 = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(data);
+      });
+    }
+  } catch (e) {
+    console.warn("Gagal memuat logo dari Supabase:", e);
+  }
+
+  if (logoBase64) {
+    doc.addImage(logoBase64, 'JPEG', 14, 8, 14, 16);
+  }
+
+  // Header Kop Laporan
+  doc.setFontSize(14);
+  doc.setFont("helvetica", "bold");
+  doc.text("PT. RITEL PERKAKAS SOLUSINDO", 32, 12);
+
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.text(`${title} (${fileName})`, 32, 17);
+
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "normal");
+  doc.text(`Baru (A): ${m.periodA} | Pembanding (B): ${m.periodB} | Cabang: ${m.branch} | User: ${m.user} | Dicetak: ${m.time}`, 32, 22);
+
+  doc.setLineWidth(0.5);
+  doc.line(14, 25, 283, 25);
+
+  // Body Tabel
+  const body = anaData.map(r => {
+    let valBaru, valLama, diff, growth, fBaru, fLama;
+    if (isAvg) {
+      valBaru = r.totalV.avgBaru;
+      valLama = r.totalV.avgLama;
+      diff = valBaru - valLama;
+      growth = r.totalV.growthAvg;
+      fBaru = (r.posF.valBaru + r.grabF.valBaru) / (r.posV.countBaru || 1);
+      fLama = (r.posF.valLama + r.grabF.valLama) / (r.posV.countLama || 1);
+    } else {
+      const v = isPos ? r.posV : r.grabV;
+      const f = isPos ? r.posF : r.grabF;
+      valBaru = v.valBaru; valLama = v.valLama; diff = v.diff; growth = v.growth;
+      fBaru = f.valBaru; fLama = f.valLama;
+    }
+
+    return [
+      r.branch, 
+      fmt(Math.round(valBaru)), 
+      fmt(Math.round(valLama)), 
+      `${fmt(Math.round(Math.abs(diff)))} (${growth}%)`, 
+      fmt(Math.round(fBaru)), 
+      fmt(Math.round(fLama))
+    ];
+  });
+
+  if (anaSums) {
+    body.push([{
+      content: 'SUMMARY TOTAL', 
+      colSpan: 1, 
+      styles: { fillColor: [200, 200, 200], fontStyle: 'bold' }
+    }, 
+    fmt(Math.round(anaSums.tB)), 
+    fmt(Math.round(anaSums.tL)), 
+    `${fmt(Math.round(Math.abs(anaSums.tB - anaSums.tL)))} (${anaSums.growV}%)`, 
+    fmt(Math.round(anaSums.tFB)), 
+    fmt(Math.round(anaSums.tFL))]);
+  }
+
+  doc.autoTable({ 
+    startY: 28, 
+    head: [['Unit', 'Baru (A)', 'Lama (B)', 'Gap & Growth', 'Freq Baru', 'Freq Lama']], 
+    body: body, 
+    headStyles: { fillColor: [26, 29, 35] },
+    styles: { fontSize: 8 }
+  });
+
+  doc.save(`${fileName}.pdf`);
+}
+function askAnaFileName(mode) {
+  // Mengecek apakah anaData sudah ada isinya
+  if (!anaData || anaData.length === 0) {
+    return Swal.fire({ icon: 'warning', title: 'Data kosong!', text: 'Silakan hitung analisa terlebih dahulu.' });
+  }
+  
+  Swal.fire({
+    title: 'Ekspor Data Analisa',
+    input: 'text',
+    inputLabel: 'Masukkan Nama File',
+    inputValue: 'Laporan_Analisa',
+    showCancelButton: true,
+    confirmButtonColor: '#22d3ee',
+    confirmButtonText: 'EKSPOR SEKARANG'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      const name = result.value || 'Export_Analisa';
+      if (mode === 'excel') exportAnaExcel(name);
+      if (mode === 'pdf') exportAnaPDF(name);
+    }
+  });
 }
   </script>
 </body>
