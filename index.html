@@ -467,16 +467,16 @@
     }
 
     /* ==========================================================
-       9. REDUCED, SMOOTH & GLOBAL LIGHT MODE CONFIGURATION
+       9. SYNCED CHART TEXT CONFIGURATION (MENGIKUTI SIDE MENU)
        ========================================================== */
 
-    /* Latar Belakang Utama (Sedikit lebih redup, warm & smooth, tidak menyilaukan) */
+    /* Latar Belakang Utama */
     body.light-mode {
       background-color: #eef2f6 !important; 
-      color: #334155 !important;
+      color: #1e293b !important;
     }
 
-    /* Memastikan seluruh teks berubah gelap yang lembut dan nyaman */
+    /* Paksa teks umum menjadi tajam */
     body.light-mode p, 
     body.light-mode span, 
     body.light-mode h1, 
@@ -487,11 +487,21 @@
     body.light-mode h6, 
     body.light-mode label, 
     body.light-mode a, 
-    body.light-mode li {
-      color: #334155 !important;
+    body.light-mode li,
+    body.light-mode .text-xs,
+    body.light-mode .text-sm,
+    body.light-mode [class*="text-"] {
+      color: #1e293b !important;
     }
 
-    /* Sidebar, Header, Panel, Kartu, Kontainer & Semua Elemen Gelap/Sticky yang tertinggal */
+    /* Pengecualian khusus untuk teks ber-aksen warna */
+    body.light-mode #headerTitle,
+    body.light-mode .text-cyan-400,
+    body.light-mode .text-cyan-500 {
+      color: #0284c7 !important;
+    }
+
+    /* Sidebar, Header, Panel, Kartu, Kontainer & Tooltip Grafik */
     body.light-mode aside,
     body.light-mode nav,
     body.light-mode header,
@@ -502,13 +512,30 @@
     body.light-mode [class*="bg-slate-"],
     body.light-mode [class*="bg-gray-"],
     body.light-mode [class*="bg-[#"],
-    body.light-mode #tab-logistikAnalysis table thead th,
-    body.light-mode #tab-logistikAnalysis table th,
-    body.light-mode #tab-logistikAnalysis table td {
+    body.light-mode [class*="tooltip"],
+    body.light-mode .apexcharts-tooltip,
+    body.light-mode .chart-tooltip {
       background-color: #ffffff !important;
       border-color: #cbd5e1 !important;
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03) !important;
+      color: #1e293b !important;
+    }
+
+    /* Menyelaraskan teks angka sumbu & legenda grafik agar sama persis dengan warna teks side menu / kontras */
+    body.light-mode .apexcharts-text tspan,
+    body.light-mode .apexcharts-xaxis-label tspan,
+    body.light-mode .apexcharts-yaxis-label tspan,
+    body.light-mode .apexcharts-legend-text,
+    body.light-mode text {
+      fill: #334155 !important; /* Warna senada teks menu yang bersih dan tidak nyaru */
       color: #334155 !important;
+      font-weight: 600 !important;
+    }
+
+    /* Tooltip chart */
+    body.light-mode .apexcharts-tooltip * {
+      color: #1e293b !important;
+      background-color: #ffffff !important;
     }
 
     /* Tombol, Input, Select, Textarea */
@@ -543,18 +570,12 @@
 
     body.light-mode td {
       background-color: #ffffff !important;
-      color: #334155 !important;
+      color: #1e293b !important;
       border: 1px solid #e2e8f0 !important;
     }
 
     body.light-mode tr:nth-child(even) td {
       background-color: #f8fafc !important;
-    }
-
-    /* Judul Utama & Aksen Warna */
-    body.light-mode #headerTitle,
-    body.light-mode .text-cyan-400 {
-      color: #0284c7 !important;
     }
   </style>
 </head>
@@ -2904,12 +2925,9 @@
       </div>
       <div class="grid grid-cols-2 gap-2">
         <div>
-          <label class="text-[7px] text-white/40 uppercase block mb-1">Role</label>
-          <select id="u_role" class="w-full bg-[#2a2a2a] p-2 rounded text-xs text-white border border-[#4a4a4a] outline-none">
-            <option value="USER">User</option>
-            <option value="ADMIN">Admin</option>
-            <option value="OWNER">Owner</option>
-          </select>
+          <label class="text-[7px] text-white/40 uppercase block mb-1">Role (Ketik Manual)</label>
+          <!-- Diubah dari <select> menjadi <input type="text"> agar bisa diketik bebas (Owner, Admin, User, dll) -->
+          <input type="text" id="u_role" placeholder="Owner/Admin/User" class="w-full bg-white/5 p-2 rounded text-xs text-white border border-white/10 outline-none focus:border-cyan-500">
         </div>
         <div>
           <label class="text-[7px] text-white/40 uppercase block mb-1">Cabang</label>
