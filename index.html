@@ -1353,13 +1353,10 @@
           <option value="mingguan">MODE: MINGGUAN</option>
           <option value="bulanan">MODE: BULANAN</option>
         </select>
-        <select id="barBranchFilter" onchange="updateBarChartDashboard()" class="chart-select">
-          <option value="all">SEMUA CABANG</option>
-          <option value="kgd">KGD</option>
-          <option value="cdk">CDK</option>
-          <option value="pkp">PKP</option>
-          <option value="cpy">CPY</option>
-        </select>
+        <select id="barBranchFilter" onchange="updateBarChartDashboard()" class="chart-select uppercase">
+  <option value="all">SEMUA CABANG</option>
+  <!-- Otomatis diisi oleh fungsi initBarDropdowns() dari tabel Ref_Cabang -->
+</select>
         <select id="barSourceSwitch" onchange="updateBarChartDashboard()" class="chart-select">
           <option value="pos">SOURCE: POSX</option>
           <option value="grab">SOURCE: GRABMART</option>
@@ -7443,6 +7440,447 @@ function renderYoYChart(canvasId, yearData, labelText, defaultColor = '#06b6d4')
       }
     }
   });
+}
+// --- INISIALISASI DROPDOWN BAR CHART ---
+async function initBarDropdowns() {
+  try {
+    const branchSelect = document.getElementById('barBranchFilter');
+    if (branchSelect) {
+      let cabangRes = await dbClient.from('Ref_Cabang').select('*').order('No', { ascending: true });
+      let cabangRows = (cabangRes.data || []).filter(r => {
+        let id = String(r.ID_Cabang || '').trim().toLowerCase();
+        return id !== 'office' && id !== 'online';
+      });
+
+      branchSelect.innerHTML = '<option value="all">SEMUA CABANG</option>';
+      cabangRows.forEach(r => {
+        let bCode = r.ID_Cabang.toString().trim().toUpperCase();
+        let opt = document.createElement('option');
+        opt.value = bCode.toLowerCase();
+        opt.innerText = bCode;
+        branchSelect.appendChild(opt);
+      });
+    }
+
+    // Set default tanggal filter (misal: 30 hari terakhir s.d hari ini)
+    const today = new Date();
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(today.getDate() - 30);
+
+    const formatDateInput = (d) => d.toISOString().split('T')[0];
+    
+    const startInput = document.getElementById('barFilterStart');
+    const endInput = document.getElementById('barFilterEnd');
+
+    if (startInput && !startInput.value) startInput.value = formatDateInput(thirtyDaysAgo);
+    if (endInput && !endInput.value) endInput.value = formatDateInput(today);
+
+  } catch (e) {
+    console.error("Gagal memuat dropdown Bar Chart:", e);
+  }
+}
+
+// Panggil saat DOM siap atau saat tab bar chart dibuka
+document.addEventListener('DOMContentLoaded', () => {
+  initBarDropdowns();
+});
+let barSalesChartInstance = null;
+let barFreqChartInstance = null;
+
+// --- 1. INISIALISASI MODULE BAR CHART ---
+function initBarChartModule() {
+    const today = new Date();
+    const firstDay = new Date(today.getFullYear(), 0, 1); // Default awal tahun ini
+    const formatDateInput = (d) => d.toISOString().split('T')[0];
+    
+    const startInput = document.getElementById('barFilterStart');
+    const endInput = document.getElementById('barFilterEnd');
+    
+    if (startInput && !startInput.value) startInput.value = formatDateInput(firstDay);
+    if (endInput && !endInput.value) endInput.value = formatDateInput(today);
+    
+    updateBarChartDashboard();
+}
+
+// --- 2. AMBIL DATA DARI SUPABASE (MENGATASI LIMIT 1000 BARIS) ---
+async function updateBarChartDashboard() {
+    const startDate = document.getElementById('barFilterStart').value;
+    const endDate = document.getElementById('barFilterEnd').value;
+    const branch = document.getElementById('barBranchFilter').value.toLowerCase();
+    const source = document.getElementById('barSourceSwitch').value;
+    const mode = document.getElementById('barModeFilter').value;
+    
+    Swal.fire({ title: 'Memuat Grafik Bar...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    
+    try {
+        let allData = [];
+        let pageSize = 1000;
+        let page = 0;
+        let fetchMore = true;
+
+        while (fetchMore) {
+            let query = dbClient
+                .from('Data_Penjualan')
+                .select('*')
+                .order('Tanggal', { ascending: true })
+                .range(page * pageSize, (page + 1) * pageSize - 1);
+
+            if (startDate) query = query.gte('Tanggal', startDate);
+            if (endDate) query = query.lte('Tanggal', endDate + 'T23:59:59');
+
+            let { data, error } = await query;
+
+            if (error) throw error;
+
+            if (data && data.length > 0) {
+                allData = allData.concat(data);
+                if (data.length < pageSize) {
+                    fetchMore = false;
+                } else {
+                    page++;
+                }
+            } else {
+                fetchMore = false;
+            }
+        }
+
+        Swal.close();
+
+        let filteredData = allData.filter(row => {
+            if (branch !== 'all') {
+                let rowBranch = row.ID_Cabang ? row.ID_Cabang.toString().toLowerCase().trim() : '';
+                if (rowBranch !== branch) return false;
+            }
+            return true;
+        });
+
+        let processedData = processBarData(filteredData, source, mode);
+        renderBarChartUI(processedData, startDate, endDate);
+
+    } catch (err) {
+        Swal.close();
+        console.error("Error getBarChartData Supabase:", err);
+        Swal.fire('Error', err.message || 'Gagal memuat data grafik dari database', 'error');
+    }
+}
+
+// --- 3. PROSES & GROUPING DATA BERDASARKAN MODE (DENGAN FIX FREQ) ---
+function processBarData(data, source, mode) {
+    let grouped = {};
+    let totalSalesAll = 0;
+    let totalFreqAll = 0;
+    let maxValue = -1;
+    let minValue = Infinity;
+    let maxLabel = '-';
+    let minLabel = '-';
+    let maxFreq = 0;
+    let minFreq = 0;
+
+    const daysName = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    const monthsName = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+
+    data.forEach(row => {
+        let rawDate = row.Tanggal ? row.Tanggal.toString().trim() : '';
+        if (!rawDate) return;
+
+        let datePart = rawDate.split('T')[0].split(' ')[0];
+        let p = datePart.split('-');
+        if (p.length !== 3) return;
+
+        let y = parseInt(p[0]);
+        let m = parseInt(p[1]) - 1;
+        let d = parseInt(p[2]);
+
+        let dateObj = new Date(y, m, d);
+        let dayNameStr = daysName[dateObj.getDay()];
+
+        let groupKey = datePart; 
+        let displayLabel = `${d} ${monthsName[m]} ${y}`;
+
+        if (mode === 'bulanan') {
+            groupKey = `${y}-${String(m + 1).padStart(2, '0')}`;
+            displayLabel = `${monthsName[m]} ${y}`;
+            dayNameStr = '';
+        } else if (mode === 'mingguan') {
+            let startOfYear = new Date(y, 0, 1);
+            let weekNum = Math.ceil((((dateObj - startOfYear) / 86400000) + startOfYear.getDay() + 1) / 7);
+            groupKey = `${y}-W${weekNum}`;
+            displayLabel = `Minggu ${weekNum}, ${y}`;
+            dayNameStr = `${y}`;
+        }
+
+        // Ambil nilai sales sesuai source
+        let salesVal = source === 'pos' 
+            ? (row.Sales_PosX !== null ? Number(row.Sales_PosX) : 0)
+            : (row.Sales_Grabmart !== null ? Number(row.Sales_Grabmart) : 0);
+
+        // Ambil nilai frekuensi secara aman (mendukung Freq_PosX, Freq_Grabmart, atau Freq_Grabm)
+        let freqVal = 0;
+        if (source === 'pos') {
+            freqVal = row.Freq_PosX !== null ? Number(row.Freq_PosX) : 0;
+        } else {
+            if (row.Freq_Grabmart !== null && row.Freq_Grabmart !== undefined) {
+                freqVal = Number(row.Freq_Grabmart);
+            } else if (row.Freq_Grabm !== null && row.Freq_Grabm !== undefined) {
+                freqVal = Number(row.Freq_Grabm);
+            }
+        }
+
+        if (!grouped[groupKey]) {
+            grouped[groupKey] = {
+                label: displayLabel,
+                day: dayNameStr,
+                sales: 0,
+                freq: 0
+            };
+        }
+
+        grouped[groupKey].sales += salesVal;
+        grouped[groupKey].freq += freqVal;
+    });
+
+    let rows = Object.values(grouped);
+
+    rows.forEach(r => {
+        totalSalesAll += r.sales;
+        totalFreqAll += r.freq;
+
+        if (r.sales > maxValue) {
+            maxValue = r.sales;
+            maxLabel = r.label;
+            maxFreq = r.freq;
+        }
+        if (r.sales > 0 && r.sales < minValue) {
+            minValue = r.sales;
+            minLabel = r.label;
+            minFreq = r.freq;
+        }
+    });
+
+    if (minValue === Infinity) minValue = 0;
+
+    let summary = {
+        totalSales: totalSalesAll,
+        totalFreq: totalFreqAll,
+        count: rows.length,
+        maxValue: maxValue,
+        minValue: minValue,
+        maxLabel: maxLabel,
+        minLabel: minLabel,
+        maxFreq: maxFreq,
+        minFreq: minFreq
+    };
+
+    return { summary, rows };
+}
+
+// --- 4. RENDER UI & TABEL ---
+function renderBarChartUI(dataObj, startStr, endStr) {
+    const summary = dataObj.summary;
+    const rows = dataObj.rows;
+    
+    // 1. Card 1: Total Sales
+    document.getElementById('barSalesTotal').innerText = "Rp " + summary.totalSales.toLocaleString('id-ID');
+    
+    // 2. Card 2: Average Sales per Periode/Hari
+    let avgPerDay = summary.count > 0 ? summary.totalSales / summary.count : 0;
+    document.getElementById('barSalesAverage').innerText = "Rp " + Math.round(avgPerDay).toLocaleString('id-ID');
+    
+    // 3. Card 3: AOV (Average Order Value)
+    let aovVal = summary.totalFreq > 0 ? summary.totalSales / summary.totalFreq : 0;
+    document.getElementById('barAovCard').innerText = "Rp " + Math.round(aovVal).toLocaleString('id-ID');
+
+    document.getElementById('barDateRangeLabel').innerText = (startStr || 'Awal') + " s/d " + (endStr || 'Akhir');
+    
+    const freqTotalElem = document.getElementById('barFreqTotal');
+    if (freqTotalElem) freqTotalElem.innerText = summary.totalFreq.toLocaleString('id-ID');
+
+    // --- RENDER TABEL SUMMARY STATS ---
+    document.getElementById('barMaxValue').innerText = "Rp " + summary.maxValue.toLocaleString('id-ID');
+    const maxFreqEl = document.getElementById('barMaxFreq');
+    if (maxFreqEl) maxFreqEl.innerText = "Freq: " + (summary.maxFreq || 0).toLocaleString('id-ID');
+    document.getElementById('barMaxLabel').innerHTML = `${summary.maxLabel} <span class="text-white/40 text-[10px] block font-normal">${summary.maxDay || ''}</span>`;
+    
+    document.getElementById('barMinValue').innerText = "Rp " + summary.minValue.toLocaleString('id-ID');
+    const minFreqEl = document.getElementById('barMinFreq');
+    if (minFreqEl) minFreqEl.innerText = "Freq: " + (summary.minFreq || 0).toLocaleString('id-ID');
+    document.getElementById('barMinLabel').innerHTML = `${summary.minLabel} <span class="text-white/40 text-[10px] block font-normal">${summary.minDay || ''}</span>`;
+
+    let totalSalesRows = rows.reduce((acc, r) => acc + (r.sales || 0), 0);
+    let avgSalesRows = rows.length > 0 ? Math.round(totalSalesRows / rows.length) : 0;
+    document.getElementById('barAvgValue').innerText = "Rp " + avgSalesRows.toLocaleString('id-ID');
+    
+    // --- RENDER TABEL 1: FILTERED RANGE TABLE ---
+    const tbody = document.getElementById('barMonthlyTableBody');
+    tbody.innerHTML = '';
+    if (rows.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="2" class="p-3 text-center text-white/40">Tidak ada data</td></tr>';
+    } else {
+        rows.forEach(r => {
+            tbody.innerHTML += `
+                <tr class="border-b border-white/5 hover:bg-white/5">
+                    <td class="py-2 px-1 text-white">
+                        <div class="font-medium">${r.label}</div>
+                        <div class="text-[10px] text-white/40">${r.day || ''}</div>
+                    </td>
+                    <td class="py-2 px-1 text-right align-top">
+                        <div class="font-bold text-emerald-400">Rp ${r.sales.toLocaleString('id-ID')}</div>
+                        <div class="text-[9px] text-purple-300">${(r.freq || 0).toLocaleString('id-ID')} Trx</div>
+                    </td>
+                </tr>`;
+        });
+    }
+
+    // --- RENDER TABEL 2: GROWTH PER PERIODE ---
+    const growthBody = document.getElementById('barGrowthTableBody');
+    growthBody.innerHTML = '';
+    
+    if (rows.length < 2) {
+        growthBody.innerHTML = '<tr><td colspan="3" class="p-3 text-center text-white/40">Butuh minimal 2 periode data</td></tr>';
+    } else {
+        for (let i = 1; i < rows.length; i++) {
+            let prev = rows[i - 1];
+            let curr = rows[i];
+            
+            let diffNominal = curr.sales - prev.sales;
+            let diffPercent = prev.sales > 0 ? (diffNominal / prev.sales) * 100 : (curr.sales > 0 ? 100 : 0);
+            
+            let prevFreq = prev.freq !== undefined ? prev.freq : 0;
+            let currFreq = curr.freq !== undefined ? curr.freq : 0;
+            let diffFreq = currFreq - prevFreq;
+            let diffFreqPercent = prevFreq > 0 ? (diffFreq / prevFreq) * 100 : (currFreq > 0 ? 100 : 0);
+            
+            let sign = diffNominal > 0 ? "+" : "";
+            let colorClass = diffNominal > 0 ? "text-emerald-400" : (diffNominal < 0 ? "text-rose-400" : "text-white");
+
+            let signFreq = diffFreq > 0 ? "+" : "";
+            let colorFreqClass = diffFreq > 0 ? "text-emerald-400" : (diffFreq < 0 ? "text-rose-400" : "text-white/60");
+            
+            growthBody.innerHTML += `
+                <tr class="border-b border-white/5 hover:bg-white/5">
+                    <td class="py-2 px-1 text-white">
+                        <div class="font-medium">${curr.label}</div>
+                        <div class="text-[9px] text-white/40">vs ${prev.label}</div>
+                    </td>
+                    <td class="py-2 px-1 text-right">
+                        <div class="font-bold ${colorClass}">${sign}Rp ${diffNominal.toLocaleString('id-ID')}</div>
+                        <div class="text-[9px] ${colorFreqClass}">${signFreq}${diffFreq.toLocaleString('id-ID')} Trx</div>
+                    </td>
+                    <td class="py-2 px-1 text-right">
+                        <div class="font-bold ${colorClass}">${sign}${diffPercent.toFixed(1)}%</div>
+                        <div class="text-[9px] ${colorFreqClass}">${signFreq}${diffFreqPercent.toFixed(1)}%</div>
+                    </td>
+                </tr>`;
+        }
+    }
+
+    // --- RENDER TABEL 3: AVERAGE (AVG) DATA KELOMPOK ---
+    const avgBody = document.getElementById('barAvgTableBody');
+    if (avgBody) {
+        avgBody.innerHTML = '';
+        if (rows.length === 0) {
+            avgBody.innerHTML = '<tr><td colspan="2" class="p-3 text-center text-white/40">Tidak ada data</td></tr>';
+        } else {
+            rows.forEach(r => {
+                avgBody.innerHTML += `
+                    <tr class="border-b border-white/5 hover:bg-white/5">
+                        <td class="py-2 px-1 text-white/80">
+                            <div class="font-medium">${r.label}</div>
+                            <div class="text-[9px] text-white/40">${r.day}</div>
+                        </td>
+                        <td class="py-2 px-1 text-right">
+                            <div class="font-bold text-cyan-400">Rp ${r.sales.toLocaleString('id-ID')}</div>
+                            <div class="text-[9px] text-purple-300">Freq: ${r.freq.toLocaleString('id-ID')}</div>
+                        </td>
+                    </tr>`;
+            });
+        }
+    }
+    
+    renderBarChartsCanvas(rows);
+}
+
+// --- 5. RENDER CHART CANVAS ---
+function renderBarChartsCanvas(rows) {
+    const labels = rows.map(r => r.label);
+    const salesData = rows.map(r => r.sales);
+    const freqData = rows.map(r => r.freq);
+    
+    const formatSmart = (value) => {
+        if (value >= 1000000) {
+            return (value / 1000000).toFixed(1).replace('.', ',') + 'M';
+        } else if (value >= 1000) {
+            return (value / 1000).toFixed(0) + 'K';
+        }
+        return value;
+    };
+    
+    const createConfig = (dataValues, isCurrency = true) => ({
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: dataValues,
+                backgroundColor: isCurrency ? 'rgba(16, 185, 129, 0.7)' : 'rgba(168, 85, 247, 0.7)',
+                borderColor: isCurrency ? 'rgba(16, 185, 129, 1)' : 'rgba(168, 85, 247, 1)',
+                borderWidth: 1,
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { 
+                legend: { display: false },
+                datalabels: {
+                    anchor: 'end',      
+                    align: 'top',      
+                    color: '#ffffff',   
+                    font: {
+                        size: 10,
+                        weight: 'bold'
+                    },
+                    formatter: function(value) {
+                        return isCurrency ? formatSmart(value) : value; 
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let val = context.raw || 0;
+                            return isCurrency ? " Sales: Rp " + val.toLocaleString('id-ID') : " Freq: " + val;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: { 
+                    ticks: { color: '#ffffff', font: { size: 10, weight: 'bold' } }, 
+                    grid: { display: false } 
+                },
+                y: { 
+                    grace: '15%',
+                    ticks: { 
+                        color: '#ffffff', 
+                        font: { size: 10, weight: 'bold' },
+                        callback: function(value) {
+                            return isCurrency ? formatSmart(value) : value;
+                        }
+                    }, 
+                    grid: { color: 'rgba(255,255,255,0.1)' } 
+                }
+            }
+        },
+        plugins: [ChartDataLabels]
+    });
+
+    const ctxSales = document.getElementById('cBarSalesMulti').getContext('2d');
+    if (barSalesChartInstance) barSalesChartInstance.destroy();
+    barSalesChartInstance = new Chart(ctxSales, createConfig(salesData, true));
+
+    const ctxFreq = document.getElementById('cBarFreqMulti').getContext('2d');
+    if (barFreqChartInstance) barFreqChartInstance.destroy();
+    barFreqChartInstance = new Chart(ctxFreq, createConfig(freqData, false));
 }
   </script>
 </body>
