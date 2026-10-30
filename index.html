@@ -9517,7 +9517,10 @@ var beliCurrentPage = 1;
 var beliPageSize = 15; 
 
 // ==========================================
-// 1. FUNGSI LOAD DATA PEMBELIAN DARI SUPABASE (FIX TANGGAL)
+// 1. FUNGSI LOAD DATA PEMBELIAN DARI SUPABASE
+// ==========================================
+// ==========================================
+// 1. FUNGSI LOAD DATA PEMBELIAN DARI SUPABASE (FIX KOLOM tglinvbeli)
 // ==========================================
 async function loadBeliTab() {
   const tableBody = document.getElementById('beliTableBody');
@@ -9562,20 +9565,16 @@ async function loadBeliTab() {
 
     const beliRows = await fetchAllRows(`${DB_URL}/rest/v1/Data_Beli?select=*`);
 
-    // Mapping data dengan mendeteksi berbagai variasi nama kolom tanggal dari database
+    // Mapping data: Langsung ambil dari kolom tglinvbeli sesuai database Anda
     allBeliData = (Array.isArray(beliRows) ? beliRows : []).map(row => {
-      const tglInvVal = row.tglinv || row.tgl_inv || row.tanggal || row.tgl || row.date || '';
-      const invBeliVal = row.invbeli || row.no_invoice || row.inv || row.noinvoice || '';
-      const tglJTVal = row.tgljt || row.tgl_jt || row.jatuh_tempo || '';
-
       return {
-        tglInv: tglInvVal,
-        noInvoice: invBeliVal,
+        tglInv: row.tglinvbeli || row.tglinv || row.tgl_inv || row.tanggal || row.tgl || '',
+        noInvoice: row.invbeli || row.no_invoice || row.inv || '',
         kodeSupp: row.kodesupp || row.kode_supp || '',
         namaSupp: row.namasupp || row.nama_supp || '',
         cabang: (row.ID_Cabang || row.id_cabang || row.cabang || '').trim().toUpperCase(),
         tempo: parseInt(row.tempo || 0, 10),
-        tglJT: tglJTVal,
+        tglJT: row.tgljt || row.tgl_jt || '',
         nilai: parseFloat(row.nombeli || row.nom_beli || row.nilai || row.nominal || 0),
         status: (row.statusbeli || row.status || 'SIMPAN').toUpperCase(),
         tglKirim: row.tglkirim || ''
@@ -9583,10 +9582,10 @@ async function loadBeliTab() {
     }).sort((a, b) => {
       const dateA = a.tglInv ? new Date(a.tglInv) : new Date(0);
       const dateB = b.tglInv ? new Date(b.tglInv) : new Date(0);
-      return dateB - dateA;
+      return dateB - dateA; // Urutkan dari tanggal terbaru
     });
 
-    applyBeliFilter(); // Jalankan filter dan render tabel
+    applyBeliFilter(); 
 
   } catch (err) {
     console.error("Gagal memuat data Beli:", err);
@@ -9895,18 +9894,18 @@ function prosesImportBeli() {
         let statusbeli = String(getVal(['statusbeli', 'status']) || 'SIMPAN').toUpperCase();
 
         if (formattedDate && invbeli) {
-          batchPayloads.push({
-            tglinv: formattedDate,
-            invbeli: invbeli,
-            kodesupp: kodesupp,
-            namasupp: namasupp,
-            ID_Cabang: ID_Cabang,
-            tempo: isNaN(tempo) ? 0 : tempo,
-            tgljt: formattedJT || null,
-            nombeli: isNaN(nomBeliVal) ? 0 : nomBeliVal,
-            statusbeli: statusbeli
-          });
-        }
+  batchPayloads.push({
+    tglinvbeli: formattedDate, // Disesuaikan dengan nama kolom database
+    invbeli: invbeli,
+    kodesupp: kodesupp,
+    namasupp: namasupp,
+    ID_Cabang: ID_Cabang,
+    tempo: isNaN(tempo) ? 0 : tempo,
+    tgljt: formattedJT || null,
+    nombeli: isNaN(nomBeliVal) ? 0 : nomBeliVal,
+    statusbeli: statusbeli
+  });
+}
       });
 
       if (batchPayloads.length === 0) {
@@ -9960,15 +9959,12 @@ function prosesImportBeli() {
 }
 
 // ==========================================
-// 6. HELPER FORMAT TANGGAL & RIBUAN
-// ==========================================
-// HELPER FORMAT TANGGAL (PERBAIKAN FORMAT SUPABASE)
+// 6. HELPER FORMAT TANGGAL & RIBUAN (FIX RENDER TGL)
 // ==========================================
 function formatTglIndo(tglStr) {
   if (!tglStr || tglStr === "-") return "-";
   
   try {
-    // Ambil bagian tanggal saja jika ada format waktu (misal: 2026-10-31T00:00:00)
     let cleanStr = String(tglStr).split('T')[0].split(' ')[0];
     let p = cleanStr.split(/[-/]/);
 
@@ -9978,13 +9974,12 @@ function formatTglIndo(tglStr) {
 
     let y, m, d;
 
-    // Cek apakah format dari database YYYY-MM-DD (Tahun di depan)
+    // Menangani format YYYY-MM-DD dari Supabase
     if (p[0].length === 4) {
       y = p[0];
       m = p[1];
       d = p[2];
     } else {
-      // Format DD-MM-YYYY (Hari di depan)
       d = p[0];
       m = p[1];
       y = p[2];
@@ -9993,7 +9988,7 @@ function formatTglIndo(tglStr) {
     let tgl = String(d).padStart(2, '0');
     let blnIdx = parseInt(m, 10) - 1;
     let bln = isNaN(blnIdx) ? m.substring(0, 3) : (namaBulan[blnIdx] || m);
-    let thn = String(y).slice(-2); // Ambil 2 digit tahun terakhir (contoh: 2026 jadi 26)
+    let thn = String(y).slice(-2); // Mengambil 2 digit terakhir tahun (misal: 2026 menjadi 26)
 
     return `${tgl}-${bln}-${thn}`;
   } catch (e) {
