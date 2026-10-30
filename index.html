@@ -1069,7 +1069,7 @@
 
 </div>
 
-<div id="tab-logistik" class="hidden space-y-6">
+<div id="tab-logistik" class="tab-content hidden space-y-6">
 
   <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
     <div class="glass p-4 border-b-2 border-purple-500">
@@ -1092,21 +1092,20 @@
 
   <div class="space-y-6">
     
+    <!-- Matrik PO Tahunan -->
     <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
       <div class="lg:col-span-3 glass p-4 border-l-4 border-purple-500 min-w-0 relative">
         <div class="flex justify-between items-center mb-3">
           <h3 class="text-[10px] font-black text-purple-400 uppercase italic">Matrik PO Tahunan</h3>
           <select id="filterYearLogistik" onchange="LogistikApp.init()" class="bg-[#1a1a1a] text-purple-400 text-[10px] font-bold border border-purple-500/30 rounded px-2 py-0.5 outline-none focus:border-purple-500 cursor-pointer">
-            <option value="2026">2026</option>
-            <option value="2025">2025</option>
-            <option value="2024">2024</option>
-          </select>
+  <!-- Opsi tahun akan di-generate otomatis oleh JavaScript -->
+</select>
         </div>
         <div class="overflow-x-auto scrollbar-thin">
           <table class="matrix-table text-[9px] w-full border-collapse">
             <thead class="bg-white/5 sticky top-0">
               <tr>
-                <th class="p-2 text-left sticky left-0 bg-[#121212] z-10">Unit</th>
+                <th class="p-2 text-left sticky left-0 bg-[#121212] z-10">Cabang</th>
                 <th>Jan</th><th>Feb</th><th>Mar</th><th>Apr</th><th>Mei</th><th>Jun</th><th>Jul</th><th>Agu</th><th>Sep</th><th>Okt</th><th>Nov</th><th>Des</th>
                 <th class="bg-purple-500/20">Total</th>
               </tr>
@@ -1122,6 +1121,7 @@
       </div>
     </div>
 
+    <!-- Matrik Pembelian Tahunan -->
     <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
       <div class="lg:col-span-3 glass p-4 border-l-4 border-cyan-500 min-w-0 relative">
         <h3 class="text-[10px] font-black text-cyan-400 uppercase mb-3 italic">Matrik Pembelian Tahunan</h3>
@@ -1129,7 +1129,7 @@
           <table class="matrix-table text-[9px] w-full border-collapse">
             <thead class="bg-white/5 sticky top-0">
               <tr>
-                <th class="p-2 text-left sticky left-0 bg-[#121212] z-10">Unit</th>
+                <th class="p-2 text-left sticky left-0 bg-[#121212] z-10">Cabang</th>
                 <th>Jan</th><th>Feb</th><th>Mar</th><th>Apr</th><th>Mei</th><th>Jun</th><th>Jul</th><th>Agu</th><th>Sep</th><th>Okt</th><th>Nov</th><th>Des</th>
                 <th class="bg-cyan-500/20">Total</th>
               </tr>
@@ -1145,6 +1145,7 @@
       </div>
     </div>
 
+    <!-- Matrik Tempo Tahunan -->
     <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
       <div class="lg:col-span-3 glass p-4 border-l-4 border-red-500 min-w-0 relative">
         <h3 class="text-[10px] font-black text-red-400 uppercase mb-3 italic">Matrik Tempo Tahunan</h3>
@@ -1152,7 +1153,7 @@
           <table class="matrix-table text-[9px] w-full border-collapse">
             <thead class="bg-white/5 sticky top-0">
               <tr>
-                <th class="p-2 text-left sticky left-0 bg-[#121212] z-10">Unit</th>
+                <th class="p-2 text-left sticky left-0 bg-[#121212] z-10">Cabang</th>
                 <th>Jan</th><th>Feb</th><th>Mar</th><th>Apr</th><th>Mei</th><th>Jun</th><th>Jul</th><th>Agu</th><th>Sep</th><th>Okt</th><th>Nov</th><th>Des</th>
                 <th class="bg-red-500/20">Total</th>
               </tr>
@@ -1168,7 +1169,7 @@
       </div>
     </div>
 
-  </div> <!-- Penutup untuk <div class="space-y-6"> -->
+  </div> 
 </div> <!-- Penutup untuk <div id="tab-logistik" class="hidden space-y-6"> -->
 <div id="tab-input" class="hidden flex flex-col gap-10 p-2 h-full overflow-y-auto custom-scroll">
 
@@ -1674,7 +1675,7 @@
         <div class="w-full lg:w-28 shrink-0">
           <label class="block text-[7px] text-cyan-500 font-black uppercase mb-1">Status</label>
           <select id="filterPoStatus" onchange="applyPoFilter()" class="input-field text-[10px] h-7 bg-[#1a1f26] border-cyan-500/20">
-            <option value="">- ALL -</option>
+            <option value="">ALL</option>
             <option value="PENDING">PENDING</option>
             <option value="TERKIRIM">TERKIRIM</option>
             <option value="SELESAI">SELESAI</option>
@@ -1687,6 +1688,7 @@
       </div>
     </div>
 
+    <!-- Tabel PO & Kontainer Navigasi Tunggal yang dikelola oleh JavaScript baru -->
     <div class="glass overflow-hidden flex flex-col h-[450px]">
       <div class="overflow-y-auto flex-1 scrollbar-thin">
         <table class="w-full text-left border-collapse text-[11px]">
@@ -1705,13 +1707,8 @@
         </table>
       </div>
       
-      <div class="flex items-center justify-between p-3 bg-white/[0.02] border-t border-white/10 text-[10px] font-bold">
-        <div class="ml-2 uppercase">MENAMPILKAN <span id="poRange" class="text-orange-400">0-0</span> DARI <span id="poTotal">0</span> NOTA</div>
-        <div class="flex gap-2 mr-2">
-          <button onclick="prevPOPage()" id="btnPOPrev" class="px-4 py-1.5 bg-white/5 hover:bg-orange-600 rounded border border-white/10 disabled:opacity-20 transition-all">PREV</button>
-          <button onclick="nextPOPage()" id="btnPONext" class="px-4 py-1.5 bg-white/5 hover:bg-orange-600 rounded border border-white/10 disabled:opacity-20 transition-all">NEXT</button>
-        </div>
-      </div>
+      <!-- Kontainer Navigasi Dinamis (Digenerate otomatis oleh renderPOPaginationControl) -->
+      <div id="poPaginationContainer"></div>
     </div>
   </div>     
  <div id="tab-purchase" class="hidden space-y-4">
@@ -8356,6 +8353,799 @@ function hapusUser(username) {
       });
     }
   });
+}
+function generateYearOptions() {
+  const selectEl = document.getElementById('filterYearLogistik');
+  if (!selectEl) return;
+  
+  const currentYear = new Date().getFullYear(); // Tahun berjalan (2026)
+  let optionsHtml = '';
+  
+  // Looping 3 tahun kebelakang (Tahun ini, tahun lalu, 2 tahun lalu)
+  for (let i = 0; i < 3; i++) {
+    const year = currentYear - i;
+    optionsHtml += `<option value="${year}">${year}</option>`;
+  }
+  
+  selectEl.innerHTML = optionsHtml;
+}
+
+// Panggil fungsi ini saat halaman pertama kali dimuat
+document.addEventListener("DOMContentLoaded", () => {
+  generateYearOptions();
+  LogistikApp.init(); // Jalankan inisialisasi logistik setelah opsi tahun siap
+});
+/**
+ * MODULE LOGISTIK (Auto-Pagination Penuh, Matriks Tempo, & Top Supplier Berbasis kodesupp)
+ */
+const LogistikApp = {
+  init: async function() {
+    this.loader(true);
+    const filterEl = document.getElementById('filterYearLogistik');
+    const year = filterEl ? parseInt(filterEl.value) : new Date().getFullYear();
+    console.log("=== LOGISTIK APP INIT (Tahun:", year, ") ===");
+
+    try {
+      // Helper auto-pagination untuk menarik ribuan baris tanpa terpotong
+      const fetchAllRows = async (baseUrl) => {
+        let allRows = [];
+        let limit = 1000;
+        let offset = 0;
+        let hasMore = true;
+
+        while (hasMore) {
+          const sep = baseUrl.includes('?') ? '&' : '?';
+          const url = `${baseUrl}${sep}limit=${limit}&offset=${offset}`;
+          
+          const res = await fetch(url, {
+            headers: { 
+              "apikey": DB_KEY, 
+              "Authorization": `Bearer ${DB_KEY}`,
+              "Range": `${offset}-${offset + limit - 1}`,
+              "Prefer": "count=exact"
+            }
+          });
+          const data = await res.json();
+
+          if (Array.isArray(data) && data.length > 0) {
+            allRows = allRows.concat(data);
+            if (data.length < limit) {
+              hasMore = false; // Berhenti jika data sudah habis
+            } else {
+              offset += limit;
+            }
+          } else {
+            hasMore = false;
+          }
+        }
+        return allRows;
+      };
+
+      // 1. Ambil data Cabang dari Ref_Cabang
+      const resCabang = await fetch(`${DB_URL}/rest/v1/Ref_Cabang?select=*&order=No.asc`, {
+        headers: { "apikey": DB_KEY, "Authorization": `Bearer ${DB_KEY}` }
+      });
+      const cabangListRaw = await resCabang.json();
+
+      const cabangList = (Array.isArray(cabangListRaw) ? cabangListRaw : [])
+        .filter(c => {
+          const namaCabang = (c.ID_Cabang || c.Nama_Cabang || "").toString();
+          return namaCabang && !namaCabang.toLowerCase().includes('online');
+        })
+        .sort((a, b) => (a.No || 0) - (b.No || 0));
+
+      // 2. Ambil SELURUH data Data_PO secara utuh
+      const dataPO = await fetchAllRows(`${DB_URL}/rest/v1/Data_PO?select=*`);
+      console.log("Total Keseluruhan Data_PO Dimuat:", dataPO.length);
+
+      // 3. Ambil SELURUH data Data_Beli secara utuh
+      const dataBeli = await fetchAllRows(`${DB_URL}/rest/v1/Data_Beli?select=*`);
+      console.log("Total Keseluruhan Data_Beli Dimuat:", dataBeli.length);
+
+      // 4. Proses Kalkulasi Matriks & Summary
+      const processedData = this.processLogistikData(dataPO, dataBeli, cabangList, year);
+      this.render(processedData, cabangList);
+
+    } catch (err) {
+      console.error("Gagal memuat data logistik dari Supabase:", err);
+      alert("Terjadi kesalahan saat memuat data logistik dari Supabase.");
+    }
+  },
+
+  loader: function(s) {
+    const msg = '<tr><td colspan="14" class="p-10 text-center text-gray-500 animate-pulse text-[10px]">MENGOLAH DATA...</td></tr>';
+    ['bodyMatrikPO', 'bodyMatrikBeli', 'bodyMatrikHutang'].forEach(id => {
+      const el = document.getElementById(id);
+      if(el) el.innerHTML = msg;
+    });
+  },
+
+  processLogistikData: function(poRows, beliRows, cabangObjList, year) {
+    let matrixPO = {}, matrixBeli = {}, matrixTempo = {};
+    let topPO = {}, topBeli = {}, topTempo = {};
+    let totalPOVal = 0, totalBeliVal = 0, totalTempoVal = 0;
+    let suppSet = new Set();
+    let tempoMatchedCount = 0;
+
+    const cabangKeys = cabangObjList.map(c => (c.ID_Cabang || "").trim().toUpperCase());
+
+    cabangKeys.forEach(c => {
+      matrixPO[c] = Array(12).fill(0);
+      matrixBeli[c] = Array(12).fill(0);
+      matrixTempo[c] = Array(12).fill(0);
+    });
+
+    // Helper presisi untuk format tanggal YYYY-MM-DD
+    const parseYYYYMMDD = (dateVal) => {
+      if (!dateVal) return null;
+      let str = String(dateVal).trim();
+      if (str.includes('T')) {
+        str = str.split('T')[0];
+      }
+      const parts = str.split(/[-/]/);
+      if (parts.length === 3) {
+        let y, m, d;
+        if (parts[0].length === 4) {
+          y = parseInt(parts[0], 10);
+          m = parseInt(parts[1], 10) - 1;
+          d = parseInt(parts[2], 10);
+        } else {
+          d = parseInt(parts[0], 10);
+          m = parseInt(parts[1], 10) - 1;
+          y = parseInt(parts[2], 10);
+        }
+        if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+          return { year: y, month: m };
+        }
+      }
+      const dObj = new Date(dateVal);
+      if (!isNaN(dObj.getTime())) {
+        return { year: dObj.getFullYear(), month: dObj.getMonth() };
+      }
+      return null;
+    };
+
+    // --- 1. PROSES MATRIX PO ---
+    if (Array.isArray(poRows)) {
+      poRows.forEach(row => {
+        const parsed = parseYYYYMMDD(row.tglpo);
+        if (!parsed || parsed.year !== year) return;
+
+        const cabang = (row.ID_Cabang || row.id_cabang || "").trim().toUpperCase();
+        if (!matrixPO[cabang]) return;
+
+        const nominal = parseFloat(row.nompo || 0);
+        matrixPO[cabang][parsed.month] += nominal;
+        totalPOVal += nominal;
+
+        // Menggunakan kodesupp sebagai acuan utama
+        const supplier = (row.kodesupp || row.namasupp || "").trim();
+        if (supplier) {
+          suppSet.add(supplier);
+          topPO[supplier] = (topPO[supplier] || 0) + nominal;
+        }
+      });
+    }
+
+    // --- 2. PROSES MATRIX BELI & TEMPO ---
+    if (Array.isArray(beliRows)) {
+      beliRows.forEach(row => {
+        const cabang = (row.ID_Cabang || row.id_cabang || "").trim().toUpperCase();
+        if (!matrixBeli[cabang]) return;
+
+        const nilaiBeli = parseFloat(row.nombeli || 0);
+        // Menggunakan kodesupp sebagai acuan utama
+        const supplier = (row.kodesupp || row.namasupp || "").trim();
+
+        // A. Matrix Beli (Fokus pada kolom tglinvbeli)
+        const parsedBeli = parseYYYYMMDD(row.tglinvbeli);
+        if (parsedBeli && parsedBeli.year === year) {
+          matrixBeli[cabang][parsedBeli.month] += nilaiBeli;
+          totalBeliVal += nilaiBeli;
+
+          if (supplier) {
+            suppSet.add(supplier);
+            topBeli[supplier] = (topBeli[supplier] || 0) + nilaiBeli;
+          }
+        }
+
+        // B. Matrix Tempo (Fokus pada tgljhttmp, dengan fallback ke tglinvbeli jika kosong)
+        let tempoTargetRaw = row.tgljhttmp;
+        let parsedTempo = parseYYYYMMDD(tempoTargetRaw);
+
+        if (!parsedTempo || parsedTempo.year !== year) {
+          tempoTargetRaw = row.tglinvbeli;
+          parsedTempo = parseYYYYMMDD(tempoTargetRaw);
+        }
+
+        if (parsedTempo && parsedTempo.year === year) {
+          tempoMatchedCount++;
+          matrixTempo[cabang][parsedTempo.month] += nilaiBeli;
+          totalTempoVal += nilaiBeli;
+
+          if (supplier) {
+            suppSet.add(supplier);
+            topTempo[supplier] = (topTempo[supplier] || 0) + nilaiBeli;
+          }
+        }
+      });
+    }
+
+    console.log("Total Baris Data_Beli yang cocok untuk Tempo tahun", year, ":", tempoMatchedCount);
+
+    return {
+      summary: { po: totalPOVal, beli: totalBeliVal, hutang: totalTempoVal, suppCount: suppSet.size },
+      matrixPO, matrixBeli, matrixTempo, topPO, topBeli, topTempo
+    };
+  },
+
+  render: function(res, cabangObjList) {
+    this.upEl('logTotalPO', "Rp " + this.fmt(res.summary.po));
+    this.upEl('logTotalBeli', "Rp " + this.fmt(res.summary.beli));
+    this.upEl('logTotalHutang', "Rp " + this.fmt(res.summary.hutang));
+    this.upEl('logCountSupp', res.summary.suppCount);
+
+    const cabangKeys = cabangObjList.map(c => (c.ID_Cabang || "").trim().toUpperCase());
+
+    this.drawT("bodyMatrikPO", "footMatrikPO", res.matrixPO, "purple", cabangKeys);
+    this.drawT("bodyMatrikBeli", "footMatrikBeli", res.matrixBeli, "cyan", cabangKeys);
+    this.drawT("bodyMatrikHutang", "footMatrikHutang", res.matrixTempo, "red", cabangKeys);
+
+    this.drawTop("listTopPO", res.topPO, "purple");
+    this.drawTop("listTopBeli", res.topBeli, "cyan");
+    this.drawTop("listTopHutang", res.topTempo, "red");
+  },
+
+  upEl: function(id, val) {
+    const el = document.getElementById(id);
+    if(el) el.innerText = val;
+  },
+
+  fmt: (v) => v ? Math.round(v).toLocaleString('id-ID') : "0",
+
+  drawT: function(bId, fId, mtx, cls, cabangKeys) {
+    let h = "", totals = Array(12).fill(0), gTotal = 0;
+    const mtxData = mtx || {};
+
+    cabangKeys.forEach(c => {
+      let rT = 0;
+      const rowData = mtxData[c] || Array(12).fill(0);
+
+      h += `<tr class="border-b border-white/5"><td class="p-2 border border-white/10 sticky left-0 bg-[#121212] font-black text-gray-400 uppercase text-[9px]">${c}</td>`;
+      
+      rowData.forEach((v, i) => {
+        h += `<td class="p-2 border border-white/10 text-right text-[9px] ${v > 0 ? 'text-white' : 'text-gray-600'}">${v > 0 ? this.fmt(v) : '-'}</td>`;
+        rT += v; 
+        totals[i] += v;
+      });
+
+      h += `<td class="p-2 border border-white/10 text-right font-black text-[9px] text-${cls}-400 bg-${cls}-500/10">${this.fmt(rT)}</td></tr>`;
+      gTotal += rT;
+    });
+    
+    document.getElementById(bId).innerHTML = h;
+
+    let f = `<tr><td class="p-2 border border-white/10 sticky left-0 bg-neutral-800 text-[9px]">TOTAL</td>`;
+    totals.forEach(v => f += `<td class="p-2 border border-white/10 text-right text-[9px] font-bold text-white">${this.fmt(v)}</td>`);
+    f += `<td class="p-2 border border-white/10 text-right bg-${cls}-600 text-white text-[9px] font-bold">${this.fmt(gTotal)}</td></tr>`;
+    
+    document.getElementById(fId).innerHTML = f;
+  },
+
+  drawTop: function(id, data, cls) {
+    const sorted = Object.entries(data).sort((a,b) => b[1]-a[1]).slice(0, 20);
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.innerHTML = sorted.map(([kode, v], i) => `
+      <div class="flex justify-between items-center text-[9px] border-b border-white/5 pb-1">
+        <span class="truncate w-24 text-gray-400"><b class="text-${cls}-500">${i+1}.</b> ${kode}</span>
+        <span class="font-bold text-white">${this.fmt(v)}</span>
+      </div>`).join('') || '<p class="text-center text-gray-600 italic text-[9px]">No Data</p>';
+  }
+};
+/**
+ * MODULE TABEL PO & MANAJEMEN CRUD (Supabase Native)
+ */
+let dataMasterSupp = [];
+let allPOData = [];
+let poCurrentPage = 1;
+const poRowsPerPage = 20;
+
+// ==========================================
+// 1. FUNGSI LOAD DATA PO & URUTKAN TGL TERBARU
+// ==========================================
+async function loadPOTab() {
+  const tableBody = document.getElementById('poTableBody');
+  if (tableBody) {
+    tableBody.innerHTML = '<tr><td colspan="7" class="p-5 text-center opacity-50"><i class="fa fa-spinner fa-spin"></i> Memuat data PO...</td></tr>';
+  }
+
+  try {
+    const fetchAllRows = async (baseUrl) => {
+      let allRows = [];
+      let limit = 1000;
+      let offset = 0;
+      let hasMore = true;
+
+      while (hasMore) {
+        const sep = baseUrl.includes('?') ? '&' : '?';
+        const url = `${baseUrl}${sep}limit=${limit}&offset=${offset}`;
+        
+        const res = await fetch(url, {
+          headers: { 
+            "apikey": DB_KEY, 
+            "Authorization": `Bearer ${DB_KEY}`,
+            "Range": `${offset}-${offset + limit - 1}`,
+            "Prefer": "count=exact"
+          }
+        });
+        const data = await res.json();
+
+        if (Array.isArray(data) && data.length > 0) {
+          allRows = allRows.concat(data);
+          if (data.length < limit) {
+            hasMore = false;
+          } else {
+            offset += limit;
+          }
+        } else {
+          hasMore = false;
+        }
+      }
+      return allRows;
+    };
+
+    const [resCabang, poRows, resSupp] = await Promise.all([
+      fetch(`${DB_URL}/rest/v1/Ref_Cabang?select=*&order=No.asc`, {
+        headers: { "apikey": DB_KEY, "Authorization": `Bearer ${DB_KEY}` }
+      }).then(r => r.json()).catch(() => []),
+      fetchAllRows(`${DB_URL}/rest/v1/Data_PO?select=*`),
+      fetch(`${DB_URL}/rest/v1/Ref_Supp?select=*`, {
+        headers: { "apikey": DB_KEY, "Authorization": `Bearer ${DB_KEY}` }
+      }).then(r => r.json()).catch(() => [])
+    ]);
+
+    dataMasterSupp = (Array.isArray(resSupp) ? resSupp : []).map(s => ({
+      kode: (s.kodesupp || s.kode_supp || s.kode || "").trim().toUpperCase(),
+      nama: (s.namasupp || s.nama_supp || s.nama || "").trim(),
+      tempo: parseInt(s.tempo || 0, 10)
+    }));
+
+    if (dataMasterSupp.length === 0) {
+      const suppMap = new Map();
+      poRows.forEach(r => {
+        const k = (r.kodesupp || "").trim().toUpperCase();
+        if (k && !suppMap.has(k)) {
+          suppMap.set(k, { kode: k, nama: r.namasupp || k, tempo: parseInt(r.tempo || 0, 10) });
+        }
+      });
+      dataMasterSupp = Array.from(suppMap.values());
+    }
+
+    const cabangList = (Array.isArray(resCabang) ? resCabang : [])
+      .filter(c => {
+        const namaCabang = (c.ID_Cabang || c.Nama_Cabang || "").toString();
+        return namaCabang && !namaCabang.toLowerCase().includes('online');
+      });
+
+    let hCab = '<option value="">- Cabang -</option>';
+    cabangList.forEach(c => {
+      const idCab = c.ID_Cabang || c.nama_cabang;
+      if (idCab) hCab += `<option value="${idCab}">${idCab}</option>`;
+    });
+    const elCabang = document.getElementById('poCabang');
+    if (elCabang) elCabang.innerHTML = hCab;
+
+    // Mapping dan URUTKAN berdasarkan tanggal terbaru (tglpo descending) di paling atas
+    allPOData = poRows.map(row => ({
+      tgl: row.tglpo,
+      cabang: (row.ID_Cabang || "").trim().toUpperCase(),
+      noNota: row.invpo,
+      kodeSupp: row.kodesupp,
+      namaSupp: row.namasupp,
+      tempo: parseInt(row.tempo || 0, 10),
+      nilai: parseFloat(row.nompo || 0),
+      tglKirim: row.tglkirim,
+      tglTerima: row.tglterima,
+      status: (row.statuspo || 'PENDING').toUpperCase()
+    })).sort((a, b) => new Date(b.tgl) - new Date(a.tgl)); // Tanggal terbaru di atas
+
+    let hKode = '<option value="">- Kode -</option>';
+    let hNama = '<option value="">- Nama Supplier -</option>';
+    dataMasterSupp.forEach(s => {
+      hKode += `<option value="${s.kode}">${s.kode}</option>`;
+      hNama += `<option value="${s.kode}">${s.nama}</option>`;
+    });
+    
+    const elKode = document.getElementById('poKodeSupp');
+    const elNama = document.getElementById('poNamaSupp');
+    if (elKode) elKode.innerHTML = hKode;
+    if (elNama) elNama.innerHTML = hNama;
+
+    poCurrentPage = 1;
+    displayPOPage();
+
+  } catch (err) {
+    console.error("Gagal memuat data PO:", err);
+    if (tableBody) {
+      tableBody.innerHTML = `<tr><td colspan="7" class="p-5 text-center text-red-500 font-bold">Error: ${err.message}</td></tr>`;
+    }
+  }
+}
+
+// ==========================================
+// 2. FUNGSI RENDER TABEL & PAGINATION LENGKAP
+// ==========================================
+function displayPOPage() {
+  const startIndex = (poCurrentPage - 1) * poRowsPerPage;
+  const slicedData = allPOData.slice(startIndex, startIndex + poRowsPerPage);
+  renderPOTable(slicedData);
+  renderPOPaginationControl();
+}
+
+function renderPOTable(data) {
+  const target = document.getElementById('poTableBody');
+  if (!target) return;
+  let h = ""; 
+
+  if (!data || data.length === 0) {
+    target.innerHTML = '<tr><td colspan="7" class="p-5 text-center text-gray-500 italic">Belum ada data PO</td></tr>';
+    return;
+  }
+
+  data.forEach((r) => {
+    try {
+      let sCol = 'text-orange-400 bg-orange-400/10'; 
+      if (r.status === 'TERKIRIM') sCol = 'text-blue-400 bg-blue-400/10';
+      if (r.status === 'SELESAI') sCol = 'text-green-400 bg-green-400/10';
+
+      let tglTampilan = (r.status === 'SELESAI') ? (r.tglTerima || '-') : (r.status === 'TERKIRIM' ? (r.tglKirim || '-') : "Baru Dibuat");
+      let formattedTgl = (typeof formatTglIndo === 'function') ? formatTglIndo(r.tgl) : r.tgl;
+
+      let roleSekarang = (typeof userRole !== 'undefined') ? userRole : 'OWNER';
+      let bolehEdit = (roleSekarang === 'OWNER' || roleSekarang === 'ADMIN' || true);
+
+      h += `
+  <tr class="border-b border-white/[0.02] hover:bg-white/[0.02] text-[12px] h-12 transition-all">
+    <td class="p-3 text-cyan-400 font-bold font-mono w-[12%] whitespace-nowrap">
+      ${formattedTgl}
+    </td>
+    <td class="p-3 font-bold text-gray-300 w-[10%] whitespace-nowrap">${r.cabang}</td>
+    
+    <td class="p-3 font-bold w-[13%] whitespace-nowrap">
+      <span class="${bolehEdit ? 'text-cyan-400 hover:text-cyan-300 underline cursor-pointer' : 'text-cyan-400'}" 
+            ${bolehEdit ? `onclick="editFullPO('${r.noNota}')"` : ''}>
+        ${r.noNota}
+      </span>
+    </td>
+
+    <td class="p-3 w-[25%] min-w-[150px]">
+      <div class="font-bold text-white truncate">${r.namaSupp || '-'}</div>
+      <div class="text-[9px] text-orange-500 font-bold uppercase tracking-wider">${r.kodeSupp || '-'} | ${r.tempo} Hari</div>
+    </td>
+    <td class="px-3 py-2 text-right font-black text-white w-[15%] font-mono">
+      <span>Rp ${typeof fmt === 'function' ? fmt(r.nilai) : r.nilai.toLocaleString('id-ID')}</span>
+    </td>
+    <td class="p-3 text-center w-[12%]">
+      <span class="px-2 py-0.5 rounded text-[8px] font-black uppercase ${sCol}">${r.status}</span>
+      <div class="text-[9px] text-orange-500 mt-1 font-bold italic leading-tight">${tglTampilan}</div>
+    </td>
+    <td class="p-3 text-center w-[13%]"> 
+      <div class="flex justify-center items-center gap-1.5">
+        ${r.status === 'PENDING' ? `<button onclick="updatePOStatusUI('${r.noNota}', 'TERKIRIM')" class="bg-blue-600 text-white px-2 py-1 rounded text-[8px] font-black uppercase">Kirim</button>` : ''}
+        ${r.status === 'TERKIRIM' ? `<button onclick="updatePOStatusUI('${r.noNota}', 'SELESAI')" class="bg-green-600 text-white px-2 py-1 rounded text-[8px] font-black uppercase">Terima</button>` : ''}
+      </div>
+    </td>
+  </tr>`;
+    } catch (err) { console.error("Error Row PO:", err); }
+  });
+  target.innerHTML = h;
+}
+
+// ==========================================
+// 3. KONTROL NAVIGASI HALAMAN (PAGINATION UI)
+function renderPOPaginationControl() {
+  let container = document.getElementById('poPaginationContainer');
+  
+  if (!container) {
+    const tableEl = document.getElementById('poTableBody') ? document.getElementById('poTableBody').closest('table') : null;
+    if (tableEl && tableEl.parentNode) {
+      container = document.createElement('div');
+      container.id = 'poPaginationContainer';
+      container.className = 'flex justify-between items-center px-3 py-2 text-[10px] text-gray-400 bg-black/20 rounded-xl mt-2 border border-white/5';
+      tableEl.parentNode.after(container);
+    } else {
+      return;
+    }
+  }
+
+  const totalPages = Math.ceil(allPOData.length / poRowsPerPage) || 1;
+  if (poCurrentPage > totalPages) poCurrentPage = totalPages;
+
+  container.innerHTML = `
+    <div class="flex gap-1.5">
+      <button onclick="changePOPage(-1)" ${poCurrentPage === 1 ? 'disabled class="opacity-30 cursor-not-allowed bg-black/20 px-2.5 py-1 rounded border border-white/10 text-gray-500 text-[10px]"' : 'class="bg-neutral-800 hover:bg-neutral-700 text-white px-2.5 py-1 rounded border border-white/10 text-[10px] transition-all"'}>Prev</button>
+      <button onclick="changePOPage(1)" ${poCurrentPage === totalPages ? 'disabled class="opacity-30 cursor-not-allowed bg-black/20 px-2.5 py-1 rounded border border-white/10 text-gray-500 text-[10px]"' : 'class="bg-neutral-800 hover:bg-neutral-700 text-white px-2.5 py-1 rounded border border-white/10 text-[10px] transition-all"'}>Next</button>
+    </div>
+    <div class="text-[10px]">Menampilkan halaman <b class="text-white">${poCurrentPage}</b> dari <b class="text-white">${totalPages}</b> <span class="text-gray-500">(Total ${allPOData.length} data PO)</span></div>
+  `;
+}
+
+function changePOPage(direction) {
+  const totalPages = Math.ceil(allPOData.length / poRowsPerPage) || 1;
+  poCurrentPage += direction;
+  if (poCurrentPage < 1) poCurrentPage = 1;
+  if (poCurrentPage > totalPages) poCurrentPage = totalPages;
+  displayPOPage();
+}
+
+// ==========================================
+// 4. FUNGSI SINKRONISASI & AUTO-TEMPO (FORM UTAMA)
+// ==========================================
+function syncSupplier(source) {
+  const kodeEl = document.getElementById('poKodeSupp');
+  const namaEl = document.getElementById('poNamaSupp');
+  const tempoEl = document.getElementById('poTempo');
+  
+  if (!kodeEl || !namaEl) return;
+  const val = source === 'kode' ? kodeEl.value : namaEl.value;
+  
+  kodeEl.value = val;
+  namaEl.value = val;
+
+  const supp = dataMasterSupp.find(s => s.kode === val.toUpperCase());
+  if (tempoEl) {
+    tempoEl.value = supp ? supp.tempo : 0;
+  }
+}
+
+// ==========================================
+// 5. FUNGSI RESET FORM PO
+// ==========================================
+function resetFormPO() {
+  try {
+    if(document.getElementById('poTgl')) document.getElementById('poTgl').value = '';
+    if(document.getElementById('poCabang')) document.getElementById('poCabang').value = '';
+    if(document.getElementById('poNo')) document.getElementById('poNo').value = '';
+    if(document.getElementById('poKodeSupp')) document.getElementById('poKodeSupp').value = '';
+    if(document.getElementById('poNamaSupp')) document.getElementById('poNamaSupp').value = '';
+    if(document.getElementById('poTempo')) document.getElementById('poTempo').value = '0';
+    if(document.getElementById('poNominal')) document.getElementById('poNominal').value = '';
+  } catch(e) {
+    console.error("Error resetting form:", e);
+  }
+}
+
+// ==========================================
+// 6. SIMPAN DATA PO BARU (LANGSUNG KE SUPABASE)
+// ==========================================
+async function savePO() {
+  const btn = event ? event.currentTarget : null;
+  
+  let rawNominal = document.getElementById('poNominal').value;
+  let cleanNominal = rawNominal.replace(/[^0-9]/g, '');
+
+  let kodeSuppVal = document.getElementById('poKodeSupp').value.trim();
+  const suppData = dataMasterSupp.find(s => s.kode === kodeSuppVal.toUpperCase());
+  
+  let namaSupplierVal = suppData ? suppData.nama : kodeSuppVal;
+
+  const payload = {
+    tglpo: document.getElementById('poTgl').value,
+    ID_Cabang: document.getElementById('poCabang').value,
+    invpo: document.getElementById('poNo').value.trim(),
+    kodesupp: kodeSuppVal,
+    namasupp: namaSupplierVal,
+    tempo: parseInt(document.getElementById('poTempo').value || 0, 10),
+    nompo: parseFloat(cleanNominal || 0),
+    statuspo: 'PENDING'
+  };
+
+  if(!payload.tglpo || !payload.invpo || !payload.kodesupp || !cleanNominal) {
+    return Swal.fire("Lengkapi Data", "Tanggal, No Nota, Supplier, dan Nominal wajib diisi!", "warning");
+  }
+
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>...';
+  }
+
+  try {
+    const response = await fetch(`${DB_URL}/rest/v1/Data_PO`, {
+      method: 'POST',
+      headers: {
+        "apikey": DB_KEY,
+        "Authorization": `Bearer ${DB_KEY}`,
+        "Content-Type": "application/json",
+        "Prefer": "return=minimal"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa fa-save"></i> SIMPAN';
+    }
+
+    if (response.ok) {
+      Swal.fire("Berhasil", "Data PO berhasil disimpan!", "success");
+      resetFormPO();
+      loadPOTab(); 
+    } else {
+      const errText = await response.text();
+      Swal.fire("Gagal", errText, "error");
+    }
+  } catch (err) {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa fa-save"></i> SIMPAN';
+    }
+    Swal.fire("Gagal", err.message, "error");
+  }
+}
+
+// ==========================================
+// 7. EDIT & HAPUS PO (LANGSUNG KE SUPABASE)
+// ==========================================
+function editFullPO(noNotaAsli) {
+  const item = allPOData.find(d => d.noNota === noNotaAsli);
+  if (!item) return;
+
+  const opsiCabang = document.getElementById('poCabang').innerHTML;
+
+  Swal.fire({
+    title: '<span class="text-lg font-black text-white">EDIT DATA PO</span>',
+    background: '#0f1115',
+    html: `
+      <div class="text-left space-y-3 mt-4">
+        <div>
+          <label class="text-[10px] text-gray-400 font-bold uppercase">No Nota / No PO</label>
+          <input id="editNoNota" class="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-cyan-500" value="${item.noNota}">
+        </div>
+        <div>
+          <label class="text-[10px] text-gray-400 font-bold uppercase">Cabang</label>
+          <select id="editCabang" class="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-cyan-500">
+            ${opsiCabang}
+          </select>
+        </div>
+        <div class="flex gap-2">
+          <div class="w-1/3">
+            <label class="text-[10px] text-gray-400 font-bold uppercase">Kode Supp</label>
+            <input id="editKode" class="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-cyan-500" value="${item.kodeSupp}" oninput="autoFillEditSupplier(this.value)">
+          </div>
+          <div class="w-2/3">
+            <label class="text-[10px] text-gray-400 font-bold uppercase">Nama Supplier</label>
+            <input id="editNama" class="w-full bg-gray-800/50 border border-white/5 rounded-xl p-3 text-gray-400 outline-none" value="${item.namaSupp}" readonly>
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <div class="w-1/2">
+            <label class="text-[10px] text-gray-400 font-bold uppercase">Tempo (Hari)</label>
+            <input id="editTempo" type="number" class="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-cyan-500" value="${item.tempo}">
+          </div>
+          <div class="w-1/2">
+            <label class="text-[10px] text-gray-400 font-bold uppercase">Nominal PO (Rp)</label>
+            <input id="editNilai" class="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-cyan-400 font-black text-lg outline-none focus:border-cyan-500" value="${typeof fmt === 'function' ? fmt(item.nilai) : item.nilai}" onkeyup="this.value = formatRibuanInput(this.value)">
+          </div>
+        </div>
+      </div>
+    `,
+    showCancelButton: true,
+    showDenyButton: true,
+    confirmButtonText: 'SIMPAN PERUBAHAN',
+    denyButtonText: 'HAPUS DATA',
+    cancelButtonText: 'BATAL',
+    confirmButtonColor: '#06b6d4',
+    denyButtonColor: '#ef4444',
+    reverseButtons: true,
+    didOpen: () => { 
+      document.getElementById('editCabang').value = item.cabang; 
+    },
+    preConfirm: () => {
+      return {
+        invpo: document.getElementById('editNoNota').value.trim(),
+        ID_Cabang: document.getElementById('editCabang').value.trim(),
+        kodesupp: document.getElementById('editKode').value.trim(),
+        namasupp: document.getElementById('editNama').value.trim(),
+        tempo: parseInt(document.getElementById('editTempo').value || 0, 10),
+        nompo: parseFloat(document.getElementById('editNilai').value.replace(/\./g, "") || 0)
+      }
+    }
+  }).then(async (result) => {
+    if (result.isConfirmed) {
+      Swal.fire({ title: 'Updating...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+      try {
+        const response = await fetch(`${DB_URL}/rest/v1/Data_PO?invpo=eq.${encodeURIComponent(noNotaAsli)}`, {
+          method: 'PATCH',
+          headers: {
+            "apikey": DB_KEY,
+            "Authorization": `Bearer ${DB_KEY}`,
+            "Content-Type": "application/json",
+            "Prefer": "return=minimal"
+          },
+          body: JSON.stringify(result.value)
+        });
+
+        if (response.ok) {
+          Swal.fire({ icon: 'success', title: 'Data Berhasil Diupdate', timer: 1000, showConfirmButton: false });
+          loadPOTab();
+        } else {
+          const errText = await response.text();
+          Swal.fire('Error', errText, 'error');
+        }
+      } catch (err) {
+        Swal.fire('Error', err.message, 'error');
+      }
+
+    } else if (result.isDenied) {
+      deletePORowConfirm(noNotaAsli);
+    }
+  });
+}
+
+function deletePORowConfirm(noNota) {
+  Swal.fire({
+    title: 'HAPUS DATA?',
+    text: "Data PO " + noNota + " akan dihapus permanen!",
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#d33',
+    confirmButtonText: 'YA, HAPUS!'
+  }).then(async (result) => {
+    if (result.isConfirmed) {
+      Swal.fire({ title: 'Deleting...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+      try {
+        const response = await fetch(`${DB_URL}/rest/v1/Data_PO?invpo=eq.${encodeURIComponent(noNota)}`, {
+          method: 'DELETE',
+          headers: {
+            "apikey": DB_KEY,
+            "Authorization": `Bearer ${DB_KEY}`,
+            "Prefer": "return=minimal"
+          }
+        });
+
+        if (response.ok) {
+          Swal.fire({ icon: 'success', title: 'Terhapus!', timer: 1000, showConfirmButton: false });
+          loadPOTab();
+        } else {
+          const errText = await response.text();
+          Swal.fire('Error', errText, 'error');
+        }
+      } catch (err) {
+        Swal.fire('Error', err.message, 'error');
+      }
+    }
+  });
+}
+
+// ==========================================
+// 8. FUNGSI PENDUKUNG INPUT
+// ==========================================
+function autoFillEditSupplier(kode) {
+  const inpNama = document.getElementById('editNama');
+  const inpTempo = document.getElementById('editTempo');
+  const supp = dataMasterSupp.find(s => s.kode === kode.toUpperCase());
+  if (supp) {
+    if (inpNama) inpNama.value = supp.nama;
+    if (inpTempo) inpTempo.value = supp.tempo || 0;
+  } else {
+    if (inpNama) inpNama.value = "Supplier tidak ditemukan";
+  }
+}
+
+function formatRibuanInput(angka) {
+  let val = angka.replace(/[^0-9]/g, '');
+  if (!val) return "";
+  return new Intl.NumberFormat('id-ID').format(val);
+}
+
+function formatRupiahInput(el) {
+  let val = el.value.replace(/[^0-9]/g, '');
+  if (!val) {
+    el.value = "";
+    return;
+  }
+  el.value = new Intl.NumberFormat('id-ID').format(val);
 }
   </script>
 </body>
