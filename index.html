@@ -1352,36 +1352,42 @@
     </div>
 
     <!-- KONTAINER UTAMA TABEL -->
-    <div class="glass flex flex-col flex-grow overflow-hidden relative">
-        <div class="overflow-x-auto overflow-y-auto flex-grow pb-12">
-            <table class="archive-table w-full">
-                <thead class="sticky top-0 z-10 shadow-md">
-                    <tr>
-                        <th class="py-2 px-3">Periode</th>
-                        <th class="py-2 px-3">Cabang</th>
-                        <th class="py-2 px-3 text-cyan-400">PosX Val</th>
-                        <th class="py-2 px-3 text-cyan-400">Trx P</th>
-                        <th class="py-2 px-3 text-green-400">Grab Val</th>
-                        <th class="py-2 px-3 text-green-400">Trx G</th>
-                        <th class="py-2 px-3 text-white">Total Sales</th>
-                        <th class="py-2 px-3 text-white">Total Qty</th>
-                    </tr>
-                </thead>
-                <!-- ID penampung hasil pencarian/laporan yang akan dirender dinamis -->
-                <tbody id="searchResult" class="divide-y divide-white/5"></tbody>
-            </table>
-        </div>
-        
-        <!-- Footer Terkunci Permanen di Bawah Kontainer -->
-        <div class="absolute bottom-0 left-0 right-0 z-20 bg-[#161920] border-t-2 border-[#343b47] shadow-2xl">
-            <table class="archive-table w-full">
-                <!-- ID penampung footer total dinamis -->
-                <tfoot id="searchFooter"></tfoot>
-            </table>
-        </div>
+<div class="glass flex flex-col flex-grow overflow-hidden relative">
+    <!-- Kontainer Scroll Utama (Menampung Header, Body, dan Footer Sekaligus) -->
+    <div class="overflow-x-auto overflow-y-auto flex-grow pb-12 relative">
+        <table class="archive-table w-full border-collapse">
+            
+            <!-- HEADER -->
+            <thead class="sticky top-0 z-20 shadow-md bg-[#161920]">
+                <tr>
+                    <th class="py-2 px-3 sticky left-0 z-30 bg-[#161920] shadow-[2px_0_5px_rgba(0,0,0,0.3)] text-left">Periode</th>
+                    <th class="py-2 px-3 text-left">Cabang</th>
+                    <th class="py-2 px-3 text-cyan-400 text-right">PosX Val</th>
+                    <th class="py-2 px-3 text-cyan-400 text-right">Trx P</th>
+                    <th class="py-2 px-3 text-green-400 text-right">Grab Val</th>
+                    <th class="py-2 px-3 text-green-400 text-right">Trx G</th>
+                    <th class="py-2 px-3 text-white text-right">Total Sales</th>
+                    <th class="py-2 px-3 text-white text-right">Total Qty</th>
+                </tr>
+            </thead>
+            
+            <!-- BODY (DATA) -->
+            <tbody id="searchResult" class="divide-y divide-white/5">
+                <!-- Data dinamis dirender di sini, 
+                     Pastikan sel (<td>) kolom pertama di JS Anda diberi class: 
+                     "sticky left-0 bg-[#161920] z-10 shadow-[2px_0_5px_rgba(0,0,0,0.3)]" 
+                     agar ikut freeze di kiri saat di-scroll. -->
+            </tbody>
+            
+            <!-- FOOTER (MENEMPEL DI BAWAH & IKUT SCROLL KIRI-KANAN) -->
+            <tfoot id="searchFooter" class="sticky bottom-0 z-20 bg-[#161920] border-t-2 border-[#343b47] shadow-2xl">
+                <!-- Baris total/footer Anda akan otomatis masuk ke sini -->
+            </tfoot>
+
+        </table>
     </div>
 </div>
-<div>
+</div>
 <!-- TAB ANALISA -->
 <div id="tab-analisa" class="tab-content hidden flex flex-col space-y-3 h-[calc(100vh-100px)]">
   
