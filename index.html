@@ -19,6 +19,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
   <script src='https://cdn.jsdelivr.net/npm/jsbarcode@3.11.0/dist/JsBarcode.all.min.js'></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   
   <!-- Pustaka Resmi Supabase JS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -1647,13 +1648,17 @@
           <input type="text" id="poNominal" onkeyup="formatRupiahInput(this)" class="input-field text-[10px] h-8 font-bold text-orange-400" placeholder="0">
         </div>
         <div class="flex gap-1 h-8">
-          <button onclick="savePO()" class="bg-orange-600 hover:bg-orange-500 text-white px-2 rounded flex items-center gap-1 text-[9px] font-bold">
-            <i class="fa fa-save"></i> SIMPAN
-          </button>
-          <button onclick="resetFormPO()" class="bg-slate-700 hover:bg-slate-600 text-white px-2 rounded flex items-center gap-1 text-[9px] font-bold">
-            <i class="fa fa-plus"></i> BARU
-          </button>
-        </div>
+  <button onclick="savePO()" class="bg-orange-600 hover:bg-orange-500 text-white px-2 rounded flex items-center gap-1 text-[9px] font-bold">
+    <i class="fa fa-save"></i> SIMPAN
+  </button>
+  <button onclick="resetFormPO()" class="bg-slate-700 hover:bg-slate-600 text-white px-2 rounded flex items-center gap-1 text-[9px] font-bold">
+    <i class="fa fa-plus"></i> BARU
+  </button>
+  <!-- Tombol Import Excel PO -->
+  <button onclick="importExcelPO()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-2 rounded flex items-center gap-1 text-[9px] font-bold">
+    <i class="fa fa-file-excel-o"></i> IMPORT
+  </button>
+</div>
       </div>
 
       <div class="flex flex-wrap lg:flex-nowrap gap-2 items-end mt-3 pt-3 border-t border-white/5">
@@ -8998,23 +9003,209 @@ function resetFormPO() {
   }
 }
 
+// ==========================================
+// FUNGSI IMPORT DATA PO (DENGAN DRAG & DROP / PILIH FILE)
+// ==========================================
 function importExcelPO() {
   Swal.fire({
-    title: 'Import Data PO',
+    title: '<span class="text-white font-bold">Import Data PO</span>',
     background: '#0f1115',
-    html: `<textarea id="csvImport" class="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-cyan-500 text-[10px] h-32" placeholder="Copy data dari Excel lalu Paste di sini..."></textarea>`,
+    html: `
+      <div class="text-left space-y-3 mt-3">
+        <div id="dropZone" class="border-2 border-dashed border-white/20 hover:border-cyan-500 rounded-xl p-6 text-center cursor-pointer transition-all bg-black/20"
+             onclick="document.getElementById('fileExcelInput').click()"
+             ondragover="event.preventDefault(); this.classList.add('border-cyan-500');"
+             ondragleave="this.classList.remove('border-cyan-500');"
+             ondrop="handleFileDrop(event)">
+          <i class="fa fa-cloud-upload text-3xl text-cyan-400 mb-2"></i>
+          <p class="text-xs text-gray-300 font-semibold">Seret & letakkan file CSV/Excel di sini, atau</p>
+          <span class="inline-block mt-2 px-3 py-1 bg-cyan-600 text-white text-[10px] font-bold rounded-lg hover:bg-cyan-500 transition-all">Pilih File</span>
+          <input type="file" id="fileExcelInput" accept=".csv, .txt, .xlsx, .xls" class="hidden" onchange="handleFileSelect(this)">
+        </div>
+        <div id="fileInfo" class="text-[10px] text-gray-400 text-center italic hidden"></div>
+      </div>
+    `,
     showCancelButton: true,
-    confirmButtonText: 'Proses Import',
-    confirmButtonColor: '#059669'
-  }).then((result) => {
-    if (result.isConfirmed) {
-      const rawData = document.getElementById('csvImport').value;
-      if(!rawData) return;
-      Swal.fire("Sistem Siap", "Fitur bulk insert sedang dalam pengembangan", "info");
+    confirmButtonText: 'PROSES IMPORT',
+    confirmButtonColor: '#059669',
+    cancelButtonColor: '#374151',
+    cancelButtonText: 'BATAL',
+    reverseButtons: true,
+    preConfirm: () => {
+      const fileInput = document.getElementById('fileExcelInput');
+      if (!fileInput || fileInput.files.length === 0) {
+        Swal.showValidationMessage('Silakan pilih atau unggah file terlebih dahulu!');
+        return false;
+      }
+      return fileInput.files[0];
+    }
+  }).then(async (result) => {
+    if (result.isConfirmed && result.value) {
+      const file = result.value;
+      parseAndUploadCSV(file);
     }
   });
 }
 
+// Handler saat file dipilih via tombol
+function handleFileSelect(input) {
+  if (input.files && input.files[0]) {
+    const file = input.files[0];
+    showFileInfo(file.name);
+  }
+}
+
+// Handler saat file di-drag & drop
+function handleFileDrop(event) {
+  event.preventDefault();
+  const dropZone = document.getElementById('dropZone');
+  if(dropZone) dropZone.classList.remove('border-cyan-500');
+
+  if (event.dataTransfer.files && event.dataTransfer.files[0]) {
+    const file = event.dataTransfer.files[0];
+    document.getElementById('fileExcelInput').files = event.dataTransfer.files;
+    showFileInfo(file.name);
+  }
+}
+
+function showFileInfo(fileName) {
+  const infoEl = document.getElementById('fileInfo');
+  if (infoEl) {
+    infoEl.innerText = `File dipilih: ${fileName}`;
+    infoEl.classList.remove('hidden');
+  }
+}
+
+async function parseAndUploadCSV(file) {
+  Swal.fire({
+    title: 'Membaca File...',
+    text: 'Mohon tunggu sebentar',
+    background: '#0f1115',
+    allowOutsideClick: false,
+    didOpen: () => { Swal.showLoading(); }
+  });
+
+  const reader = new FileReader();
+  
+  reader.onload = async function(e) {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+      
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const rows = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+
+      if (!rows || rows.length === 0) {
+        throw new Error("File Excel kosong atau tidak ada data.");
+      }
+
+      const batchPayloads = [];
+
+      rows.forEach((row) => {
+        const getVal = (keys) => {
+          for (let k of keys) {
+            if (row[k] !== undefined && row[k] !== '') return row[k];
+            const foundKey = Object.keys(row).find(bk => bk.trim().toLowerCase() === k.toLowerCase());
+            if (foundKey && row[foundKey] !== '') return row[foundKey];
+          }
+          return '';
+        };
+
+        const tglRaw = getVal(['tglpo', 'tgl', 'tanggal']);
+        let formattedDate = '';
+        if (tglRaw) {
+          if (tglRaw instanceof Date) {
+            formattedDate = tglRaw.toISOString().split('T')[0];
+          } else {
+            let parsed = new Date(tglRaw);
+            if (!isNaN(parsed.getTime())) {
+              formattedDate = parsed.toISOString().split('T')[0];
+            } else {
+              formattedDate = String(tglRaw).trim().substring(0, 10);
+            }
+          }
+        }
+
+        const invpo = String(getVal(['invpo', 'no_nota', 'nota'])).trim();
+        const ID_Cabang = String(getVal(['ID_Cabang', 'id_cabang', 'cabang'])).trim();
+        const kodesupp = String(getVal(['kodesupp', 'kode_supp', 'kode'])).trim();
+        const namasupp = String(getVal(['namasupp', 'nama_supp', 'nama'])).trim();
+        const tempo = parseInt(getVal(['tempo']) || 0, 10);
+        
+        let nompoVal = getVal(['nompo', 'nominal', 'nilai']) || 0;
+        if (typeof nompoVal === 'string') {
+          nompoVal = parseFloat(nompoVal.replace(/[^0-9.]/g, '')) || 0;
+        }
+
+        let statuspo = String(getVal(['statuspo', 'status']) || 'PENDING').toUpperCase();
+        if (statuspo === 'SIMPAN' || statuspo === '') statuspo = 'PENDING';
+
+        if (formattedDate && invpo) {
+          batchPayloads.push({
+            tglpo: formattedDate,
+            invpo: invpo,
+            ID_Cabang: ID_Cabang,
+            kodesupp: kodesupp,
+            namasupp: namasupp,
+            tempo: isNaN(tempo) ? 0 : tempo,
+            nompo: isNaN(nompoVal) ? 0 : nompoVal,
+            statuspo: statuspo
+          });
+        }
+      });
+
+      if (batchPayloads.length === 0) {
+        throw new Error("Tidak ada data valid yang terbaca. Pastikan header Excel: tglpo, invpo, ID_Cabang, kodesupp, namasupp, tempo, nompo, statuspo.");
+      }
+
+      Swal.update({ title: `Mengunggah ${batchPayloads.length} Data ke Supabase...` });
+
+      // Menggunakan Prefer: return=representation agar Supabase mengembalikan respons detail
+      const response = await fetch(`${DB_URL}/rest/v1/Data_PO`, {
+        method: 'POST',
+        headers: {
+          "apikey": DB_KEY,
+          "Authorization": `Bearer ${DB_KEY}`,
+          "Content-Type": "application/json",
+          "Prefer": "return=representation"
+        },
+        body: JSON.stringify(batchPayloads)
+      });
+
+      const responseText = await response.text();
+
+      if (response.ok) {
+        Swal.fire({
+          icon: 'success',
+          title: 'Berhasil!',
+          text: `${batchPayloads.length} data PO berhasil tersimpan di database!`,
+          background: '#0f1115',
+          timer: 1500,
+          showConfirmButton: false
+        });
+        loadPOTab();
+      } else {
+        // Tampilkan error asli dari Supabase di popup
+        throw new Error(responseText);
+      }
+
+    } catch (err) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Gagal Menyimpan ke Database',
+        text: err.message,
+        background: '#0f1115'
+      });
+    }
+  };
+
+  reader.onerror = function() {
+    Swal.fire('Error', 'Gagal membaca file.', 'error');
+  };
+
+  reader.readAsArrayBuffer(file);
+}
 function changeStatus(noNota, status) {
   const confirmMsg = status === 'TERKIRIM' ? 'Ubah status jadi TERKIRIM?' : 'Selesaikan PO ini?';
   const confirmBtn = status === 'TERKIRIM' ? '#3b82f6' : '#10b981';
@@ -9316,6 +9507,512 @@ function formatTglIndo(dateStr) {
   } catch (e) {
     return dateStr;
   }
+}
+// ==========================================
+// PENGATURAN GLOBAL PURCHASE (SUPABASE NATIVE)
+// ==========================================
+var allBeliData = [];
+var filteredBeliData = [];
+var beliCurrentPage = 1;
+var beliPageSize = 15; 
+
+// ==========================================
+// 1. FUNGSI LOAD DATA PEMBELIAN DARI SUPABASE (FIX TANGGAL)
+// ==========================================
+async function loadBeliTab() {
+  const tableBody = document.getElementById('beliTableBody');
+  if(!tableBody) return;
+  
+  tableBody.innerHTML = '<tr><td colspan="7" class="p-5 text-center opacity-50"><i class="fa fa-spinner fa-spin"></i> Menarik data Purchase dari Supabase...</td></tr>';
+
+  try {
+    const fetchAllRows = async (baseUrl) => {
+      let allRows = [];
+      let limit = 1000;
+      let offset = 0;
+      let hasMore = true;
+
+      while (hasMore) {
+        const sep = baseUrl.includes('?') ? '&' : '?';
+        const url = `${baseUrl}${sep}limit=${limit}&offset=${offset}`;
+        
+        const res = await fetch(url, {
+          headers: { 
+            "apikey": DB_KEY, 
+            "Authorization": `Bearer ${DB_KEY}`,
+            "Range": `${offset}-${offset + limit - 1}`,
+            "Prefer": "count=exact"
+          }
+        });
+        const data = await res.json();
+
+        if (Array.isArray(data) && data.length > 0) {
+          allRows = allRows.concat(data);
+          if (data.length < limit) {
+            hasMore = false;
+          } else {
+            offset += limit;
+          }
+        } else {
+          hasMore = false;
+        }
+      }
+      return allRows;
+    };
+
+    const beliRows = await fetchAllRows(`${DB_URL}/rest/v1/Data_Beli?select=*`);
+
+    // Mapping data dengan mendeteksi berbagai variasi nama kolom tanggal dari database
+    allBeliData = (Array.isArray(beliRows) ? beliRows : []).map(row => {
+      const tglInvVal = row.tglinv || row.tgl_inv || row.tanggal || row.tgl || row.date || '';
+      const invBeliVal = row.invbeli || row.no_invoice || row.inv || row.noinvoice || '';
+      const tglJTVal = row.tgljt || row.tgl_jt || row.jatuh_tempo || '';
+
+      return {
+        tglInv: tglInvVal,
+        noInvoice: invBeliVal,
+        kodeSupp: row.kodesupp || row.kode_supp || '',
+        namaSupp: row.namasupp || row.nama_supp || '',
+        cabang: (row.ID_Cabang || row.id_cabang || row.cabang || '').trim().toUpperCase(),
+        tempo: parseInt(row.tempo || 0, 10),
+        tglJT: tglJTVal,
+        nilai: parseFloat(row.nombeli || row.nom_beli || row.nilai || row.nominal || 0),
+        status: (row.statusbeli || row.status || 'SIMPAN').toUpperCase(),
+        tglKirim: row.tglkirim || ''
+      };
+    }).sort((a, b) => {
+      const dateA = a.tglInv ? new Date(a.tglInv) : new Date(0);
+      const dateB = b.tglInv ? new Date(b.tglInv) : new Date(0);
+      return dateB - dateA;
+    });
+
+    applyBeliFilter(); // Jalankan filter dan render tabel
+
+  } catch (err) {
+    console.error("Gagal memuat data Beli:", err);
+    tableBody.innerHTML = `<tr><td colspan="7" class="p-5 text-center text-red-500 font-bold">Error: ${err.message}</td></tr>`;
+  }
+}
+
+// ==========================================
+// 2. FUNGSI RENDER TABEL & PAGINATION
+// ==========================================
+function displayBeliPage() {
+  const tableBody = document.getElementById('beliTableBody');
+  if(!tableBody) return;
+
+  const total = filteredBeliData.length;
+  const start = (beliCurrentPage - 1) * beliPageSize;
+  const end = Math.min(start + beliPageSize, total);
+  const dataToDisplay = filteredBeliData.slice(start, end);
+
+  const elRange = document.getElementById('beliRange');
+  const elTotal = document.getElementById('beliTotal');
+  if (elRange) elRange.innerText = `${total > 0 ? start + 1 : 0}-${end}`;
+  if (elTotal) elTotal.innerText = total;
+
+  const btnPrev = document.getElementById('btnBeliPrev');
+  const btnNext = document.getElementById('btnBeliNext');
+  if (btnPrev) btnPrev.disabled = (beliCurrentPage === 1);
+  if (btnNext) btnNext.disabled = (end >= total);
+
+  let h = "";
+  if (total === 0) {
+    h = '<tr><td colspan="7" class="p-10 text-center text-gray-500 italic">Tidak ada data purchase yang ditemukan...</td></tr>';
+  } else {
+    dataToDisplay.forEach(r => {
+      let stStyle = "bg-white/5 text-gray-400 border-white/10"; 
+      const statusRaw = r.status;
+
+      if(statusRaw === "LUNAS") {
+        stStyle = "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
+      } else if(statusRaw === "BEREDAR" || statusRaw === "PROSES") {
+        stStyle = "bg-cyan-500/10 text-cyan-400 border-cyan-500/30";
+      } else if(statusRaw === "TERKIRIM" || statusRaw === "TERIMA") {
+        stStyle = "bg-blue-500/10 text-blue-400 border-blue-500/30";
+      } else if(statusRaw === "SIMPAN") {
+        stStyle = "bg-amber-500/10 text-amber-400 border-amber-500/30";
+      }
+
+      let infoKirim = "";
+      if(statusRaw === "TERKIRIM") {
+        infoKirim = `<div class="text-[9px] text-orange-500 mt-1 font-bold italic leading-tight">
+                      <i class="fa fa-paper-plane text-[8px]"></i> Terkirim: ${r.tglKirim || r.tglInv}
+                   </div>`;
+      } else if(statusRaw === "TERIMA") {
+         infoKirim = `<div class="text-[9px] text-orange-500 mt-1 font-bold italic leading-tight">Diterima</div>`;
+      }
+
+      h += `
+      <tr class="hover:bg-white/[0.03] transition-all border-b border-white/[0.02] text-[12px] h-10">
+        <td class="px-3 py-2 text-white font-bold font-mono w-[12%]">${formatTglIndo(r.tglInv)}</td>
+        <td class="px-3 py-2 text-cyan-400 font-bold w-[13%] cursor-pointer hover:text-red-400 hover:underline transition-all" 
+            onclick="hapusBeli('${r.noInvoice}')" title="Klik untuk menghapus invoice ini">
+          ${r.noInvoice}
+        </td>
+        <td class="px-3 py-2 w-[25%]">
+          <div class="text-white font-bold truncate max-w-[180px]">${r.namaSupp}</div>
+          <div class="text-[9px] text-orange-500 font-bold uppercase tracking-tighter">
+            ${r.kodeSupp} | ${r.tempo || 0} Hari
+          </div>
+        </td>
+        <td class="px-3 py-2 text-gray-300 font-medium w-[12%]">${r.cabang}</td>
+        <td class="px-3 py-2 text-orange-300 font-mono w-[12%]">${formatTglIndo(r.tglJT)}</td>
+        <td class="px-3 py-2 text-right font-black text-white w-[12%]">Rp ${typeof fmt === 'function' ? fmt(r.nilai) : r.nilai.toLocaleString('id-ID')}</td>
+        <td class="px-3 py-2 text-center w-[10%]">
+          <div class="inline-block px-2 py-0.5 rounded border text-[8px] font-black uppercase leading-none tracking-widest ${stStyle}">
+            ${statusRaw}
+          </div>
+          ${infoKirim}
+        </td>
+      </tr>`;
+    });
+  }
+  tableBody.innerHTML = h;
+}
+
+function nextBeliPage() { 
+  if ((beliCurrentPage * beliPageSize) < filteredBeliData.length) { 
+    beliCurrentPage++; 
+    displayBeliPage(); 
+  } 
+}
+function prevBeliPage() { 
+  if (beliCurrentPage > 1) { 
+    beliCurrentPage--; 
+    displayBeliPage(); 
+  } 
+}
+
+// ==========================================
+// 3. FUNGSI FILTER & PENCARIAN
+// ==========================================
+function applyBeliFilter() {
+  try {
+    const bulan = document.getElementById('filterBeliBulan')?.value || "";
+    const cabang = document.getElementById('filterBeliCabang')?.value.toLowerCase() || "";
+    const cari = document.getElementById('filterBeliCari')?.value.toLowerCase() || "";
+    const statusFilter = document.getElementById('filterBeliStatus')?.value || "";
+
+    let hasilFilter = allBeliData.filter(r => {
+      let matchBulan = true;
+      if (bulan && r.tglInv) {
+        const itemBulan = String(r.tglInv).substring(0, 7);
+        matchBulan = (itemBulan === bulan);
+      }
+
+      const matchCabang = (r.cabang || "").toLowerCase().includes(cabang);
+      const matchCari = (r.namaSupp || "").toLowerCase().includes(cari) || 
+                        (r.noInvoice || "").toLowerCase().includes(cari) ||
+                        (r.kodeSupp || "").toLowerCase().includes(cari);
+
+      const statusDataSheet = (r.status || "").toString().toUpperCase().trim();
+      const matchStatus = (statusFilter === "" || statusDataSheet === statusFilter);
+
+      return matchBulan && matchCabang && matchCari && matchStatus;
+    });
+
+    filteredBeliData = hasilFilter;
+    beliCurrentPage = 1;
+    displayBeliPage();
+    
+  } catch (e) { 
+    console.error("Filter Error: ", e); 
+  }
+}
+
+function clearBeliFilter() {
+  ['filterBeliBulan','filterBeliCabang','filterBeliCari','filterBeliStatus'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.value = "";
+  });
+  applyBeliFilter();
+}
+
+// ==========================================
+// 4. HAPUS DATA PEMBELIAN (SUPABASE NATIVE)
+// ==========================================
+function hapusBeli(noInv) {
+  Swal.fire({
+    title: 'Hapus Invoice?',
+    text: `Invoice ${noInv} akan dihapus permanen dari database!`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#ef4444',
+    cancelButtonColor: '#64748b',
+    confirmButtonText: 'Ya, Hapus!',
+    background: '#1a1f26',
+    color: '#fff'
+  }).then(async (result) => {
+    if (result.isConfirmed) {
+      Swal.fire({ title: 'Menghapus...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+      try {
+        const response = await fetch(`${DB_URL}/rest/v1/Data_Beli?invbeli=eq.${encodeURIComponent(noInv)}`, {
+          method: 'DELETE',
+          headers: {
+            "apikey": DB_KEY,
+            "Authorization": `Bearer ${DB_KEY}`,
+            "Prefer": "return=minimal"
+          }
+        });
+
+        if (response.ok) {
+          allBeliData = allBeliData.filter(item => item.noInvoice !== noInv);
+          applyBeliFilter();
+          Swal.fire({
+            icon: 'success',
+            title: 'Terhapus!',
+            text: 'Data pembelian berhasil dihapus.',
+            background: '#1a1f26',
+            color: '#fff',
+            timer: 1500,
+            showConfirmButton: false
+          });
+        } else {
+          const errText = await response.text();
+          throw new Error(errText);
+        }
+      } catch (err) {
+        Swal.fire('Error', err.message, 'error');
+      }
+    }
+  });
+}
+
+// ==========================================
+// 5. IMPORT EXCEL / CSV KE DATABASE SUPABASE
+// ==========================================
+function openImportBeli() { document.getElementById('modalImportBeli').classList.remove('hidden'); }
+function closeImportBeli() { document.getElementById('modalImportBeli').classList.add('hidden'); }
+
+function handleFileSelect(input) {
+  if (input.files.length > 0) {
+    document.getElementById('fileNameDisplay').innerText = input.files[0].name;
+  }
+}
+
+function resetImportFile() {
+  Swal.fire({
+    title: 'Kosongkan Input?',
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'Ya, Reset',
+    background: '#1a1f26', color: '#fff'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      document.getElementById('fileImportBeli').value = "";
+      document.getElementById('fileNameDisplay').innerText = "Klik untuk pilih file Excel";
+    }
+  });
+}
+
+function prosesImportBeli() {
+  const fileInput = document.getElementById('fileImportBeli');
+  if (!fileInput.files || fileInput.files.length === 0) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'File Belum Dipilih',
+      text: 'Silakan pilih file Excel terlebih dahulu!',
+      confirmButtonColor: '#3085d6'
+    });
+    return;
+  }
+
+  Swal.fire({
+    title: 'Sedang Memproses & Mengunggah...',
+    text: 'Harap tunggu, sistem sedang memasukkan data ke Supabase.',
+    allowOutsideClick: false,
+    didOpen: () => { Swal.showLoading(); }
+  });
+
+  const file = fileInput.files[0];
+  const reader = new FileReader();
+
+  reader.onload = async function(e) {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, {type: 'array', cellDates: true});
+      const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(firstSheet, {defval: ""});
+
+      if (!rows || rows.length === 0) {
+        throw new Error("File kosong atau tidak ada data ditemukan.");
+      }
+
+      const batchPayloads = [];
+
+      rows.forEach(row => {
+        const getVal = (keys) => {
+          for (let k of keys) {
+            if (row[k] !== undefined && row[k] !== '') return row[k];
+            const foundKey = Object.keys(row).find(bk => bk.trim().toLowerCase() === k.toLowerCase());
+            if (foundKey && row[foundKey] !== '') return row[foundKey];
+          }
+          return '';
+        };
+
+        const tglRaw = getVal(['tglinv', 'tgl_inv', 'tanggal', 'tgl']);
+        let formattedDate = '';
+        if (tglRaw) {
+          if (tglRaw instanceof Date) {
+            formattedDate = tglRaw.toISOString().split('T')[0];
+          } else {
+            let parsed = new Date(tglRaw);
+            if (!isNaN(parsed.getTime())) {
+              formattedDate = parsed.toISOString().split('T')[0];
+            } else {
+              formattedDate = String(tglRaw).trim().substring(0, 10);
+            }
+          }
+        }
+
+        const invbeli = String(getVal(['invbeli', 'noinv', 'no_invoice', 'invoice'])).trim();
+        const kodesupp = String(getVal(['kodesupp', 'kode_supp', 'kode'])).trim();
+        const namasupp = String(getVal(['namasupp', 'nama_supp', 'nama'])).trim();
+        const ID_Cabang = String(getVal(['id_cabang', 'ID_Cabang', 'cabang'])).trim().toUpperCase();
+        const tempo = parseInt(getVal(['tempo']) || 0, 10);
+        
+        const tglJTRaw = getVal(['tgljt', 'tgl_jt', 'jatuh_tempo']);
+        let formattedJT = '';
+        if (tglJTRaw) {
+          if (tglJTRaw instanceof Date) {
+            formattedJT = tglJTRaw.toISOString().split('T')[0];
+          } else {
+            let parsedJT = new Date(tglJTRaw);
+            if (!isNaN(parsedJT.getTime())) {
+              formattedJT = parsedJT.toISOString().split('T')[0];
+            } else {
+              formattedJT = String(tglJTRaw).trim().substring(0, 10);
+            }
+          }
+        }
+
+        let nomBeliVal = getVal(['nombeli', 'nom_beli', 'nilai', 'nominal']) || 0;
+        if (typeof nomBeliVal === 'string') {
+          nomBeliVal = parseFloat(nomBeliVal.replace(/[^0-9.]/g, '')) || 0;
+        }
+
+        let statusbeli = String(getVal(['statusbeli', 'status']) || 'SIMPAN').toUpperCase();
+
+        if (formattedDate && invbeli) {
+          batchPayloads.push({
+            tglinv: formattedDate,
+            invbeli: invbeli,
+            kodesupp: kodesupp,
+            namasupp: namasupp,
+            ID_Cabang: ID_Cabang,
+            tempo: isNaN(tempo) ? 0 : tempo,
+            tgljt: formattedJT || null,
+            nombeli: isNaN(nomBeliVal) ? 0 : nomBeliVal,
+            statusbeli: statusbeli
+          });
+        }
+      });
+
+      if (batchPayloads.length === 0) {
+        throw new Error("Tidak ada data valid. Pastikan header Excel mencakup: tglinv, invbeli, kodesupp, namasupp, ID_Cabang, tempo, tgljt, nombeli, statusbeli.");
+      }
+
+      const response = await fetch(`${DB_URL}/rest/v1/Data_Beli`, {
+        method: 'POST',
+        headers: {
+          "apikey": DB_KEY,
+          "Authorization": `Bearer ${DB_KEY}`,
+          "Content-Type": "application/json",
+          "Prefer": "return=minimal"
+        },
+        body: JSON.stringify(batchPayloads)
+      });
+
+      if (response.ok) {
+        closeImportBeli();
+        Swal.fire({
+          icon: 'success',
+          title: 'Import Berhasil!',
+          text: `${batchPayloads.length} data purchase berhasil dimasukkan ke database Supabase.`,
+          background: '#1e252e',
+          color: '#fff',
+          timer: 2000,
+          showConfirmButton: false
+        });
+        loadBeliTab(); 
+      } else {
+        const errText = await response.text();
+        throw new Error(errText);
+      }
+
+    } catch (err) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Gagal Import',
+        text: err.message,
+        background: '#1e252e',
+        color: '#fff'
+      });
+    }
+  };
+
+  reader.onerror = function() {
+    Swal.fire('Error', 'Gagal membaca file Excel.', 'error');
+  };
+
+  reader.readAsArrayBuffer(file);
+}
+
+// ==========================================
+// 6. HELPER FORMAT TANGGAL & RIBUAN
+// ==========================================
+// HELPER FORMAT TANGGAL (PERBAIKAN FORMAT SUPABASE)
+// ==========================================
+function formatTglIndo(tglStr) {
+  if (!tglStr || tglStr === "-") return "-";
+  
+  try {
+    // Ambil bagian tanggal saja jika ada format waktu (misal: 2026-10-31T00:00:00)
+    let cleanStr = String(tglStr).split('T')[0].split(' ')[0];
+    let p = cleanStr.split(/[-/]/);
+
+    if (p.length !== 3) return cleanStr;
+
+    const namaBulan = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+
+    let y, m, d;
+
+    // Cek apakah format dari database YYYY-MM-DD (Tahun di depan)
+    if (p[0].length === 4) {
+      y = p[0];
+      m = p[1];
+      d = p[2];
+    } else {
+      // Format DD-MM-YYYY (Hari di depan)
+      d = p[0];
+      m = p[1];
+      y = p[2];
+    }
+
+    let tgl = String(d).padStart(2, '0');
+    let blnIdx = parseInt(m, 10) - 1;
+    let bln = isNaN(blnIdx) ? m.substring(0, 3) : (namaBulan[blnIdx] || m);
+    let thn = String(y).slice(-2); // Ambil 2 digit tahun terakhir (contoh: 2026 jadi 26)
+
+    return `${tgl}-${bln}-${thn}`;
+  } catch (e) {
+    return tglStr;
+  }
+}
+
+function formatRibuanInput(angka) {
+  let number_string = angka.replace(/[^,\d]/g, '').toString(),
+      split = number_string.split(','),
+      sisa = split[0].length % 3,
+      rupiah = split[0].substr(0, sisa),
+      ribuan = split[0].substr(sisa).match(/\d{3}/gi);
+
+  if (ribuan) {
+    let separator = sisa ? '.' : '';
+    rupiah += separator + ribuan.join('.');
+  }
+  return rupiah;
 }
   </script>
 </body>
