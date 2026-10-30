@@ -789,13 +789,13 @@
         </div>
         <div class="matrix-scroll-container mb-6">
           <table class="matrix-table">
-            <thead><tr><th class="unit-cell">Unit</th><th>Jan</th><th>Feb</th><th>Mar</th><th>Apr</th><th>Mei</th><th>Jun</th><th>Jul</th><th>Agu</th><th>Sep</th><th>Okt</th><th>Nov</th><th>Des</th><th class="total-col !bg-slate-800">TOTAL</th></tr></thead>
+            <thead><tr><th class="unit-cell">CABANG</th><th>Jan</th><th>Feb</th><th>Mar</th><th>Apr</th><th>Mei</th><th>Jun</th><th>Jul</th><th>Agu</th><th>Sep</th><th>Okt</th><th>Nov</th><th>Des</th><th class="total-col !bg-slate-800">TOTAL</th></tr></thead>
             <tbody id="matrixBodySales"></tbody>
           </table>
         </div>
         <div class="matrix-scroll-container">
           <table class="matrix-table">
-            <thead><tr><th class="unit-cell">Unit</th><th>Jan</th><th>Feb</th><th>Mar</th><th>Apr</th><th>Mei</th><th>Jun</th><th>Jul</th><th>Agu</th><th>Sep</th><th>Okt</th><th>Nov</th><th>Des</th><th class="total-col !bg-slate-800">TOTAL</th></tr></thead>
+            <thead><tr><th class="unit-cell">CABANG</th><th>Jan</th><th>Feb</th><th>Mar</th><th>Apr</th><th>Mei</th><th>Jun</th><th>Jul</th><th>Agu</th><th>Sep</th><th>Okt</th><th>Nov</th><th>Des</th><th class="total-col !bg-slate-800">TOTAL</th></tr></thead>
             <tbody id="matrixBodyFreq"></tbody>
           </table>
         </div>
@@ -1212,7 +1212,7 @@
         <table class="w-full text-left border-collapse min-w-[660px] table-fixed">
           <thead class="bg-[#1a1d23] sticky top-0 z-20 border-b border-[#343b47]">
             <tr>
-              <th class="p-2 text-[9px] uppercase text-gray-400 font-black w-[16%]">Tgl</th>
+              <th class="p-2 text-[9px] uppercase text-gray-400 font-black w-[16%]">Tgl/Cbg</th>
               <th class="p-2 text-[9px] uppercase text-cyan-400 font-black w-[18%]">PosX</th>
               <th class="p-2 text-[9px] uppercase text-green-400 font-black w-[18%]">Grab</th>
               <th class="p-2 text-right text-[9px] uppercase text-white font-black w-[16%]">Total</th>
@@ -1274,7 +1274,7 @@
         <table class="w-full text-left border-collapse min-w-[680px] table-fixed">
           <thead class="bg-[#1a1d23] sticky top-0 z-20 border-b border-[#343b47]">
             <tr>
-              <th class="p-2 text-[9px] uppercase text-gray-400 font-black w-[14%]">Tgl/Unit</th>
+              <th class="p-2 text-[9px] uppercase text-gray-400 font-black w-[14%]">Tgl/Cnl</th>
               <th class="p-2 text-[9px] uppercase text-orange-400 font-black w-[20%]">Shopee</th>
               <th class="p-2 text-[9px] uppercase text-pink-400 font-black w-[20%]">Tiktok</th>
               <th class="p-2 text-[9px] uppercase text-blue-400 font-black w-[20%]">Web</th>
@@ -1381,6 +1381,7 @@
         </div>
     </div>
 </div>
+<div>
 <!-- TAB ANALISA -->
 <div id="tab-analisa" class="tab-content hidden flex flex-col space-y-3 h-[calc(100vh-100px)]">
   
@@ -8074,6 +8075,281 @@ async function printBarChartReport(fileName) {
   // pastikan elemen kop berlogo sudah ada di dalam #tab-grafikBar atau disisipkan via JS sebelum print.
   
   window.print();
+}
+let allUserData = [];
+
+// 1. LOAD DATA LANGSUNG DARI SUPABASE DENGAN DEBUGGING
+function loadUsersSettings() {
+  const tbody = document.getElementById('userTableBody');
+  const currentUser = (session && session.username) ? session.username : "";
+  const currentRole = (session && session.role) ? session.role.trim().toLowerCase() : "";
+
+  tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-gray-500"><i class="fa fa-spinner fa-spin"></i> Memuat data dari Supabase...</td></tr>';
+  
+  // Coba pastikan nama tabel di sini ("Ref_User") sudah sama persis dengan di Supabase
+  fetch(`${DB_URL}/rest/v1/Ref_User?select=*`, {
+    method: 'GET',
+    headers: {
+      'apikey': DB_KEY,
+      'Authorization': `Bearer ${DB_KEY}`,
+      'Content-Type': 'application/json'
+    }
+  })
+  .then(response => {
+    if (!response.ok) throw new Error('Gagal mengambil data. Status: ' + response.status);
+    return response.json();
+  })
+  .then(users => {
+    console.log("CEK DATA SUPABASE:", users); // Lihat hasil ini di Console (F12)
+
+    if (!users || users.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-amber-400 italic">Data kosong atau Nama Tabel Supabase keliru.</td></tr>';
+      return;
+    }
+
+    const formattedUsers = users.map(row => ({
+      username: row.Username || row.username || "",
+      role: row.Role || row.role || "",
+      cabang: row.ID_Cabang || row.id_cabang || row.ID_cabang || row.Cabang || "",
+      password: row.password || row.Password || ""
+    }));
+    if (currentRole === 'owner') {
+      allUserData = formattedUsers;
+    } else {
+      allUserData = formattedUsers.filter(u => {
+        return u.username && currentUser && u.username.toLowerCase() === currentUser.toLowerCase();
+      });
+    }
+
+    renderUserTable(allUserData);
+  })
+  .catch(error => {
+    console.error("Error:", error);
+    tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-red-400">Error: ${error.message}</td></tr>`;
+  });
+}
+// 2. RENDER TABEL (Tetap Sama)
+function renderUserTable(data) {
+  const tbody = document.getElementById('userTableBody');
+  const btnTambah = document.getElementById('btnTambahUser');
+  
+  const role = (session && session.role) ? session.role.trim().toLowerCase() : "";
+  const isOwner = (role === "owner");
+
+  if (btnTambah) {
+    btnTambah.style.display = isOwner ? "block" : "none";
+  }
+  
+  if (!data || data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-gray-500 italic">Data tidak ditemukan.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = data.map(u => {
+    const uname = u[0];
+    const urole = u[1];
+    const ucabang = u[2];
+
+    return `
+      <tr class="border-b border-white/5 hover:bg-white/5 transition-all text-white">
+        <td class="p-3 font-bold text-cyan-400">${uname}</td>
+        <td class="p-3"><span class="bg-white/10 px-2 py-0.5 rounded text-[10px]">${urole}</span></td>
+        <td class="p-3">${ucabang}</td>
+        <td class="p-3 font-mono text-gray-500">****</td>
+        <td class="p-3 text-center">
+          <button type="button" onclick="editUser('${uname}', '${urole}', '${ucabang}')" class="text-blue-400 bg-blue-500/10 px-2 py-1 rounded hover:bg-blue-500/20">
+              <i class="fa fa-edit"></i> Edit
+          </button>
+          
+          ${isOwner ? `
+          <button type="button" onclick="hapusUser('${uname}')" class="text-red-400 bg-red-500/10 px-2 py-1 rounded hover:bg-red-500/20 ml-2">
+              <i class="fa fa-trash"></i> Hapus
+          </button>` : ''}
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// 3. FILTER TABEL
+function filterUserTable() {
+  const userQ = document.getElementById('userSearch').value.toLowerCase();
+  const cabQ = document.getElementById('cabangSearch').value.toLowerCase();
+  
+  if (userQ === "" && cabQ === "") { 
+    renderUserTable(allUserData); 
+    return; 
+  }
+  
+  const filtered = allUserData.filter(u => {
+    const username = (u[0] || "").toString().toLowerCase();
+    const cabang = (u[2] || "").toString().toLowerCase();
+    return username.includes(userQ) && cabang.includes(cabQ);
+  });
+  
+  renderUserTable(filtered);
+}
+
+// 4. MODAL & INPUT CABANG DARI SUPABASE
+function loadCabangDropdown(selectedValue = "") {
+  fetch(`${DB_URL}/rest/v1/Ref_Cabang?select=*`, {
+    method: 'GET',
+    headers: {
+      'apikey': DB_KEY,
+      'Authorization': `Bearer ${DB_KEY}`,
+      'Content-Type': 'application/json'
+    }
+  })
+  .then(res => res.json())
+  .then(cabangs => {
+    const select = document.getElementById('u_cabang');
+    // Sesuaikan properti nama kolom cabang di tabel Supabase Anda (misal: c.Nama_Cabang atau c.id_cabang)
+    select.innerHTML = '<option value="">-- Pilih Cabang --</option>' + 
+      cabangs.map(c => {
+        const namaCabang = c.ID_Cabang || c.nama_cabang || c.Cabang;
+        return `<option value="${namaCabang}" ${namaCabang === selectedValue ? 'selected' : ''}>${namaCabang}</option>`;
+      }).join('');
+  })
+  .catch(err => console.error("Gagal load cabang:", err));
+}
+
+function openUserModal() {
+  const isOwner = (session && session.role.trim().toLowerCase() === "owner");
+  
+  if (!isOwner) {
+    Swal.fire({ icon: 'error', title: 'Akses Ditolak!', text: 'Hanya Owner yang dapat menambah user.' });
+    return;
+  }
+  
+  document.getElementById('modalUserTitle').innerText = "TAMBAH USER";
+  document.getElementById('u_username').value = "";
+  document.getElementById('u_old_username').value = "";
+  document.getElementById('u_password').value = "";
+  document.getElementById('u_role').value = "USER"; 
+  loadCabangDropdown(""); 
+  
+  document.getElementById('u_role').disabled = false;
+  document.getElementById('u_cabang').disabled = false;
+  document.getElementById('u_role').style.opacity = "1";
+  document.getElementById('u_cabang').style.opacity = "1";
+
+  document.getElementById('modalUser').classList.remove('hidden');
+}
+
+function editUser(username, role, cabang) {
+  const isOwner = (session && session.role.trim().toLowerCase() === "owner");
+  
+  document.getElementById('modalUserTitle').innerText = "EDIT USER: " + username;
+  document.getElementById('u_username').value = username;
+  document.getElementById('u_role').value = role;
+  document.getElementById('u_old_username').value = username; 
+  document.getElementById('u_password').value = ""; 
+  
+  loadCabangDropdown(cabang);
+
+  const roleField = document.getElementById('u_role');
+  const cabangField = document.getElementById('u_cabang');
+  
+  roleField.disabled = !isOwner;
+  cabangField.disabled = !isOwner;
+  
+  roleField.style.opacity = isOwner ? "1" : "0.5";
+  cabangField.style.opacity = isOwner ? "1" : "0.5";
+
+  document.getElementById('modalUser').classList.remove('hidden');
+}
+
+// 5. SIMPAN USER KE SUPABASE (INSERT / UPDATE)
+function simpanUser() {
+  const isOwner = (session.role.trim().toLowerCase() === "owner");
+  const username = document.getElementById('u_username').value;
+  const oldUsername = document.getElementById('u_old_username').value;
+  const password = document.getElementById('u_password').value;
+  const role = isOwner ? document.getElementById('u_role').value : session.role;
+  const cabang = isOwner ? document.getElementById('u_cabang').value : session.cabang;
+
+  if (!username) {
+    Swal.fire({ icon: 'error', title: 'Oops...', text: 'Username wajib diisi!' });
+    return;
+  }
+
+  document.getElementById('modalUser').classList.add('hidden');
+  Swal.fire({
+    title: 'Memproses...',
+    allowOutsideClick: false,
+    didOpen: () => { Swal.showLoading(); }
+  });
+
+  const payload = {
+    Username: username,
+    Role: role,
+    ID_Cabang: cabang
+  };
+  if (password) {
+    payload.password = password;
+  }
+
+  let fetchUrl = `${DB_URL}/rest/v1/Ref_User`;
+  let method = 'POST';
+  let headers = {
+    'apikey': DB_KEY,
+    'Authorization': `Bearer ${DB_KEY}`,
+    'Content-Type': 'application/json',
+    'Prefer': 'return=representation'
+  };
+
+  // Jika Edit (oldUsername ada isinya)
+  if (oldUsername) {
+    fetchUrl = `${DB_URL}/rest/v1/Ref_User?Username=eq.${encodeURIComponent(oldUsername)}`;
+    method = 'PATCH';
+  }
+
+  fetch(fetchUrl, {
+    method: method,
+    headers: headers,
+    body: JSON.stringify(payload)
+  })
+  .then(res => {
+    if (!res.ok) throw new Error('Gagal menyimpan data ke Supabase.');
+    Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Data tersimpan.', timer: 1500, showConfirmButton: false });
+    loadUsersSettings();
+  })
+  .catch(err => {
+    Swal.fire({ icon: 'error', title: 'Gagal', text: err.message });
+  });
+}
+
+// 6. HAPUS USER DARI SUPABASE
+function hapusUser(username) {
+  Swal.fire({
+    title: 'Hapus User?',
+    text: `User ${username} akan dihapus permanen!`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#ef4444',
+    confirmButtonText: 'Ya, Hapus!',
+    background: '#1a1a1a',
+    color: '#fff'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      fetch(`${DB_URL}/rest/v1/Ref_User?Username=eq.${encodeURIComponent(username)}`, {
+        method: 'DELETE',
+        headers: {
+          'apikey': DB_KEY,
+          'Authorization': `Bearer ${DB_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      .then(res => {
+        if (!res.ok) throw new Error('Gagal menghapus data.');
+        loadUsersSettings();
+        Swal.fire({icon: 'success', title: 'Terhapus!', background: '#1a1a1a', color: '#fff', timer: 1500, showConfirmButton: false});
+      })
+      .catch(err => {
+        Swal.fire({icon: 'error', title: 'Gagal', text: err.message});
+      });
+    }
+  });
 }
   </script>
 </body>
