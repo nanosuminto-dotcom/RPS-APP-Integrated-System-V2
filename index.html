@@ -8644,12 +8644,13 @@ const LogistikApp = {
   }
 };
 /**
- * MODULE TABEL PO & MANAJEMEN CRUD (Supabase Native)
+ * MODULE TABEL PO & MANAJEMEN CRUD LENGKAP (Supabase Native)
  */
 let dataMasterSupp = [];
 let allPOData = [];
+let filteredPOData = [];
 let poCurrentPage = 1;
-const poRowsPerPage = 20;
+const poPageSize = 20;
 
 // ==========================================
 // 1. FUNGSI LOAD DATA PO & URUTKAN TGL TERBARU
@@ -8748,7 +8749,10 @@ async function loadPOTab() {
       tglKirim: row.tglkirim,
       tglTerima: row.tglterima,
       status: (row.statuspo || 'PENDING').toUpperCase()
-    })).sort((a, b) => new Date(b.tgl) - new Date(a.tgl)); // Tanggal terbaru di atas
+    })).sort((a, b) => new Date(b.tgl) - new Date(a.tgl));
+
+    // Sinkronisasi awal data ke filteredPOData
+    filteredPOData = [...allPOData];
 
     let hKode = '<option value="">- Kode -</option>';
     let hNama = '<option value="">- Nama Supplier -</option>';
@@ -8763,7 +8767,7 @@ async function loadPOTab() {
     if (elNama) elNama.innerHTML = hNama;
 
     poCurrentPage = 1;
-    displayPOPage();
+    displayFilteredPO();
 
   } catch (err) {
     console.error("Gagal memuat data PO:", err);
@@ -8774,13 +8778,50 @@ async function loadPOTab() {
 }
 
 // ==========================================
-// 2. FUNGSI RENDER TABEL & PAGINATION LENGKAP
+// 2. FUNGSI RENDER TABEL & PAGINATION
 // ==========================================
 function displayPOPage() {
-  const startIndex = (poCurrentPage - 1) * poRowsPerPage;
-  const slicedData = allPOData.slice(startIndex, startIndex + poRowsPerPage);
-  renderPOTable(slicedData);
+  displayFilteredPO();
+}
+
+function displayFilteredPO() {
+  const totalData = filteredPOData.length;
+  
+  if (totalData === 0) {
+    const elTotal = document.getElementById('poTotal');
+    const elRange = document.getElementById('poRange');
+    if (elTotal) elTotal.innerText = "0";
+    if (elRange) elRange.innerText = "0-0";
+    
+    const btnPrev = document.getElementById('btnPOPrev');
+    const btnNext = document.getElementById('btnPONext');
+    if (btnPrev) btnPrev.disabled = true;
+    if (btnNext) btnNext.disabled = true;
+
+    renderPOTable([]);
+    renderPOPaginationControl();
+    return;
+  }
+
+  const start = (poCurrentPage - 1) * poPageSize;
+  const end = Math.min(start + poPageSize, totalData);
+  const dataToDisplay = filteredPOData.slice(start, end);
+
+  const elTotal = document.getElementById('poTotal');
+  const elRange = document.getElementById('poRange');
+  if (elTotal) elTotal.innerText = totalData;
+  if (elRange) elRange.innerText = `${start + 1}-${end}`;
+
+  const btnPrev = document.getElementById('btnPOPrev');
+  const btnNext = document.getElementById('btnPONext');
+  if (btnPrev) btnPrev.disabled = (poCurrentPage === 1);
+  if (btnNext) btnNext.disabled = (end >= totalData);
+
+  renderPOTable(dataToDisplay);
   renderPOPaginationControl();
+
+  const scrollArea = document.getElementById('poScrollContainer');
+  if (scrollArea) scrollArea.scrollTop = 0;
 }
 
 function renderPOTable(data) {
@@ -8832,8 +8873,8 @@ function renderPOTable(data) {
     </td>
     <td class="p-3 text-center w-[13%]"> 
       <div class="flex justify-center items-center gap-1.5">
-        ${r.status === 'PENDING' ? `<button onclick="updatePOStatusUI('${r.noNota}', 'TERKIRIM')" class="bg-blue-600 text-white px-2 py-1 rounded text-[8px] font-black uppercase">Kirim</button>` : ''}
-        ${r.status === 'TERKIRIM' ? `<button onclick="updatePOStatusUI('${r.noNota}', 'SELESAI')" class="bg-green-600 text-white px-2 py-1 rounded text-[8px] font-black uppercase">Terima</button>` : ''}
+        ${r.status === 'PENDING' ? `<button onclick="changeStatus('${r.noNota}', 'TERKIRIM')" class="bg-blue-600 hover:bg-blue-500 text-white px-2 py-1 rounded text-[8px] font-black uppercase">Kirim</button>` : ''}
+        ${r.status === 'TERKIRIM' ? `<button onclick="changeStatus('${r.noNota}', 'SELESAI')" class="bg-green-600 hover:bg-green-500 text-white px-2 py-1 rounded text-[8px] font-black uppercase">Terima</button>` : ''}
       </div>
     </td>
   </tr>`;
@@ -8843,7 +8884,8 @@ function renderPOTable(data) {
 }
 
 // ==========================================
-// 3. KONTROL NAVIGASI HALAMAN (PAGINATION UI)
+// 3. KONTROL NAVIGASI HALAMAN & FILTER
+// ==========================================
 function renderPOPaginationControl() {
   let container = document.getElementById('poPaginationContainer');
   
@@ -8859,28 +8901,68 @@ function renderPOPaginationControl() {
     }
   }
 
-  const totalPages = Math.ceil(allPOData.length / poRowsPerPage) || 1;
+  const totalPages = Math.ceil(filteredPOData.length / poPageSize) || 1;
   if (poCurrentPage > totalPages) poCurrentPage = totalPages;
 
   container.innerHTML = `
     <div class="flex gap-1.5">
-      <button onclick="changePOPage(-1)" ${poCurrentPage === 1 ? 'disabled class="opacity-30 cursor-not-allowed bg-black/20 px-2.5 py-1 rounded border border-white/10 text-gray-500 text-[10px]"' : 'class="bg-neutral-800 hover:bg-neutral-700 text-white px-2.5 py-1 rounded border border-white/10 text-[10px] transition-all"'}>Prev</button>
-      <button onclick="changePOPage(1)" ${poCurrentPage === totalPages ? 'disabled class="opacity-30 cursor-not-allowed bg-black/20 px-2.5 py-1 rounded border border-white/10 text-gray-500 text-[10px]"' : 'class="bg-neutral-800 hover:bg-neutral-700 text-white px-2.5 py-1 rounded border border-white/10 text-[10px] transition-all"'}>Next</button>
+      <button onclick="prevPOPage()" id="btnPOPrev" ${poCurrentPage === 1 ? 'disabled class="opacity-30 cursor-not-allowed bg-black/20 px-2.5 py-1 rounded border border-white/10 text-gray-500 text-[10px]"' : 'class="bg-neutral-800 hover:bg-neutral-700 text-white px-2.5 py-1 rounded border border-white/10 text-[10px] transition-all"'}>Prev</button>
+      <button onclick="nextPOPage()" id="btnPONext" ${poCurrentPage === totalPages ? 'disabled class="opacity-30 cursor-not-allowed bg-black/20 px-2.5 py-1 rounded border border-white/10 text-gray-500 text-[10px]"' : 'class="bg-neutral-800 hover:bg-neutral-700 text-white px-2.5 py-1 rounded border border-white/10 text-[10px] transition-all"'}>Next</button>
     </div>
-    <div class="text-[10px]">Menampilkan halaman <b class="text-white">${poCurrentPage}</b> dari <b class="text-white">${totalPages}</b> <span class="text-gray-500">(Total ${allPOData.length} data PO)</span></div>
+    <div class="text-[10px]">Menampilkan halaman <b class="text-white">${poCurrentPage}</b> dari <b class="text-white">${totalPages}</b> <span class="text-gray-500">(Total ${filteredPOData.length} data PO)</span></div>
   `;
 }
 
-function changePOPage(direction) {
-  const totalPages = Math.ceil(allPOData.length / poRowsPerPage) || 1;
-  poCurrentPage += direction;
-  if (poCurrentPage < 1) poCurrentPage = 1;
-  if (poCurrentPage > totalPages) poCurrentPage = totalPages;
-  displayPOPage();
+function nextPOPage() {
+  if ((poCurrentPage * poPageSize) < filteredPOData.length) {
+    poCurrentPage++;
+    displayFilteredPO();
+  }
+}
+
+function prevPOPage() {
+  if (poCurrentPage > 1) {
+    poCurrentPage--;
+    displayFilteredPO();
+  }
+}
+
+function applyPoFilter() {
+  const fBulan = document.getElementById('filterPoBulan')?.value || ""; 
+  const fCabang = document.getElementById('filterPoCabang')?.value.toLowerCase() || "";
+  const fCari = document.getElementById('filterPoCari')?.value.toLowerCase() || "";
+  const fStatus = document.getElementById('filterPoStatus')?.value || "";
+
+  filteredPOData = allPOData.filter(item => {
+    const itemBulan = (item.tgl || "").substring(0, 7); 
+    const matchBulan = !fBulan || itemBulan === fBulan;
+    const matchCabang = !fCabang || (item.cabang || "").toLowerCase().includes(fCabang);
+    const matchCari = !fCari || 
+                      (item.namaSupp || "").toLowerCase().includes(fCari) || 
+                      (item.noNota || "").toLowerCase().includes(fCari) ||
+                      (item.kodeSupp || "").toLowerCase().includes(fCari);
+    const matchStatus = !fStatus || item.status === fStatus;
+
+    return matchBulan && matchCabang && matchCari && matchStatus;
+  });
+
+  poCurrentPage = 1; 
+  displayFilteredPO();
+}
+
+function clearPoFilter() {
+  if(document.getElementById('filterPoBulan')) document.getElementById('filterPoBulan').value = "";
+  if(document.getElementById('filterPoCabang')) document.getElementById('filterPoCabang').value = "";
+  if(document.getElementById('filterPoCari')) document.getElementById('filterPoCari').value = "";
+  if(document.getElementById('filterPoStatus')) document.getElementById('filterPoStatus').value = ""; 
+
+  filteredPOData = [...allPOData];
+  poCurrentPage = 1;
+  displayFilteredPO();
 }
 
 // ==========================================
-// 4. FUNGSI SINKRONISASI & AUTO-TEMPO (FORM UTAMA)
+// 4. FUNGSI SINKRONISASI & AUTO-TEMPO
 // ==========================================
 function syncSupplier(source) {
   const kodeEl = document.getElementById('poKodeSupp');
@@ -8900,7 +8982,7 @@ function syncSupplier(source) {
 }
 
 // ==========================================
-// 5. FUNGSI RESET FORM PO
+// 5. FUNGSI RESET FORM PO & IMPORT EXCEL
 // ==========================================
 function resetFormPO() {
   try {
@@ -8916,8 +8998,73 @@ function resetFormPO() {
   }
 }
 
+function importExcelPO() {
+  Swal.fire({
+    title: 'Import Data PO',
+    background: '#0f1115',
+    html: `<textarea id="csvImport" class="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-cyan-500 text-[10px] h-32" placeholder="Copy data dari Excel lalu Paste di sini..."></textarea>`,
+    showCancelButton: true,
+    confirmButtonText: 'Proses Import',
+    confirmButtonColor: '#059669'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      const rawData = document.getElementById('csvImport').value;
+      if(!rawData) return;
+      Swal.fire("Sistem Siap", "Fitur bulk insert sedang dalam pengembangan", "info");
+    }
+  });
+}
+
+function changeStatus(noNota, status) {
+  const confirmMsg = status === 'TERKIRIM' ? 'Ubah status jadi TERKIRIM?' : 'Selesaikan PO ini?';
+  const confirmBtn = status === 'TERKIRIM' ? '#3b82f6' : '#10b981';
+  
+  Swal.fire({
+    title: 'Konfirmasi',
+    text: confirmMsg,
+    icon: 'question',
+    background: '#0f1115',
+    showCancelButton: true,
+    confirmButtonText: 'Ya, Update',
+    confirmButtonColor: confirmBtn
+  }).then(async (result) => {
+    if (result.isConfirmed) {
+      Swal.fire({ title: 'Updating...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+      try {
+        const updatePayload = { statuspo: status };
+        if (status === 'TERKIRIM') {
+          updatePayload.tglkirim = new Date().toISOString().split('T')[0];
+        } else if (status === 'SELESAI') {
+          updatePayload.tglterima = new Date().toISOString().split('T')[0];
+        }
+
+        const response = await fetch(`${DB_URL}/rest/v1/Data_PO?invpo=eq.${encodeURIComponent(noNota)}`, {
+          method: 'PATCH',
+          headers: {
+            "apikey": DB_KEY,
+            "Authorization": `Bearer ${DB_KEY}`,
+            "Content-Type": "application/json",
+            "Prefer": "return=minimal"
+          },
+          body: JSON.stringify(updatePayload)
+        });
+
+        if (response.ok) {
+          Swal.fire({ icon: 'success', title: 'Updated', timer: 800, showConfirmButton: false });
+          loadPOTab(); 
+        } else {
+          const errText = await response.text();
+          Swal.fire("Gagal", errText, "error");
+        }
+      } catch (err) {
+        Swal.fire("Gagal", err.message, "error");
+      }
+    }
+  });
+}
+
 // ==========================================
-// 6. SIMPAN DATA PO BARU (LANGSUNG KE SUPABASE)
+// 6. SIMPAN DATA PO BARU (SUPABASE NATIVE)
 // ==========================================
 async function savePO() {
   const btn = event ? event.currentTarget : null;
@@ -8927,7 +9074,6 @@ async function savePO() {
 
   let kodeSuppVal = document.getElementById('poKodeSupp').value.trim();
   const suppData = dataMasterSupp.find(s => s.kode === kodeSuppVal.toUpperCase());
-  
   let namaSupplierVal = suppData ? suppData.nama : kodeSuppVal;
 
   const payload = {
@@ -8985,7 +9131,7 @@ async function savePO() {
 }
 
 // ==========================================
-// 7. EDIT & HAPUS PO (LANGSUNG KE SUPABASE)
+// 7. EDIT & HAPUS PO (SUPABASE NATIVE)
 // ==========================================
 function editFullPO(noNotaAsli) {
   const item = allPOData.find(d => d.noNota === noNotaAsli);
@@ -9088,6 +9234,7 @@ function deletePORowConfirm(noNota) {
     title: 'HAPUS DATA?',
     text: "Data PO " + noNota + " akan dihapus permanen!",
     icon: 'warning',
+    background: '#0f1115',
     showCancelButton: true,
     confirmButtonColor: '#d33',
     confirmButtonText: 'YA, HAPUS!'
@@ -9119,7 +9266,7 @@ function deletePORowConfirm(noNota) {
 }
 
 // ==========================================
-// 8. FUNGSI PENDUKUNG INPUT
+// 8. FUNGSI PENDUKUNG INPUT & FORMAT
 // ==========================================
 function autoFillEditSupplier(kode) {
   const inpNama = document.getElementById('editNama');
@@ -9146,6 +9293,29 @@ function formatRupiahInput(el) {
     return;
   }
   el.value = new Intl.NumberFormat('id-ID').format(val);
+}
+
+function formatTglIndo(dateStr) {
+  if (!dateStr) return '-';
+  try {
+    let str = String(dateStr).trim();
+    if (str.includes('T')) str = str.split('T')[0];
+    const parts = str.split(/[-/]/);
+    if (parts.length === 3) {
+      let y, m, d;
+      if (parts[0].length === 4) {
+        y = parts[0]; m = parts[1]; d = parts[2];
+      } else {
+        d = parts[0]; m = parts[1]; y = parts[2];
+      }
+      const months = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+      let mIdx = parseInt(m, 10);
+      return `${d} ${months[mIdx] || m} ${y}`;
+    }
+    return str;
+  } catch (e) {
+    return dateStr;
+  }
 }
   </script>
 </body>
