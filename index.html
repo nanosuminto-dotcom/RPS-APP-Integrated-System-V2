@@ -1295,7 +1295,6 @@
     
     <!-- BARIS UTAMA (Filter, Tombol Aksi, & Mode Laporan) -->
     <div class="glass px-3 py-2 flex-shrink-0">
-        <!-- Form membungkus input agar Enter otomatis mengeksekusi runSearch() -->
         <form onsubmit="event.preventDefault(); runSearch();" class="flex flex-wrap items-end justify-between gap-2 m-0">
             
             <!-- Sisi Kiri: Filter Tanggal, Cabang, Tampilkan, Reset -->
@@ -1310,14 +1309,11 @@
                 </div>
                 <div>
                     <label class="block text-[7px] text-gray-500 font-black uppercase mb-0.5">Cabang</label>
-                    <!-- Dropdown Cabang Dinamis Berdasarkan Ref_Cabang -->
                     <select id="sBranch" tabindex="3" class="input-field !py-1 !px-2 !text-[10px] h-7 bg-[#1a1f26] focus:ring-2 focus:ring-yellow-400/50">
                         <option value="all">SEMUA CABANG</option>
-                        <!-- Opsi cabang akan di-generate otomatis via JS -->
                     </select>
                 </div>
                 
-                <!-- Tombol Mini Tampilkan & Reset -->
                 <div class="flex items-center gap-1">
                     <button type="submit" tabindex="4" class="bg-yellow-500 hover:bg-yellow-400 focus:bg-yellow-300 active:scale-95 text-black font-black rounded px-3 h-7 text-[8px] uppercase tracking-wider transition shadow-sm focus:ring-2 focus:ring-white">
                         Tampilkan
@@ -1354,41 +1350,38 @@
     </div>
 
     <!-- KONTAINER UTAMA TABEL -->
-<div class="glass flex flex-col flex-grow overflow-hidden relative">
-    <!-- Kontainer Scroll Utama (Menampung Header, Body, dan Footer Sekaligus) -->
-    <div class="overflow-x-auto overflow-y-auto flex-grow pb-12 relative">
-        <table class="archive-table w-full border-collapse">
-            
-            <!-- HEADER -->
-            <thead class="sticky top-0 z-20 shadow-md bg-[#161920]">
-                <tr>
-                    <th class="py-2 px-3 sticky left-0 z-30 bg-[#161920] shadow-[2px_0_5px_rgba(0,0,0,0.3)] text-left">Periode</th>
-                    <th class="py-2 px-3 text-left">Cabang</th>
-                    <th class="py-2 px-3 text-cyan-400 text-right">PosX Val</th>
-                    <th class="py-2 px-3 text-cyan-400 text-right">Trx P</th>
-                    <th class="py-2 px-3 text-green-400 text-right">Grab Val</th>
-                    <th class="py-2 px-3 text-green-400 text-right">Trx G</th>
-                    <th class="py-2 px-3 text-white text-right">Total Sales</th>
-                    <th class="py-2 px-3 text-white text-right">Total Qty</th>
-                </tr>
-            </thead>
-            
-            <!-- BODY (DATA) -->
-            <tbody id="searchResult" class="divide-y divide-white/5">
-                <!-- Data dinamis dirender di sini, 
-                     Pastikan sel (<td>) kolom pertama di JS Anda diberi class: 
-                     "sticky left-0 bg-[#161920] z-10 shadow-[2px_0_5px_rgba(0,0,0,0.3)]" 
-                     agar ikut freeze di kiri saat di-scroll. -->
-            </tbody>
-            
-            <!-- FOOTER (MENEMPEL DI BAWAH & IKUT SCROLL KIRI-KANAN) -->
-            <tfoot id="searchFooter" class="sticky bottom-0 z-20 bg-[#161920] border-t-2 border-[#343b47] shadow-2xl">
-                <!-- Baris total/footer Anda akan otomatis masuk ke sini -->
-            </tfoot>
+    <div class="glass flex flex-col flex-grow overflow-hidden relative">
+        <!-- Kontainer Scroll Utama (Menampung Header, Body, dan Footer Sekaligus) -->
+        <div class="overflow-x-auto overflow-y-auto flex-grow pb-2 relative">
+            <table class="archive-table w-full border-collapse">
+                
+                <!-- HEADER -->
+                <thead class="sticky top-0 z-20 shadow-md bg-[#161920]">
+                    <tr>
+                        <th class="py-2 px-3 sticky left-0 z-30 bg-[#161920] shadow-[2px_0_5px_rgba(0,0,0,0.3)] text-left">Periode</th>
+                        <th class="py-2 px-3 text-left">Cabang</th>
+                        <th class="py-2 px-3 text-cyan-400 text-right">PosX Val</th>
+                        <th class="py-2 px-3 text-cyan-400 text-right">Trx P</th>
+                        <th class="py-2 px-3 text-green-400 text-right">Grab Val</th>
+                        <th class="py-2 px-3 text-green-400 text-right">Trx G</th>
+                        <th class="py-2 px-3 text-white text-right">Total Sales</th>
+                        <th class="py-2 px-3 text-white text-right">Total Qty</th>
+                    </tr>
+                </thead>
+                
+                <!-- BODY (DATA) -->
+                <tbody id="searchResult" class="divide-y divide-white/5">
+                    <!-- Data dinamis dirender di sini -->
+                </tbody>
+                
+                <!-- FOOTER (STICKY DI BAWAH VIEWPORT TABEL & IKUT SCROLL HORIZONTAL) -->
+                <tfoot id="searchFooter" class="sticky bottom-0 z-20 bg-[#161920] border-t-2 border-[#343b47] shadow-2xl">
+                    <!-- Baris total/footer Anda akan otomatis masuk ke sini -->
+                </tfoot>
 
-        </table>
+            </table>
+        </div>
     </div>
-</div>
 </div>
 <!-- TAB ANALISA -->
 <div id="tab-analisa" class="tab-content hidden flex flex-col space-y-3 h-[calc(100vh-100px)]">
@@ -6431,7 +6424,7 @@ function setReportMode(m) {
 }
 
 
-// --- 3. AMBIL DATA DARI SUPABASE (PERBAIKAN FILTER CABANG HURUF KECIL/KAPITAL) ---
+// --- 3. AMBIL DATA DARI SUPABASE (DENGAN LOOPING AGAR TIDAK TERBATAS 1000 BARIS) ---
 async function runSearch() { 
   const start = document.getElementById('sDate').value;
   const end = document.getElementById('eDate').value;
@@ -6444,30 +6437,49 @@ async function runSearch() {
 
   Swal.fire({
     title: 'Memproses Data...',
-    text: 'Mohon tunggu sebentar',
+    text: 'Mohon tunggu sebentar, sedang menarik seluruh data...',
     allowOutsideClick: false,
     didOpen: () => { Swal.showLoading(); }
   });
 
   try {
-    let query = dbClient
-      .from('Data_Penjualan')
-      .select('*')
-      .gte('Tanggal', start)
-      .lte('Tanggal', end)
-      .order('Tanggal', { ascending: true });
+    let allDataRows = [];
+    let limit = 1000;
+    let offset = 0;
+    let hasMore = true;
 
-    // Jangan di-uppercase otomatis jika di database menggunakan huruf kecil
-    if (branch && branch !== 'all') {
-      query = query.eq('ID_Cabang', branch); 
+    // Perulangan untuk mengambil data secara bertahap jika lebih dari 1000 baris
+    while (hasMore) {
+      let query = dbClient
+        .from('Data_Penjualan')
+        .select('*')
+        .gte('Tanggal', start)
+        .lte('Tanggal', end)
+        .order('Tanggal', { ascending: true })
+        .range(offset, offset + limit - 1); // Menggunakan range pagination Supabase
+
+      if (branch && branch !== 'all') {
+        query = query.eq('ID_Cabang', branch); 
+      }
+
+      let { data, error } = await query;
+      if (error) throw error;
+
+      if (Array.isArray(data) && data.length > 0) {
+        allDataRows = allDataRows.concat(data);
+        if (data.length < limit) {
+          hasMore = false; // Jika data yang didapat kurang dari limit, berarti sudah habis
+        } else {
+          offset += limit; // Lanjut ke batch berikutnya
+        }
+      } else {
+        hasMore = false;
+      }
     }
-
-    let { data, error } = await query;
-    if (error) throw error;
 
     Swal.close();
 
-    let formattedData = (data || []).map(row => {
+    let formattedData = (allDataRows || []).map(row => {
       let tglStr = row.Tanggal ? row.Tanggal.toString().split('T')[0] : '';
       let hariStr = row.Hari || '';
 
@@ -6482,7 +6494,7 @@ async function runSearch() {
       return {
         tgl: tglStr,
         hari: hariStr,
-        cabang: (row.ID_Cabang || '').toUpperCase(), // Tampilkan di tabel tetap huruf kapital agar rapi
+        cabang: (row.ID_Cabang || '').toUpperCase(),
         pos: posVal,
         fP: fPVal,
         grab: grabVal,
@@ -6810,7 +6822,7 @@ function setAnaTab(mode) {
 }
 
 
-// --- 2. AMBIL & PROSES DATA ANALISA DARI SUPABASE ---
+// --- 2. AMBIL & PROSES DATA ANALISA DARI SUPABASE (TANPA BATASAN 1000 BARIS) ---
 async function runAnalysis() {
   const baseStart = document.getElementById('anaBaseStart').value;
   const baseEnd = document.getElementById('anaBaseEnd').value;
@@ -6823,7 +6835,7 @@ async function runAnalysis() {
 
   Swal.fire({
     title: 'Menganalisis Data...',
-    text: 'Mohon tunggu, sedang membandingkan data dari database',
+    text: 'Mohon tunggu, sedang menarik seluruh data dari database',
     allowOutsideClick: false,
     didOpen: () => { Swal.showLoading(); }
   });
@@ -6836,17 +6848,46 @@ async function runAnalysis() {
       return id !== 'office' && id !== 'online';
     }).map(r => r.ID_Cabang.toString().trim().toUpperCase());
 
-    // 2. Ambil data Range Baru (A)
-    let queryBase = dbClient.from('Data_Penjualan').select('*').gte('Tanggal', baseStart).lte('Tanggal', baseEnd);
-    let resBase = await queryBase;
-    if (resBase.error) throw resBase.error;
+    let limit = 1000;
 
-    // 3. Ambil data Range Pembanding (B) jika diisi
-    let resComp = { data: [] };
+    // Helper function untuk mengambil semua data dengan looping pagination
+    async function fetchAllData(startDate, endDate) {
+      let allRows = [];
+      let offset = 0;
+      let hasMore = true;
+
+      while (hasMore) {
+        let { data, error } = await dbClient
+          .from('Data_Penjualan')
+          .select('*')
+          .gte('Tanggal', startDate)
+          .lte('Tanggal', endDate)
+          .order('Tanggal', { ascending: true })
+          .range(offset, offset + limit - 1);
+
+        if (error) throw error;
+
+        if (Array.isArray(data) && data.length > 0) {
+          allRows = allRows.concat(data);
+          if (data.length < limit) {
+            hasMore = false;
+          } else {
+            offset += limit;
+          }
+        } else {
+          hasMore = false;
+        }
+      }
+      return allRows;
+    }
+
+    // 2. Ambil data Range Baru (A) secara utuh tanpa batasan
+    let baseDataRows = await fetchAllData(baseStart, baseEnd);
+
+    // 3. Ambil data Range Pembanding (B) secara utuh jika diisi
+    let compDataRows = [];
     if (compStart && compEnd) {
-      let queryComp = dbClient.from('Data_Penjualan').select('*').gte('Tanggal', compStart).lte('Tanggal', compEnd);
-      resComp = await queryComp;
-      if (resComp.error) throw resComp.error;
+      compDataRows = await fetchAllData(compStart, compEnd);
     }
 
     Swal.close();
@@ -6865,7 +6906,7 @@ async function runAnalysis() {
     });
 
     // Hitung Range Baru (A)
-    (resBase.data || []).forEach(row => {
+    baseDataRows.forEach(row => {
       let b = (row.ID_Cabang || '').toUpperCase();
       if (!branchMap[b]) {
         branchMap[b] = {
@@ -6885,7 +6926,7 @@ async function runAnalysis() {
     });
 
     // Hitung Range Pembanding (B)
-    (resComp.data || []).forEach(row => {
+    compDataRows.forEach(row => {
       let b = (row.ID_Cabang || '').toUpperCase();
       if (!branchMap[b]) {
         branchMap[b] = {
@@ -7267,7 +7308,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 
-// --- 2. LOAD DATA DARI SUPABASE (MENGATASI LIMIT 1000 BARIS) ---
+// --- 2. LOAD DATA DARI SUPABASE (MENGATASI LIMIT 1000 BARIS & AMAN UNTUK DATA FREQ GRABMART) ---
 async function loadGrafikModule() {
   Swal.fire({
     title: 'Memuat Grafik...',
@@ -7282,7 +7323,7 @@ async function loadGrafikModule() {
     let page = 0;
     let fetchMore = true;
 
-    // Loop otomatis untuk mengambil semua data jika jumlahnya > 1000 baris
+    // Loop otomatis untuk mengambil semua data jika jumlahnya > 1000 baris (Tanpa Batasan Baris)
     while (fetchMore) {
       let { data, error } = await dbClient
         .from('Data_Penjualan')
@@ -7322,10 +7363,17 @@ async function loadGrafikModule() {
         }
       }
 
-      let posVal = row.Sales_PosX !== null ? Number(row.Sales_PosX) : 0;
-      let fPosVal = row.Freq_PosX !== null ? Number(row.Freq_PosX) : 0;
-      let grabVal = row.Sales_Grabmart !== null ? Number(row.Sales_Grabmart) : 0;
-      let fGrabVal = row.Freq_Grabm !== null ? Number(row.Freq_Grabm) : (row.Freq_Grabmart !== null ? Number(row.Freq_Grabmart) : 0);
+      let posVal = row.Sales_PosX !== null && row.Sales_PosX !== undefined ? Number(row.Sales_PosX) : 0;
+      let fPosVal = row.Freq_PosX !== null && row.Freq_PosX !== undefined ? Number(row.Freq_PosX) : 0;
+      let grabVal = row.Sales_Grabmart !== null && row.Sales_Grabmart !== undefined ? Number(row.Sales_Grabmart) : 0;
+      
+      // Perbaikan aman untuk membaca Freq_Grabmart / Freq_Grabm meskipun bernilai 0, null, atau tidak ada
+      let fGrabVal = 0;
+      if (row.Freq_Grabm !== null && row.Freq_Grabm !== undefined && !isNaN(row.Freq_Grabm)) {
+        fGrabVal = Number(row.Freq_Grabm);
+      } else if (row.Freq_Grabmart !== null && row.Freq_Grabmart !== undefined && !isNaN(row.Freq_Grabmart)) {
+        fGrabVal = Number(row.Freq_Grabmart);
+      }
 
       return {
         tahun: yNum,
@@ -7363,20 +7411,17 @@ function updateGrafikDashboard() {
   const metricEl = document.getElementById('grMetricSwitch');
   const metric = metricEl ? metricEl.value : 'sales'; 
   
-  // Batas tanggal H-1 untuk tahun berjalan
+  // Ambil tanggal hari ini sebagai acuan bulan & tanggal batas YTD
   const today = new Date();
-  const tglBatas = new Date(today);
-  tglBatas.setDate(today.getDate() - 1); 
-  
-  const cM = tglBatas.getMonth();
-  const cD = tglBatas.getDate();
+  const cM = today.getMonth(); // Bulan saat ini (0-11)
+  const cD = today.getDate();  // Tanggal hari ini
 
   let salesNowAcc = 0; 
   let salesLastAcc = 0;
   let yearDataS = {}; 
   let yearDataF = {}; 
 
-  // Kumpulkan data bulanan, FILTER: HANYA TAHUN YANG KECIL ATAU SAMA DENGAN `yearTo` YANG DITAMPILKAN
+  // Kumpulkan data bulanan dari seluruh rawGrafik
   rawGrafik.forEach(item => {
     if (branch !== 'all' && item.cabang !== branch) return;
 
@@ -7385,9 +7430,6 @@ function updateGrafikDashboard() {
     const d = item.hari;
 
     if (isNaN(y) || isNaN(m) || m < 0 || m > 11) return;
-
-    // Batasi data hanya sampai tahun pilihan dropdown (yearTo) dan ke belakang
-    if (y > yearTo) return;
 
     const valS = (source === 'pos') ? item.sPos : item.sGrab;
     const valF = (source === 'pos') ? item.fPos : item.fGrab;
@@ -7398,12 +7440,14 @@ function updateGrafikDashboard() {
     yearDataS[y][m] += valS;
     yearDataF[y][m] += valF;
 
-    // Perbandingan YTD akurat s.d tanggal dan bulan yang sama (H-1) pada tahun pilihan & tahun lalunya
+    let activeCardVal = (metric === 'freq') ? valF : valS;
+    
+    // LOGIKA YTD AKURAT SESUAI PILIHAN DROPDOWN (yearTo vs yearTo - 1)
     if (y === yearTo && (m < cM || (m === cM && d <= cD))) {
-      salesNowAcc += valS;
+      salesNowAcc += activeCardVal;
     }
     if (y === (yearTo - 1) && (m < cM || (m === cM && d <= cD))) {
-      salesLastAcc += valS;
+      salesLastAcc += activeCardVal;
     }
   });
 
@@ -7419,7 +7463,9 @@ function updateGrafikDashboard() {
     }
   });
 
-  const tglBatasLastYear = new Date(yearTo - 1, cM, cD);
+  // Buat objek tanggal simulasi untuk label card berdasarkan tahun dropdown yang aktif
+  const dateNowLabel = new Date(yearTo, cM, cD);
+  const dateLastLabel = new Date(yearTo - 1, cM, cD);
 
   // Update Cards & Labels
   const isFreqMode = (metric === 'freq');
@@ -7440,8 +7486,9 @@ function updateGrafikDashboard() {
   }
   if(document.getElementById('grGrowth')) document.getElementById('grGrowth').innerText = growth + "%";
   
-  if(document.getElementById('grDateNow')) document.getElementById('grDateNow').innerText = "s.d " + tglBatas.toLocaleDateString('id-ID');
-  if(document.getElementById('grDateLast')) document.getElementById('grDateLast').innerText = "s.d " + tglBatasLastYear.toLocaleDateString('id-ID');
+  // Label periode card kini akurat mengikuti tahun yang dipilih pada dropdown (`yearTo`)
+  if(document.getElementById('grDateNow')) document.getElementById('grDateNow').innerText = `PERIODE: JAN - S.D ${dateNowLabel.toLocaleDateString('id-ID')}`;
+  if(document.getElementById('grDateLast')) document.getElementById('grDateLast').innerText = `PERIODE: JAN - S.D ${dateLastLabel.toLocaleDateString('id-ID')}`;
 
   const activeTitle = document.getElementById('grActiveChartTitle');
   let chartLabelText = '';
@@ -7474,12 +7521,11 @@ function updateGrafikDashboard() {
   const currentAccData = yearDataAcc[yearTo] || Array(12).fill(0);
 
   renderGrafikTables(currentYearData, yearTo, metric);      
-  renderAccTable(currentAccData, yearTo, metric);           
+  renderAccTable(currentAccData, yearTo, metric);          
   
   renderYoYChart('cLineSalesMulti', activeRawData, chartLabelText, chartColor);             
   renderYoYChart('cLineSalesAcc', yearDataAcc, 'Accum ' + chartLabelText, chartColor);       
 }
-
 // --- 4. RENDER TABEL & GRAFIK ---
 function renderGrafikTables(dataArray, year, metric = 'sales') {
   const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
@@ -7612,6 +7658,7 @@ function renderYoYChart(canvasId, yearData, labelText, defaultColor = '#06b6d4')
     }
   });
 }
+
 // --- INISIALISASI DROPDOWN BAR CHART ---
 async function initBarDropdowns() {
   try {
