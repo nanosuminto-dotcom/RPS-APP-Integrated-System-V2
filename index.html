@@ -1610,8 +1610,8 @@
 
   </div>
 </div>
-<div id="tab-po" class="hidden space-y-4">
-    <div class="glass p-3 border-b border-white/10 sticky top-0 z-10">
+<div id="tab-po" class="hidden flex flex-col h-full space-y-4">
+    <div class="glass p-3 border-b border-white/10 shrink-0">
       <div class="flex flex-wrap lg:flex-nowrap gap-2 items-end">
         <div class="w-full lg:w-32">
           <label class="block text-[7px] text-gray-500 font-black uppercase mb-1">Tanggal</label>
@@ -1642,17 +1642,16 @@
           <input type="text" id="poNominal" onkeyup="formatRupiahInput(this)" class="input-field text-[10px] h-8 font-bold text-orange-400" placeholder="0">
         </div>
         <div class="flex gap-1 h-8">
-  <button onclick="savePO()" class="bg-orange-600 hover:bg-orange-500 text-white px-2 rounded flex items-center gap-1 text-[9px] font-bold">
-    <i class="fa fa-save"></i> SIMPAN
-  </button>
-  <button onclick="resetFormPO()" class="bg-slate-700 hover:bg-slate-600 text-white px-2 rounded flex items-center gap-1 text-[9px] font-bold">
-    <i class="fa fa-plus"></i> BARU
-  </button>
-  <!-- Tombol Import Excel PO -->
-  <button onclick="importExcelPO()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-2 rounded flex items-center gap-1 text-[9px] font-bold">
-    <i class="fa fa-file-excel-o"></i> IMPORT
-  </button>
-</div>
+          <button onclick="savePO()" class="bg-orange-600 hover:bg-orange-500 text-white px-2 rounded flex items-center gap-1 text-[9px] font-bold">
+            <i class="fa fa-save"></i> SIMPAN
+          </button>
+          <button onclick="resetFormPO()" class="bg-slate-700 hover:bg-slate-600 text-white px-2 rounded flex items-center gap-1 text-[9px] font-bold">
+            <i class="fa fa-plus"></i> BARU
+          </button>
+          <button onclick="importExcelPO()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-2 rounded flex items-center gap-1 text-[9px] font-bold">
+            <i class="fa fa-file-excel-o"></i> IMPORT
+          </button>
+        </div>
       </div>
 
       <div class="flex flex-wrap lg:flex-nowrap gap-2 items-end mt-3 pt-3 border-t border-white/5">
@@ -1687,8 +1686,8 @@
       </div>
     </div>
 
-    <!-- Tabel PO & Kontainer Navigasi Tunggal yang dikelola oleh JavaScript baru -->
-    <div class="glass overflow-hidden flex flex-col h-[450px]">
+    <!-- Tabel PO & Kontainer Navigasi Yang Mengisi Sisa Ruang Layar Secara Dinamis -->
+    <div class="glass overflow-hidden flex-1 flex flex-col min-h-0">
       <div class="overflow-y-auto flex-1 scrollbar-thin">
         <table class="w-full text-left border-collapse text-[11px]">
           <thead class="sticky top-0 bg-[#1e252e] z-10 shadow-sm">
@@ -1706,12 +1705,12 @@
         </table>
       </div>
       
-      <!-- Kontainer Navigasi Dinamis (Digenerate otomatis oleh renderPOPaginationControl) -->
-      <div id="poPaginationContainer"></div>
+      <!-- Kontainer Navigasi Pagination di Bagian Bawah -->
+      <div id="poPaginationContainer" class="p-2 bg-[#1a1f26] border-t border-white/10 shrink-0"></div>
     </div>
   </div>     
- <div id="tab-purchase" class="hidden space-y-4">
-  <div class="glass p-3 border-b border-white/10 sticky top-0 z-10">
+ <div id="tab-purchase" class="hidden flex flex-col h-full space-y-4">
+  <div class="glass p-3 border-b border-white/10 shrink-0">
     <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-12 gap-3 items-end">
       
       <div class="lg:col-span-2">
@@ -1749,7 +1748,7 @@
     </div>
   </div>
 
-  <div class="glass overflow-hidden flex flex-col h-[500px]">
+  <div class="glass overflow-hidden flex-1 flex flex-col min-h-0">
     <div class="overflow-y-auto flex-1 scrollbar-thin">
       <table class="w-full text-left border-collapse text-[11px]">
         <thead class="sticky top-0 bg-[#1a1f26] z-10 shadow-sm">
@@ -1767,7 +1766,7 @@
       </table>
     </div>
     
-    <div class="flex items-center justify-between p-3 bg-white/[0.02] border-t border-white/10 text-[10px] font-bold">
+    <div class="flex items-center justify-between p-3 bg-white/[0.02] border-t border-white/10 text-[10px] font-bold shrink-0">
       <div class="ml-2 uppercase">DATA <span id="beliRange" class="text-cyan-400 font-mono">0-0</span> DARI <span id="beliTotal">0</span></div>
       <div class="flex gap-2 mr-2">
         <button onclick="prevBeliPage()" id="btnBeliPrev" class="px-4 py-1.5 bg-white/5 hover:bg-cyan-600 rounded border border-white/10 disabled:opacity-20 transition-all">PREV</button>
