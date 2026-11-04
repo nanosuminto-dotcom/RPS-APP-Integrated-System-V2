@@ -468,8 +468,8 @@
     }
 
     /* ==========================================================
-       9. SYNCED CHART TEXT CONFIGURATION (MENGIKUTI SIDE MENU)
-       ========================================================== */
+        9. SYNCED CHART TEXT CONFIGURATION (MENGIKUTI SIDE MENU)
+        ========================================================== */
 
     /* Latar Belakang Utama */
     body.light-mode {
@@ -477,9 +477,9 @@
       color: #1e293b !important;
     }
 
-    /* Paksa teks umum menjadi tajam */
+    /* Paksa teks umum menjadi tajam (Kecuali di dalam tombol) */
     body.light-mode p, 
-    body.light-mode span, 
+    body.light-mode span:not(button span):not([class*="btn"] span), 
     body.light-mode h1, 
     body.light-mode h2, 
     body.light-mode h3, 
@@ -487,11 +487,11 @@
     body.light-mode h5, 
     body.light-mode h6, 
     body.light-mode label, 
-    body.light-mode a, 
+    body.light-mode a:not(button):not(.btn), 
     body.light-mode li,
     body.light-mode .text-xs,
     body.light-mode .text-sm,
-    body.light-mode [class*="text-"] {
+    body.light-mode div:not(button):not(.btn):not([class*="btn"]):not([class*="bg-yellow-"]):not([class*="bg-amber-"]):not([style*="background"]):not(.progress-fill) {
       color: #1e293b !important;
     }
 
@@ -502,17 +502,16 @@
       color: #0284c7 !important;
     }
 
-    /* Sidebar, Header, Panel, Kartu, Kontainer & Tooltip Grafik */
+    /* Sidebar, Header, Panel, Kartu, Kontainer & Tooltip Grafik (TIDAK menyentuh elemen button) */
     body.light-mode aside,
     body.light-mode nav,
     body.light-mode header,
     body.light-mode .glass, 
     body.light-mode .card,
-    body.light-mode div:not([class*="bg-yellow-"]):not([class*="bg-amber-"]):not([style*="background"]):not(.progress-fill),
     body.light-mode section,
-    body.light-mode [class*="bg-slate-"],
-    body.light-mode [class*="bg-gray-"],
-    body.light-mode [class*="bg-[#"],
+    body.light-mode [class*="bg-slate-"]:not(button):not(.btn),
+    body.light-mode [class*="bg-gray-"]:not(button):not(.btn),
+    body.light-mode [class*="bg-[#"]:not(button):not(.btn),
     body.light-mode [class*="tooltip"],
     body.light-mode .apexcharts-tooltip,
     body.light-mode .chart-tooltip {
@@ -522,13 +521,13 @@
       color: #1e293b !important;
     }
 
-    /* Menyelaraskan teks angka sumbu & legenda grafik agar sama persis dengan warna teks side menu / kontras */
+    /* Menyelaraskan teks angka sumbu & legenda grafik */
     body.light-mode .apexcharts-text tspan,
     body.light-mode .apexcharts-xaxis-label tspan,
     body.light-mode .apexcharts-yaxis-label tspan,
     body.light-mode .apexcharts-legend-text,
     body.light-mode text {
-      fill: #334155 !important; /* Warna senada teks menu yang bersih dan tidak nyaru */
+      fill: #334155 !important; 
       color: #334155 !important;
       font-weight: 600 !important;
     }
@@ -539,8 +538,7 @@
       background-color: #ffffff !important;
     }
 
-    /* Tombol, Input, Select, Textarea */
-    body.light-mode button:not(.bg-cyan-500):not(.bg-amber-400):not(.bg-yellow-500),
+    /* Input, Select, Textarea (Tombol sengaja dipisahkan agar warna & efek aslinya tidak berubah) */
     body.light-mode input,
     body.light-mode select,
     body.light-mode textarea {
