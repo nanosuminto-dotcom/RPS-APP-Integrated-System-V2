@@ -468,8 +468,8 @@
     }
 
     /* ==========================================================
-        9. SYNCED CHART TEXT CONFIGURATION (MENGIKUTI SIDE MENU)
-        ========================================================== */
+    9. SYNCED LIGHT MODE CONFIGURATION (SMART ACCENT PRESERVATION)
+   ========================================================== */
 
     /* Latar Belakang Utama */
     body.light-mode {
@@ -477,9 +477,9 @@
       color: #1e293b !important;
     }
 
-    /* Paksa teks umum menjadi tajam (Kecuali di dalam tombol) */
-    body.light-mode p, 
-    body.light-mode span:not(button span):not([class*="btn"] span), 
+    /* Paksa teks umum menjadi tajam, KECUALI di dalam tombol atau elemen berwarna */
+    body.light-mode p:not([class*="bg-"]):not([class*="text-white"]), 
+    body.light-mode span:not(button span):not([class*="btn"] span):not([class*="text-white"]):not([class*="text-emerald"]):not([class*="text-cyan"]):not([class*="text-orange"]):not([class*="text-blue"]):not([class*="text-red"]), 
     body.light-mode h1, 
     body.light-mode h2, 
     body.light-mode h3, 
@@ -490,8 +490,7 @@
     body.light-mode a:not(button):not(.btn), 
     body.light-mode li,
     body.light-mode .text-xs,
-    body.light-mode .text-sm,
-    body.light-mode div:not(button):not(.btn):not([class*="btn"]):not([class*="bg-yellow-"]):not([class*="bg-amber-"]):not([style*="background"]):not(.progress-fill) {
+    body.light-mode .text-sm {
       color: #1e293b !important;
     }
 
@@ -502,16 +501,20 @@
       color: #0284c7 !important;
     }
 
-    /* Sidebar, Header, Panel, Kartu, Kontainer & Tooltip Grafik (TIDAK menyentuh elemen button) */
+    /* 
+      SIDEBAR, HEADER, PANEL, KARTU (Hanya menargetkan warna netral: abu-abu/putih/slate/gray/gelap bawaan)
+      Elemen dengan background tombol warna lain (emerald, blue, orange, dll) otomatis diabaikan (:not).
+    */
     body.light-mode aside,
     body.light-mode nav,
     body.light-mode header,
     body.light-mode .glass, 
     body.light-mode .card,
     body.light-mode section,
-    body.light-mode [class*="bg-slate-"]:not(button):not(.btn),
-    body.light-mode [class*="bg-gray-"]:not(button):not(.btn),
-    body.light-mode [class*="bg-[#"]:not(button):not(.btn),
+    body.light-mode [class*="bg-slate-"]:not(button):not(.btn):not([class*="bg-slate-6"]):not([class*="bg-slate-7"]):not([class*="bg-slate-8"]),
+    body.light-mode [class*="bg-gray-"]:not(button):not(.btn):not([class*="bg-gray-6"]):not([class*="bg-gray-7"]):not([class*="bg-gray-8"]),
+    body.light-mode [class*="bg-[#1"]:not(button):not(.btn),
+    body.light-mode [class*="bg-[#0"]:not(button):not(.btn),
     body.light-mode [class*="tooltip"],
     body.light-mode .apexcharts-tooltip,
     body.light-mode .chart-tooltip {
@@ -538,7 +541,7 @@
       background-color: #ffffff !important;
     }
 
-    /* Input, Select, Textarea (Tombol sengaja dipisahkan agar warna & efek aslinya tidak berubah) */
+    /* Input, Select, Textarea (Form Input Netral) */
     body.light-mode input,
     body.light-mode select,
     body.light-mode textarea {
@@ -3200,11 +3203,11 @@
 </div>
 <div id="tab-purchase-analisa" class="tab-content hidden flex flex-col space-y-3 h-[calc(100vh-100px)]">
   
-  <!-- BARIS UTAMA (Filter Tanggal A & B, Tombol Aksi, & Filter Cabang) -->
+  <!-- BARIS UTAMA (Filter Tanggal A & B, Dropdown Cabang, Tombol Aksi, dll.) -->
   <div class="glass px-3 py-2 flex-shrink-0">
     <form onsubmit="event.preventDefault(); runPurchaseAnalysis();" class="flex flex-wrap items-end justify-between gap-2 m-0">
       
-      <!-- Sisi Kiri: Filter Range A, Range B, Tombol Hitung & Reset -->
+      <!-- Sisi Kiri: Filter Range A, Range B, Dropdown Cabang, Tombol Hitung & Reset -->
       <div class="flex flex-wrap items-end gap-2">
         <div>
           <label class="block text-[7px] text-cyan-400 font-black uppercase mb-0.5">Range Pembelian Baru (A)</label>
@@ -3221,29 +3224,29 @@
             <input type="date" id="purCompEnd" tabindex="4" class="input-field !py-1 !px-2 !text-[10px] h-7 w-28 focus:ring-2 focus:ring-cyan-400/50">
           </div>
         </div>
+
+        <!-- Dropdown Cabang Dinamis (Sesuai Ref_Cabang) di Sebelah Kiri Tombol Hitung -->
+        <div>
+          <label class="block text-[7px] text-cyan-400 font-black uppercase mb-0.5">Cabang</label>
+          <select id="purBranchSelect" tabindex="5" class="input-field !py-1 !px-2 !text-[10px] h-7 w-32 bg-[#1a1f26] text-white border border-cyan-500/20 focus:ring-2 focus:ring-cyan-400/50">
+            <option value="ALL">SEMUA CABANG</option>
+            <!-- Opsi cabang akan terisi otomatis secara dinamis lewat fungsi load atau render -->
+          </select>
+        </div>
         
         <!-- Tombol Hitung & Reset Minimalis -->
         <div class="flex items-center gap-1">
-          <button type="submit" tabindex="5" class="bg-cyan-500 hover:bg-cyan-400 focus:bg-cyan-300 active:scale-95 text-black font-black rounded px-3 h-7 text-[8px] uppercase tracking-wider transition shadow-sm focus:ring-2 focus:ring-white">
+          <button type="submit" tabindex="6" class="bg-cyan-500 hover:bg-cyan-400 focus:bg-cyan-300 active:scale-95 text-black font-black rounded px-3 h-7 text-[8px] uppercase tracking-wider transition shadow-sm focus:ring-2 focus:ring-white">
             Hitung Purchase
           </button>
-          <button type="button" onclick="clearPurchaseAnalysis()" tabindex="6" class="bg-slate-700 hover:bg-slate-600 focus:bg-slate-500 active:scale-95 text-white font-bold rounded px-2.5 h-7 text-[8px] uppercase tracking-wider transition shadow-sm focus:ring-2 focus:ring-white">
+          <button type="button" onclick="clearPurchaseAnalysis()" tabindex="7" class="bg-slate-700 hover:bg-slate-600 focus:bg-slate-500 active:scale-95 text-white font-bold rounded px-2.5 h-7 text-[8px] uppercase tracking-wider transition shadow-sm focus:ring-2 focus:ring-white">
             Reset
           </button>
         </div>
       </div>
 
-      <!-- Sisi Kanan: Pilihan Cabang & Ekspor -->
+      <!-- Sisi Kanan: Tombol Ekspor Excel & PDF -->
       <div class="flex flex-wrap items-center gap-2">
-        <div class="flex gap-0.5 bg-[#1a1d23] p-0.5 rounded border border-white/5 overflow-x-auto">
-          <button type="button" onclick="setPurBranch('ALL')" id="purBtnAll" class="ana-tab-btn !py-1 !px-2 !text-[8px] active">ALL</button>
-          <button type="button" onclick="setPurBranch('KGD')" id="purBtnKgd" class="ana-tab-btn !py-1 !px-2 !text-[8px] inactive">KGD</button>
-          <button type="button" onclick="setPurBranch('CDK')" id="purBtnCdk" class="ana-tab-btn !py-1 !px-2 !text-[8px] inactive">CDK</button>
-          <button type="button" onclick="setPurBranch('PKP')" id="purBtnPkp" class="ana-tab-btn !py-1 !px-2 !text-[8px] inactive">PKP</button>
-          <button type="button" onclick="setPurBranch('CPY')" id="purBtnCpy" class="ana-tab-btn !py-1 !px-2 !text-[8px] inactive">CPY</button>
-          <button type="button" onclick="setPurBranch('OFFICE')" id="purBtnOffice" class="ana-tab-btn !py-1 !px-2 !text-[8px] inactive">OFFICE</button>
-        </div>
-
         <div class="flex gap-1">
           <button type="button" onclick="askFileName('purExcel')" class="bg-green-600/25 hover:bg-green-600 text-green-400 hover:text-white border border-green-600/40 px-3 py-1 rounded text-[8px] font-black uppercase transition active:scale-95">Excel</button>
           <button type="button" onclick="askFileName('purPDF')" class="bg-red-600/25 hover:bg-red-600 text-red-400 hover:text-white border border-red-600/40 px-3 py-1 rounded text-[8px] font-black uppercase transition active:scale-95">PDF</button>
@@ -3275,95 +3278,6 @@
     <div class="absolute bottom-0 left-0 right-0 z-20 bg-[#161920] border-t-2 border-[#343b47] shadow-2xl">
       <table class="archive-table w-full text-[10px]">
         <tfoot id="purFooter"></tfoot>
-      </table>
-    </div>
-  </div>
-
-</div>
-<div id="tab-supplier-analisa" class="tab-content hidden flex flex-col space-y-3 h-[calc(100vh-100px)]">
-  
-  <!-- BARIS UTAMA (Filter Tanggal A & B, Tombol Aksi, & Filter Limit Supplier) -->
-  <div class="glass px-3 py-2 flex-shrink-0">
-    <form onsubmit="event.preventDefault(); runSupplierAnalysis();" class="flex flex-wrap items-end justify-between gap-1 m-0">
-      
-      <!-- Sisi Kiri: Filter Range A, Range B, Tombol Hitung & Reset -->
-      <div class="flex flex-wrap items-end gap-2">
-        <div>
-          <label class="block text-[7px] text-cyan-400 font-black uppercase mb-0.5">Range Pembelian Baru (A)</label>
-          <div class="flex gap-1">
-            <input type="date" id="suppBaseStart" tabindex="1" class="input-field !py-1 !px-2 !text-[10px] h-7 w-28 focus:ring-2 focus:ring-cyan-400/50">
-            <input type="date" id="suppBaseEnd" tabindex="2" class="input-field !py-1 !px-2 !text-[10px] h-7 w-28 focus:ring-2 focus:ring-cyan-400/50">
-          </div>
-        </div>
-
-        <div>
-          <label class="block text-[7px] text-gray-500 font-bold uppercase mb-0.5">Range Pembanding (B)</label>
-          <div class="flex gap-1">
-            <input type="date" id="suppCompStart" tabindex="3" class="input-field !py-1 !px-2 !text-[10px] h-7 w-28 focus:ring-2 focus:ring-cyan-400/50">
-            <input type="date" id="suppCompEnd" tabindex="4" class="input-field !py-1 !px-2 !text-[10px] h-7 w-28 focus:ring-2 focus:ring-cyan-400/50">
-          </div>
-        </div>
-        
-        <!-- Tombol Hitung & Reset Minimalis -->
-        <div class="flex items-center gap-1">
-          <button type="submit" tabindex="5" class="bg-cyan-500 hover:bg-cyan-400 focus:bg-cyan-300 active:scale-95 text-black font-black rounded px-3 h-7 text-[8px] uppercase tracking-wider transition shadow-sm focus:ring-2 focus:ring-white">
-            Hitung Supplier
-          </button>
-          <button type="button" onclick="clearSupplierAnalysis()" tabindex="6" class="bg-slate-700 hover:bg-slate-600 focus:bg-slate-500 active:scale-95 text-white font-bold rounded px-2.5 h-7 text-[8px] uppercase tracking-wider transition shadow-sm focus:ring-2 focus:ring-white">
-            Reset
-          </button>
-        </div>
-      </div>
-
-      <!-- Sisi Kanan: Pilihan Limit Supplier, Pencarian Cepat & Ekspor -->
-      <div class="flex flex-wrap items-end gap-2">
-        <div class="flex flex-col">
-          <label class="block text-[7px] text-gray-400 font-bold uppercase mb-0.5">Limit</label>
-          <div class="flex gap-0.5 bg-[#1a1d23] p-0.5 rounded border border-white/5 overflow-x-auto h-7 items-center">
-            <button type="button" onclick="setSuppLimit(10)" id="suppBtn10" class="ana-tab-btn !py-1 !px-2 !text-[8px] active">TOP 10</button>
-            <button type="button" onclick="setSuppLimit(25)" id="suppBtn25" class="ana-tab-btn !py-1 !px-2 !text-[8px] inactive">TOP 25</button>
-            <button type="button" onclick="setSuppLimit(50)" id="suppBtn50" class="ana-tab-btn !py-1 !px-2 !text-[8px] inactive">TOP 50</button>
-            <button type="button" onclick="setSuppLimit('ALL')" id="suppBtnAll" class="ana-tab-btn !py-1 !px-2 !text-[8px] inactive">ALL</button>
-          </div>
-        </div>
-
-        <!-- Pencarian Cepat Supplier -->
-        <div class="flex flex-col">
-          <label class="block text-[7px] text-gray-400 font-bold uppercase mb-0.5">Cari Supplier</label>
-          <input type="text" id="suppSearchKey" oninput="filterSupplierTableLocally()" placeholder="Ketik nama/kode..." class="input-field !py-1 !px-2 !text-[10px] h-7 w-36 focus:ring-2 focus:ring-cyan-400/50">
-        </div>
-
-        <div class="flex gap-1 h-7 items-end">
-          <button type="button" onclick="askFileName('suppExcel')" class="bg-green-600/25 hover:bg-green-600 text-green-400 hover:text-white border border-green-600/40 px-3 h-7 rounded text-[8px] font-black uppercase transition active:scale-95 flex items-center">Excel</button>
-          <button type="button" onclick="askFileName('suppPDF')" class="bg-red-600/25 hover:bg-red-600 text-red-400 hover:text-white border border-red-600/40 px-3 h-7 rounded text-[8px] font-black uppercase transition active:scale-95 flex items-center">PDF</button>
-        </div>
-      </div>
-
-    </form>
-  </div>
-
-  <!-- KONTAINER UTAMA TABEL SUPPLIER ANALYSIS -->
-  <div class="glass flex flex-col flex-grow overflow-hidden relative">
-    <div class="overflow-x-auto overflow-y-auto flex-grow pb-12">
-      <table class="archive-table w-full text-[10px] min-w-[700px]">
-        <thead class="sticky top-0 z-20 shadow-md">
-          <tr class="bg-[#1a1d23] uppercase text-gray-400 border-b border-[#343b47]">
-            <th class="p-3 sticky left-0 bg-[#1a1d23] z-30 w-48 text-left">Supplier (Kode & Nama)</th>
-            <th id="suppCol1" class="p-3 text-center">Beli Baru (A)</th>
-            <th id="suppCol2" class="p-3 text-center">Beli Lama (B)</th>
-            <th class="p-3 text-center text-white bg-white/5">Beli Gap & Growth</th>
-          </tr>
-        </thead>
-        <tbody id="suppResult" class="divide-y divide-white/5">
-          <!-- Baris Supplier yang akan dirender berdasarkan akumulasi data_beli -->
-        </tbody>
-      </table>
-    </div>
-    
-    <!-- Footer Terkunci Permanen di Bawah Kontainer -->
-    <div class="absolute bottom-0 left-0 right-0 z-20 bg-[#161920] border-t-2 border-[#343b47] shadow-2xl">
-      <table class="archive-table w-full text-[10px]">
-        <tfoot id="suppFooter"></tfoot>
       </table>
     </div>
   </div>
@@ -10483,7 +10397,270 @@ async function simpanInvoice() {
     });
   }
 }
-  </script>
+// ==========================================
+// 1. HELPER & DROPDOWN CABANG DINAMIS (REF_CABANG)
+// ==========================================
+async function loadPurBranchDropdown() {
+  try {
+    const response = await fetch(`${DB_URL}/rest/v1/Ref_Cabang?select=*`, {
+      headers: {
+        "apikey": DB_KEY,
+        "Authorization": `Bearer ${DB_KEY}`,
+        "Content-Type": "application/json"
+      }
+    });
+
+    if (!response.ok) return;
+    const data = await response.json();
+
+    const select = document.getElementById('purBranchSelect');
+    if (!select) return;
+
+    const currentVal = select.value || 'ALL';
+    select.innerHTML = `<option value="ALL">SEMUA CABANG</option>`;
+
+    let validBranches = [];
+    data.forEach(c => {
+      const bName = (c.ID_Cabang || c.cabang || c.nama || Object.values(c)[0]).toString().trim().toUpperCase();
+      if (bName && !validBranches.includes(bName)) {
+        validBranches.push(bName);
+      }
+    });
+
+    validBranches.sort().forEach(branch => {
+      const opt = document.createElement('option');
+      opt.value = branch;
+      opt.textContent = branch;
+      select.appendChild(opt);
+    });
+
+    select.value = currentVal;
+  } catch (err) {
+    console.error("Gagal memuat dropdown cabang:", err);
+  }
+}
+
+function getSelectedPurBranch() {
+  const select = document.getElementById('purBranchSelect');
+  return select ? select.value : 'ALL';
+}
+
+function clearPurchaseAnalysis() {
+  document.getElementById('purBaseStart').value = '';
+  document.getElementById('purBaseEnd').value = '';
+  document.getElementById('purCompStart').value = '';
+  document.getElementById('purCompEnd').value = '';
+  const branchSelect = document.getElementById('purBranchSelect');
+  if (branchSelect) branchSelect.value = 'ALL';
   
+  document.getElementById('purResult').innerHTML = '';
+  document.getElementById('purFooter').innerHTML = '';
+}
+
+// ==========================================
+// 2. PROSES UTAMA PERHITUNGAN PURCHASE ANALYSIS (TANPA BATASAN BARIS)
+// ==========================================
+async function runPurchaseAnalysis() {
+  const baseStart = document.getElementById('purBaseStart').value; // Format: "YYYY-MM-DD"
+  const baseEnd = document.getElementById('purBaseEnd').value;     // Format: "YYYY-MM-DD"
+  const compStart = document.getElementById('purCompStart').value; // Format: "YYYY-MM-DD"
+  const compEnd = document.getElementById('purCompEnd').value;     // Format: "YYYY-MM-DD"
+  const selectedBranch = getSelectedPurBranch();
+
+  if (!baseStart || !baseEnd) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Range Belum Lengkap',
+      text: 'Harap tentukan Range Pembelian Baru (A) terlebih dahulu.',
+      background: '#1a1d23',
+      color: '#fff',
+      customClass: { container: 'z-[99999]' }
+    });
+    return;
+  }
+
+  Swal.fire({
+    title: 'Menghitung Analisa...',
+    text: 'Mengambil seluruh data transaksi secara penuh dari Supabase...',
+    background: '#1a1d23',
+    color: '#fff',
+    allowOutsideClick: false,
+    didOpen: () => { Swal.showLoading(); },
+    customClass: { container: 'z-[99999]' }
+  });
+
+  try {
+    // 1. Ambil daftar cabang valid dari tabel Ref_Cabang secara dinamis
+    const cabangRes = await fetch(`${DB_URL}/rest/v1/Ref_Cabang?select=*`, {
+      headers: {
+        "apikey": DB_KEY,
+        "Authorization": `Bearer ${DB_KEY}`,
+        "Content-Type": "application/json"
+      }
+    });
+    const cabangList = cabangRes.ok ? await cabangRes.json() : [];
+    
+    let validBranches = [];
+    cabangList.forEach(c => {
+      const bName = (c.ID_Cabang || c.cabang || c.nama || Object.values(c)[0]).toString().trim().toUpperCase();
+      if (bName && !validBranches.includes(bName)) {
+        validBranches.push(bName);
+      }
+    });
+
+    if (validBranches.length === 0) {
+      validBranches = ['CDK', 'CPY', 'DPK', 'KGD', 'OFFICE', 'ONLINE', 'PKP'];
+    }
+    validBranches.sort();
+
+    // 2. Ambil SELURUH data transaksi dari tabel Data_Beli tanpa batas (Looping Pagination 1000 baris per request)
+    let rawData = [];
+    let step = 1000;
+    let from = 0;
+    let fetchMore = true;
+
+    while (fetchMore) {
+      const response = await fetch(`${DB_URL}/rest/v1/Data_Beli?select=ID_Cabang,nombeli,tglinvbeli`, {
+        headers: {
+          "apikey": DB_KEY,
+          "Authorization": `Bearer ${DB_KEY}`,
+          "Content-Type": "application/json",
+          "Range": `${from}-${from + step - 1}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error("Gagal mengambil data transaksi dari Supabase.");
+      }
+
+      const chunk = await response.json();
+      if (chunk.length > 0) {
+        rawData = rawData.concat(chunk);
+        from += step;
+        if (chunk.length < step) {
+          fetchMore = false;
+        }
+      } else {
+        fetchMore = false;
+      }
+    }
+
+    // 3. Petakan data ke setiap cabang
+    const branchMap = {};
+    validBranches.forEach(b => {
+      branchMap[b] = { branch: b, valBase: 0, valComp: 0 };
+    });
+
+    rawData.forEach(item => {
+      const branch = (item.ID_Cabang || 'UNKNOWN').trim().toUpperCase();
+      const tglRaw = item.tglinvbeli; 
+      const nominal = parseFloat(item.nombeli) || 0;
+
+      if (!tglRaw) return;
+
+      const tglStr = String(tglRaw).split('T')[0].trim();
+
+      if (!branchMap[branch]) {
+        branchMap[branch] = { branch: branch, valBase: 0, valComp: 0 };
+      }
+
+      // Cek Range Pembelian Baru (A) menggunakan perbandingan string YYYY-MM-DD
+      if (tglStr >= baseStart && tglStr <= baseEnd) {
+        branchMap[branch].valBase += nominal;
+      }
+
+      // Cek Range Pembanding (B) (jika diisi)
+      if (compStart && compEnd && tglStr >= compStart && tglStr <= compEnd) {
+        branchMap[branch].valComp += nominal;
+      }
+    });
+
+    // Filter berdasarkan pilihan dropdown cabang tunggal jika tidak "ALL"
+    let rows = Object.values(branchMap);
+    if (selectedBranch !== 'ALL') {
+      rows = rows.filter(r => r.branch === selectedBranch);
+    }
+    rows.sort((a, b) => a.branch.localeCompare(b.branch));
+
+    Swal.close();
+    renderPurchaseResult({ rows });
+
+  } catch (err) {
+    console.error("Purchase Analysis Error:", err);
+    Swal.fire({
+      icon: 'error',
+      title: 'Gagal Analisa',
+      text: err.message,
+      background: '#1a1d23',
+      color: '#fff',
+      customClass: { container: 'z-[99999]' }
+    });
+  }
+}
+
+// ==========================================
+// 3. RENDER HASIL KE TABEL & FOOTER
+// ==========================================
+function renderPurchaseResult(res) {
+  const tbody = document.getElementById('purResult');
+  const tfoot = document.getElementById('purFooter');
+  tbody.innerHTML = '';
+  tfoot.innerHTML = '';
+
+  if (!res || !res.rows || res.rows.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-gray-500 italic">Tidak ada data cabang ditemukan.</td></tr>`;
+    return;
+  }
+
+  let totalBase = 0;
+  let totalComp = 0;
+
+  res.rows.forEach(r => {
+    totalBase += r.valBase;
+    totalComp += r.valComp;
+
+    let gap = r.valBase - r.valComp;
+    let growth = r.valComp > 0 ? (gap / r.valComp) * 100 : (r.valBase > 0 ? 100 : 0);
+    
+    let growthColor = growth >= 0 ? 'text-emerald-400' : 'text-rose-400';
+    let growthSign = growth >= 0 ? '+' : '';
+
+    let tr = document.createElement('tr');
+    tr.className = "hover:bg-white/5 transition-colors";
+    tr.innerHTML = `
+      <td class="p-3 sticky left-0 bg-[#1a1d23] font-bold text-white">${r.branch}</td>
+      <td class="p-3 text-center font-semibold text-cyan-400">Rp ${r.valBase.toLocaleString('id-ID')}</td>
+      <td class="p-3 text-center text-gray-300">Rp ${r.valComp.toLocaleString('id-ID')}</td>
+      <td class="p-3 text-center">
+        <span class="font-bold text-white">Rp ${gap.toLocaleString('id-ID')}</span> 
+        <span class="ml-1 text-[9px] ${growthColor}">(${growthSign}${growth.toFixed(1)}%)</span>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  let totalGap = totalBase - totalComp;
+  let totalGrowth = totalComp > 0 ? (totalGap / totalComp) * 100 : (totalBase > 0 ? 100 : 0);
+  let totGrowthColor = totalGrowth >= 0 ? 'text-emerald-400' : 'text-rose-400';
+  let totGrowthSign = totalGrowth >= 0 ? '+' : '';
+
+  tfoot.innerHTML = `
+    <tr class="font-black uppercase text-white bg-[#161920]">
+      <td class="p-3 sticky left-0 bg-[#161920] w-24">TOTAL</td>
+      <td class="p-3 text-center text-cyan-400">Rp ${totalBase.toLocaleString('id-ID')}</td>
+      <td class="p-3 text-center text-gray-300">Rp ${totalComp.toLocaleString('id-ID')}</td>
+      <td class="p-3 text-center">
+        <span>Rp ${totalGap.toLocaleString('id-ID')}</span> 
+        <span class="ml-1 text-[9px] ${totGrowthColor}">(${totGrowthSign}${totalGrowth.toFixed(1)}%)</span>
+      </td>
+    </tr>
+  `;
+}
+
+// Inisialisasi otomatis dropdown cabang saat halaman siap
+document.addEventListener("DOMContentLoaded", () => {
+  loadPurBranchDropdown();
+});
+  </script>
 </body>
 </html>
