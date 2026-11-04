@@ -1808,9 +1808,9 @@
         <input type="text" id="f_inv_nama_supp" readonly class="w-full bg-black/30 p-2 rounded text-xs text-gray-400 border border-white/5 cursor-not-allowed">
       </div>
       <div>
-        <label class="text-[7px] text-white/40 uppercase block mb-1">Nilai</label>
-        <input type="text" id="f_inv_nilai" oninput="formatRibuan(this)" class="w-full bg-white/5 p-2 rounded text-xs text-white border border-white/10 outline-none" placeholder="0">
-      </div>
+  <label class="text-[7px] text-white/40 uppercase block mb-1">Nilai</label>
+  <input type="text" id="f_inv_nilai" oninput="formatRibuanInput(this)" class="w-full bg-white/5 p-2 rounded text-xs text-white border border-white/10 outline-none" placeholder="0">
+</div>
       <div class="grid grid-cols-2 gap-2">
         <div>
           <label class="text-[7px] text-white/40 uppercase block mb-1">Tgl Invoice</label>
@@ -3721,6 +3721,98 @@
     </div>
 
   </div>
+  <!-- MODAL IMPORT DATA PEMBELIAN -->
+<div id="modalImportBeli" class="hidden fixed inset-0 z-[99] flex items-center justify-center bg-black/40 p-4">
+  <div class="bg-[#1e252e] w-full max-w-md p-6 border border-white/20 shadow-2xl rounded-xl">
+    
+    <!-- Header Modal -->
+    <div class="flex justify-between items-center mb-6">
+      <h3 class="text-emerald-400 font-black text-sm uppercase tracking-widest">Import Data Pembelian</h3>
+      <button onclick="closeImportBeli()" class="text-gray-400 hover:text-white transition-colors">
+        <i class="fa fa-times text-lg"></i>
+      </button>
+    </div>
+    
+    <!-- Konten Modal -->
+    <div class="space-y-4">
+      <div class="p-8 border-2 border-dashed border-white/10 rounded-xl bg-white/5 text-center">
+        <input type="file" id="fileImportBeli" accept=".xlsx, .xls, .csv" class="hidden" onchange="handleFileSelect(this)">
+        <label for="fileImportBeli" class="cursor-pointer group">
+          <i class="fa fa-file-excel text-3xl text-emerald-500 mb-3 group-hover:scale-110 transition-transform"></i>
+          <p class="text-[10px] text-gray-400" id="fileNameDisplay">Klik untuk pilih file Excel</p>
+        </label>
+      </div>
+      
+      <div class="bg-blue-500/10 border border-blue-500/20 p-3 rounded-lg">
+        <p class="text-[9px] text-blue-200 leading-relaxed italic">
+          *Sistem akan menolak otomatis jika nomor invoice sudah ada di database.
+        </p>
+      </div>
+
+      <!-- Tombol Aksi Modal -->
+      <div class="flex gap-2">
+        <button onclick="closeImportBeli()" class="flex-1 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-bold text-[8px] uppercase transition-all">
+          BATAL
+        </button>
+        
+        <button onclick="resetImportFile()" class="flex-1 py-3 bg-orange-600 hover:bg-orange-500 text-white rounded-lg font-bold text-[8px] uppercase transition-all">
+          <i class="fa fa-refresh"></i> RESET
+        </button>
+
+        <button onclick="prosesImportBeli()" id="btnProsesImport" class="flex-[2] py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-[8px] shadow-lg shadow-emerald-900/20 transition-all uppercase tracking-widest">
+          SIMPAN DATA
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+<!-- MODAL IMPORT DATA POS -->
+<div id="modalImportPos" class="hidden fixed inset-0 z-[99] flex items-center justify-center bg-black/40 p-4">
+  <div class="bg-[#1e252e] w-full max-w-md p-6 border border-white/20 shadow-2xl rounded-xl">
+    
+    <!-- Header Modal -->
+    <div class="flex justify-between items-center mb-6">
+      <h3 class="text-cyan-400 font-black text-sm uppercase tracking-widest">Import Data POS</h3>
+      <button onclick="closeImportPos()" class="text-gray-400 hover:text-white transition-colors">
+        <i class="fa fa-times text-lg"></i>
+      </button>
+    </div>
+    
+    <!-- Konten Modal -->
+    <div class="space-y-4">
+      <div class="p-8 border-2 border-dashed border-white/10 rounded-xl bg-white/5 text-center">
+        <input type="file" id="fileImportPos" accept=".xlsx, .xls, .csv" class="hidden" onchange="handleFileSelectPos(this)">
+        <label for="fileImportPos" class="cursor-pointer group">
+          <i class="fa fa-file-excel text-3xl text-cyan-500 mb-3 group-hover:scale-110 transition-transform"></i>
+          <p class="text-[10px] text-gray-400" id="fileNameDisplayPos">Klik untuk pilih file Excel (Kolom A-D)</p>
+        </label>
+      </div>
+      
+      <div class="bg-cyan-500/10 border border-cyan-500/20 p-3 rounded-lg">
+        <p class="text-[9px] text-cyan-200 leading-relaxed italic">
+          *Format Excel: Supplier (A), Qty (B), Nilai Beli (C), Nilai Pos (D). Data dengan nama supplier yang sama akan otomatis memperbarui (replace) data yang lama tanpa duplikasi.
+        </p>
+      </div>
+
+      <!-- Tombol Aksi Modal -->
+      <div class="flex gap-2">
+        <button onclick="closeImportPos()" class="flex-1 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-bold text-[8px] uppercase transition-all">
+          BATAL
+        </button>
+        
+        <button onclick="resetImportFilePos()" class="flex-1 py-3 bg-orange-600 hover:bg-orange-500 text-white rounded-lg font-bold text-[8px] uppercase transition-all">
+          <i class="fa fa-refresh"></i> RESET
+        </button>
+
+        <button onclick="prosesImportPos()" id="btnProsesImportPos" class="flex-[2] py-3 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg font-bold text-[8px] shadow-lg shadow-cyan-900/20 transition-all uppercase tracking-widest">
+          SIMPAN DATA
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
 
   <!-- ==========================================
        SCRIPT LOGIKA UTAMA & NAVIGASI
@@ -9548,18 +9640,32 @@ var beliCurrentPage = 1;
 var beliPageSize = 15; 
 
 // ==========================================
-// 1. FUNGSI LOAD DATA PEMBELIAN DARI SUPABASE
-// ==========================================
-// ==========================================
-// 1. FUNGSI LOAD DATA PEMBELIAN DARI SUPABASE (FIX KOLOM tglinvbeli)
+// 1. FUNGSI LOAD DATA PEMBELIAN DARI SUPABASE (AMBIL TEMPO DARI Ref_Supp)
 // ==========================================
 async function loadBeliTab() {
   const tableBody = document.getElementById('beliTableBody');
   if(!tableBody) return;
   
-  tableBody.innerHTML = '<tr><td colspan="7" class="p-5 text-center opacity-50"><i class="fa fa-spinner fa-spin"></i> Menarik data Purchase dari Supabase...</td></tr>';
+  tableBody.innerHTML = '<tr><td colspan="7" class="p-5 text-center opacity-50"><i class="fa fa-spinner fa-spin"></i> Menarik data Purchase & Ref_Supp dari Supabase...</td></tr>';
 
   try {
+    // 1. Ambil data Supplier terlebih dahulu untuk referensi tempo
+    const suppRes = await fetch(`${DB_URL}/rest/v1/Ref_Supp?select=kodesupp,tempo`, {
+      headers: { "apikey": DB_KEY, "Authorization": `Bearer ${DB_KEY}` }
+    });
+    const suppData = suppRes.ok ? await suppRes.json() : [];
+    
+    // Buat mapping tempo berdasarkan kodesupp
+    const tempoMap = {};
+    if (Array.isArray(suppData)) {
+      suppData.forEach(s => {
+        const kode = (s.kodesupp || "").trim();
+        const tmp = parseInt(s.tempo || 0, 10);
+        if (kode) tempoMap[kode] = isNaN(tmp) ? 0 : tmp;
+      });
+    }
+
+    // 2. Fungsi pembantu untuk mengambil seluruh baris data dari Supabase (pagination otomatis)
     const fetchAllRows = async (baseUrl) => {
       let allRows = [];
       let limit = 1000;
@@ -9574,7 +9680,6 @@ async function loadBeliTab() {
           headers: { 
             "apikey": DB_KEY, 
             "Authorization": `Bearer ${DB_KEY}`,
-            "Range": `${offset}-${offset + limit - 1}`,
             "Prefer": "count=exact"
           }
         });
@@ -9596,15 +9701,18 @@ async function loadBeliTab() {
 
     const beliRows = await fetchAllRows(`${DB_URL}/rest/v1/Data_Beli?select=*`);
 
-    // Mapping data: Langsung ambil dari kolom tglinvbeli sesuai database Anda
+    // 3. Mapping data & gabungkan nilai tempo dari Ref_Supp berdasarkan kodesupp
     allBeliData = (Array.isArray(beliRows) ? beliRows : []).map(row => {
+      const kSupp = (row.kodesupp || row.kode_supp || "").trim();
+      const resolvedTempo = tempoMap[kSupp] !== undefined ? tempoMap[kSupp] : parseInt(row.tempo || 0, 10);
+
       return {
         tglInv: row.tglinvbeli || row.tglinv || row.tgl_inv || row.tanggal || row.tgl || '',
         noInvoice: row.invbeli || row.no_invoice || row.inv || '',
-        kodeSupp: row.kodesupp || row.kode_supp || '',
+        kodeSupp: kSupp,
         namaSupp: row.namasupp || row.nama_supp || '',
         cabang: (row.ID_Cabang || row.id_cabang || row.cabang || '').trim().toUpperCase(),
-        tempo: parseInt(row.tempo || 0, 10),
+        tempo: isNaN(resolvedTempo) ? 0 : resolvedTempo,
         tglJT: row.tgljt || row.tgl_jt || '',
         nilai: parseFloat(row.nombeli || row.nom_beli || row.nilai || row.nominal || 0),
         status: (row.statusbeli || row.status || 'SIMPAN').toUpperCase(),
@@ -9667,8 +9775,8 @@ function displayBeliPage() {
       let infoKirim = "";
       if(statusRaw === "TERKIRIM") {
         infoKirim = `<div class="text-[9px] text-orange-500 mt-1 font-bold italic leading-tight">
-                      <i class="fa fa-paper-plane text-[8px]"></i> Terkirim: ${r.tglKirim || r.tglInv}
-                   </div>`;
+                       <i class="fa fa-paper-plane text-[8px]"></i> Terkirim: ${r.tglKirim || r.tglInv}
+                    </div>`;
       } else if(statusRaw === "TERIMA") {
          infoKirim = `<div class="text-[9px] text-orange-500 mt-1 font-bold italic leading-tight">Diterima</div>`;
       }
@@ -9760,64 +9868,101 @@ function clearBeliFilter() {
 }
 
 // ==========================================
-// 4. HAPUS DATA PEMBELIAN (SUPABASE NATIVE)
+// HAPUS SELURUH BARIS BERDASARKAN NO INVOICE
 // ==========================================
 function hapusBeli(noInv) {
   Swal.fire({
     title: 'Hapus Invoice?',
-    text: `Invoice ${noInv} akan dihapus permanen dari database!`,
+    text: `Semua baris untuk Invoice ${noInv} akan dihapus permanen dari database!`,
     icon: 'warning',
     showCancelButton: true,
     confirmButtonColor: '#ef4444',
     cancelButtonColor: '#64748b',
-    confirmButtonText: 'Ya, Hapus!',
+    confirmButtonText: 'Ya, Hapus Semua!',
     background: '#1a1f26',
-    color: '#fff'
+    color: '#fff',
+    customClass: { container: 'z-[99999]' }
   }).then(async (result) => {
     if (result.isConfirmed) {
-      Swal.fire({ title: 'Menghapus...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+      Swal.fire({ 
+        title: 'Menghapus...', 
+        allowOutsideClick: false, 
+        didOpen: () => { Swal.showLoading(); },
+        background: '#1a1f26',
+        color: '#fff',
+        customClass: { container: 'z-[99999]' }
+      });
+
       try {
         const response = await fetch(`${DB_URL}/rest/v1/Data_Beli?invbeli=eq.${encodeURIComponent(noInv)}`, {
           method: 'DELETE',
           headers: {
             "apikey": DB_KEY,
             "Authorization": `Bearer ${DB_KEY}`,
-            "Prefer": "return=minimal"
+            "Content-Type": "application/json",
+            "Prefer": "return=representation"
           }
         });
 
-        if (response.ok) {
-          allBeliData = allBeliData.filter(item => item.noInvoice !== noInv);
-          applyBeliFilter();
-          Swal.fire({
-            icon: 'success',
-            title: 'Terhapus!',
-            text: 'Data pembelian berhasil dihapus.',
-            background: '#1a1f26',
-            color: '#fff',
-            timer: 1500,
-            showConfirmButton: false
-          });
-        } else {
-          const errText = await response.text();
-          throw new Error(errText);
+        // Cek jika response tidak OK (gagal dari sisi server)
+        if (!response.ok) {
+          const errBody = await response.text();
+          throw new Error(errBody || "Gagal menghapus data dari server.");
         }
+
+        // Hapus dari array lokal
+        allBeliData = allBeliData.filter(item => item.noInvoice !== noInv && item.invbeli !== noInv);
+        applyBeliFilter();
+
+        Swal.fire({
+          icon: 'success',
+          title: 'Terhapus!',
+          text: 'Semua baris invoice berhasil dihapus.',
+          background: '#1a1f26',
+          color: '#fff',
+          timer: 1500,
+          showConfirmButton: false,
+          customClass: { container: 'z-[99999]' }
+        });
+
       } catch (err) {
-        Swal.fire('Error', err.message, 'error');
+        console.error("Delete Error:", err);
+        Swal.fire({
+          icon: 'error',
+          title: 'Gagal Menghapus',
+          text: err.message,
+          background: '#1a1f26',
+          color: '#fff',
+          customClass: { container: 'z-[99999]' }
+        });
       }
     }
   });
 }
 
 // ==========================================
-// 5. IMPORT EXCEL / CSV KE DATABASE SUPABASE
+// IMPORT EXCEL / CSV KE DATABASE SUPABASE (AMAN & HANDAL)
 // ==========================================
-function openImportBeli() { document.getElementById('modalImportBeli').classList.remove('hidden'); }
-function closeImportBeli() { document.getElementById('modalImportBeli').classList.add('hidden'); }
+function openImportBeli() { 
+  const modal = document.getElementById('modalImportBeli');
+  if (modal) {
+    modal.classList.remove('hidden'); 
+    modal.classList.add('flex');
+  }
+}
+
+function closeImportBeli() { 
+  const modal = document.getElementById('modalImportBeli');
+  if (modal) {
+    modal.classList.add('hidden'); 
+    modal.classList.remove('flex');
+  }
+}
 
 function handleFileSelect(input) {
   if (input.files.length > 0) {
-    document.getElementById('fileNameDisplay').innerText = input.files[0].name;
+    const disp = document.getElementById('fileNameDisplay');
+    if (disp) disp.innerText = input.files[0].name;
   }
 }
 
@@ -9827,32 +9972,74 @@ function resetImportFile() {
     icon: 'question',
     showCancelButton: true,
     confirmButtonText: 'Ya, Reset',
-    background: '#1a1f26', color: '#fff'
+    background: '#1a1f26', color: '#fff',
+    customClass: { container: 'z-[99999]' }
   }).then((result) => {
     if (result.isConfirmed) {
-      document.getElementById('fileImportBeli').value = "";
-      document.getElementById('fileNameDisplay').innerText = "Klik untuk pilih file Excel";
+      const fileInput = document.getElementById('fileImportBeli');
+      if (fileInput) fileInput.value = "";
+      const disp = document.getElementById('fileNameDisplay');
+      if (disp) disp.innerText = "Klik untuk pilih file Excel";
     }
   });
 }
 
-function prosesImportBeli() {
+function parseExcelDateCustom(val) {
+  if (!val) return null;
+  if (val instanceof Date && !isNaN(val.getTime())) {
+    return val.toISOString().split('T')[0];
+  }
+
+  const monthMap = {
+    'Jan': 0, 'Feb': 1, 'Mar': 2, 'Apr': 3, 'Mei': 4, 'May': 4,
+    'Jun': 5, 'Jul': 6, 'Agu': 7, 'Aug': 7, 'Sep': 8, 'Okt': 9, 
+    'Oct': 9, 'Nov': 10, 'Des': 11, 'Dec': 11
+  };
+
+  let s = String(val).trim();
+  if (s.length > 9) s = s.substring(0, 9);
+
+  if (s.includes('-')) {
+    const p = s.split('-');
+    if (p.length === 3) {
+      const day = parseInt(p[0], 10);
+      const mStr = p[1]; 
+      let year = parseInt(p[2], 10);
+      const mIdx = monthMap[mStr];
+      if (mIdx !== undefined) {
+        year = year < 100 ? 2000 + year : year;
+        const dObj = new Date(year, mIdx, day, 7, 0, 0);
+        return dObj.toISOString().split('T')[0];
+      }
+    }
+  }
+
+  let parsed = new Date(val);
+  if (!isNaN(parsed.getTime())) {
+    return parsed.toISOString().split('T')[0];
+  }
+  return null;
+}
+
+async function prosesImportBeli() {
   const fileInput = document.getElementById('fileImportBeli');
   if (!fileInput.files || fileInput.files.length === 0) {
     Swal.fire({
       icon: 'warning',
       title: 'File Belum Dipilih',
       text: 'Silakan pilih file Excel terlebih dahulu!',
-      confirmButtonColor: '#3085d6'
+      confirmButtonColor: '#3085d6',
+      customClass: { container: 'z-[99999]' }
     });
     return;
   }
 
   Swal.fire({
     title: 'Sedang Memproses & Mengunggah...',
-    text: 'Harap tunggu, sistem sedang memasukkan data ke Supabase.',
+    text: 'Harap tunggu, sistem sedang mensinkronisasi data ke Supabase.',
     allowOutsideClick: false,
-    didOpen: () => { Swal.showLoading(); }
+    didOpen: () => { Swal.showLoading(); },
+    customClass: { container: 'z-[99999]' }
   });
 
   const file = fileInput.files[0];
@@ -9869,106 +10056,136 @@ function prosesImportBeli() {
         throw new Error("File kosong atau tidak ada data ditemukan.");
       }
 
-      const batchPayloads = [];
+      // 1. Ambil data yang sudah ada untuk cek eksistensi invbeli & status lama
+      const checkRes = await fetch(`${DB_URL}/rest/v1/Data_Beli?select=invbeli,statusbeli`, {
+        headers: {
+          "apikey": DB_KEY,
+          "Authorization": `Bearer ${DB_KEY}`,
+          "Content-Type": "application/json"
+        }
+      });
+      const existingData = checkRes.ok ? await checkRes.json() : [];
+      const existingMap = {};
+      existingData.forEach(item => {
+        if (item.invbeli) {
+          existingMap[item.invbeli.trim().toUpperCase()] = item.statusbeli || 'SIMPAN';
+        }
+      });
 
-      rows.forEach(row => {
+      let insertedCount = 0;
+      let updatedCount = 0;
+
+      // 2. Loop dan eksekusi POST atau PATCH satu per satu dengan aman
+      for (let row of rows) {
+        const normalizedRow = {};
+        Object.keys(row).forEach(k => {
+          normalizedRow[k.trim().toLowerCase()] = row[k];
+        });
+
         const getVal = (keys) => {
           for (let k of keys) {
-            if (row[k] !== undefined && row[k] !== '') return row[k];
-            const foundKey = Object.keys(row).find(bk => bk.trim().toLowerCase() === k.toLowerCase());
-            if (foundKey && row[foundKey] !== '') return row[foundKey];
+            const cleanKey = k.trim().toLowerCase();
+            if (normalizedRow[cleanKey] !== undefined && normalizedRow[cleanKey] !== '') {
+              return normalizedRow[cleanKey];
+            }
           }
           return '';
         };
 
-        const tglRaw = getVal(['tglinv', 'tgl_inv', 'tanggal', 'tgl']);
-        let formattedDate = '';
-        if (tglRaw) {
-          if (tglRaw instanceof Date) {
-            formattedDate = tglRaw.toISOString().split('T')[0];
-          } else {
-            let parsed = new Date(tglRaw);
-            if (!isNaN(parsed.getTime())) {
-              formattedDate = parsed.toISOString().split('T')[0];
-            } else {
-              formattedDate = String(tglRaw).trim().substring(0, 10);
-            }
-          }
-        }
-
         const invbeli = String(getVal(['invbeli', 'noinv', 'no_invoice', 'invoice'])).trim();
+        if (!invbeli) continue; 
+
         const kodesupp = String(getVal(['kodesupp', 'kode_supp', 'kode'])).trim();
         const namasupp = String(getVal(['namasupp', 'nama_supp', 'nama'])).trim();
         const ID_Cabang = String(getVal(['id_cabang', 'ID_Cabang', 'cabang'])).trim().toUpperCase();
-        const tempo = parseInt(getVal(['tempo']) || 0, 10);
         
+        const tglInvRaw = getVal(['tglinvbeli', 'tglinv', 'tgl_inv', 'tanggal', 'tgl']);
+        const formattedDate = parseExcelDateCustom(tglInvRaw);
+
         const tglJTRaw = getVal(['tgljt', 'tgl_jt', 'jatuh_tempo']);
-        let formattedJT = '';
-        if (tglJTRaw) {
-          if (tglJTRaw instanceof Date) {
-            formattedJT = tglJTRaw.toISOString().split('T')[0];
-          } else {
-            let parsedJT = new Date(tglJTRaw);
-            if (!isNaN(parsedJT.getTime())) {
-              formattedJT = parsedJT.toISOString().split('T')[0];
-            } else {
-              formattedJT = String(tglJTRaw).trim().substring(0, 10);
-            }
-          }
-        }
+        const formattedJT = parseExcelDateCustom(tglJTRaw);
 
         let nomBeliVal = getVal(['nombeli', 'nom_beli', 'nilai', 'nominal']) || 0;
         if (typeof nomBeliVal === 'string') {
           nomBeliVal = parseFloat(nomBeliVal.replace(/[^0-9.]/g, '')) || 0;
         }
 
-        let statusbeli = String(getVal(['statusbeli', 'status']) || 'SIMPAN').toUpperCase();
+        const invKey = invbeli.toUpperCase();
+        const isExist = existingMap.hasOwnProperty(invKey);
 
-        if (formattedDate && invbeli) {
-  batchPayloads.push({
-    tglinvbeli: formattedDate, // Disesuaikan dengan nama kolom database
-    invbeli: invbeli,
-    kodesupp: kodesupp,
-    namasupp: namasupp,
-    ID_Cabang: ID_Cabang,
-    tempo: isNaN(tempo) ? 0 : tempo,
-    tgljt: formattedJT || null,
-    nombeli: isNaN(nomBeliVal) ? 0 : nomBeliVal,
-    statusbeli: statusbeli
-  });
-}
-      });
+        if (isExist) {
+          // UPDATE DATA LAMA (Status lama dipertahankan)
+          const currentStatus = existingMap[invKey];
+          const updatePayload = {
+            kodesupp: kodesupp,
+            namasupp: namasupp,
+            ID_Cabang: ID_Cabang,
+            nombeli: isNaN(nomBeliVal) ? 0 : nomBeliVal,
+            tglinvbeli: formattedDate || null,
+            tgljt: formattedJT || null,
+            statusbeli: currentStatus
+          };
 
-      if (batchPayloads.length === 0) {
-        throw new Error("Tidak ada data valid. Pastikan header Excel mencakup: tglinv, invbeli, kodesupp, namasupp, ID_Cabang, tempo, tgljt, nombeli, statusbeli.");
+          const updateRes = await fetch(`${DB_URL}/rest/v1/Data_Beli?invbeli=eq.${encodeURIComponent(invbeli)}`, {
+            method: 'PATCH',
+            headers: {
+              "apikey": DB_KEY,
+              "Authorization": `Bearer ${DB_KEY}`,
+              "Content-Type": "application/json",
+              "Prefer": "return=minimal"
+            },
+            body: JSON.stringify(updatePayload)
+          });
+
+          if (updateRes.ok) updatedCount++;
+        } else {
+          // INSERT DATA BARU (Status menjadi SIMPAN)
+          const insertPayload = {
+            invbeli: invbeli,
+            kodesupp: kodesupp,
+            namasupp: namasupp,
+            ID_Cabang: ID_Cabang,
+            nombeli: isNaN(nomBeliVal) ? 0 : nomBeliVal,
+            tglinvbeli: formattedDate || null,
+            tgljt: formattedJT || null,
+            statusbeli: 'SIMPAN'
+          };
+
+          const insertRes = await fetch(`${DB_URL}/rest/v1/Data_Beli`, {
+            method: 'POST',
+            headers: {
+              "apikey": DB_KEY,
+              "Authorization": `Bearer ${DB_KEY}`,
+              "Content-Type": "application/json",
+              "Prefer": "return=minimal"
+            },
+            body: JSON.stringify(insertPayload)
+          });
+
+          if (insertRes.ok) {
+            insertedCount++;
+            existingMap[invKey] = 'SIMPAN';
+          }
+        }
       }
 
-      const response = await fetch(`${DB_URL}/rest/v1/Data_Beli`, {
-        method: 'POST',
-        headers: {
-          "apikey": DB_KEY,
-          "Authorization": `Bearer ${DB_KEY}`,
-          "Content-Type": "application/json",
-          "Prefer": "return=minimal"
-        },
-        body: JSON.stringify(batchPayloads)
+      closeImportBeli();
+      Swal.fire({
+        icon: 'success',
+        title: 'Import Berhasil!',
+        html: `<div class="text-left text-sm">
+                 Berhasil menambah: <b>${insertedCount}</b> data baru<br>
+                 Berhasil memperbarui: <b>${updatedCount}</b> data lama
+               </div>`,
+        background: '#1e252e',
+        color: '#fff',
+        confirmButtonColor: '#10b981',
+        timer: 3000,
+        customClass: { container: 'z-[99999]' }
       });
 
-      if (response.ok) {
-        closeImportBeli();
-        Swal.fire({
-          icon: 'success',
-          title: 'Import Berhasil!',
-          text: `${batchPayloads.length} data purchase berhasil dimasukkan ke database Supabase.`,
-          background: '#1e252e',
-          color: '#fff',
-          timer: 2000,
-          showConfirmButton: false
-        });
-        loadBeliTab(); 
-      } else {
-        const errText = await response.text();
-        throw new Error(errText);
+      if (typeof loadBeliTab === "function") {
+        loadBeliTab();
       }
 
     } catch (err) {
@@ -9977,20 +10194,25 @@ function prosesImportBeli() {
         title: 'Gagal Import',
         text: err.message,
         background: '#1e252e',
-        color: '#fff'
+        color: '#fff',
+        customClass: { container: 'z-[99999]' }
       });
     }
   };
 
   reader.onerror = function() {
-    Swal.fire('Error', 'Gagal membaca file Excel.', 'error');
+    Swal.fire({
+      icon: 'error',
+      title: 'Error',
+      text: 'Gagal membaca file Excel.',
+      customClass: { container: 'z-[99999]' }
+    });
   };
 
   reader.readAsArrayBuffer(file);
 }
-
 // ==========================================
-// 6. HELPER FORMAT TANGGAL & RIBUAN (FIX RENDER TGL)
+// 6. HELPER FORMAT TANGGAL & RIBUAN
 // ==========================================
 function formatTglIndo(tglStr) {
   if (!tglStr || tglStr === "-") return "-";
@@ -10002,10 +10224,8 @@ function formatTglIndo(tglStr) {
     if (p.length !== 3) return cleanStr;
 
     const namaBulan = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
-
     let y, m, d;
 
-    // Menangani format YYYY-MM-DD dari Supabase
     if (p[0].length === 4) {
       y = p[0];
       m = p[1];
@@ -10019,7 +10239,7 @@ function formatTglIndo(tglStr) {
     let tgl = String(d).padStart(2, '0');
     let blnIdx = parseInt(m, 10) - 1;
     let bln = isNaN(blnIdx) ? m.substring(0, 3) : (namaBulan[blnIdx] || m);
-    let thn = String(y).slice(-2); // Mengambil 2 digit terakhir tahun (misal: 2026 menjadi 26)
+    let thn = String(y).slice(-2);
 
     return `${tgl}-${bln}-${thn}`;
   } catch (e) {
@@ -10027,19 +10247,244 @@ function formatTglIndo(tglStr) {
   }
 }
 
-function formatRibuanInput(angka) {
-  let number_string = angka.replace(/[^,\d]/g, '').toString(),
-      split = number_string.split(','),
-      sisa = split[0].length % 3,
-      rupiah = split[0].substr(0, sisa),
-      ribuan = split[0].substr(sisa).match(/\d{3}/gi);
-
-  if (ribuan) {
-    let separator = sisa ? '.' : '';
-    rupiah += separator + ribuan.join('.');
+function formatRibuanInput(input) {
+  let cursorPosition = input.selectionStart;
+  let rawValue = input.value.replace(/[^0-9]/g, "");
+  
+  if (rawValue === "") {
+    input.value = "";
+    return;
   }
-  return rupiah;
+  
+  let formattedValue = Number(rawValue).toLocaleString('id-ID');
+  let lengthDiff = formattedValue.length - input.value.length;
+  
+  input.value = formattedValue;
+  
+  try {
+    input.setSelectionRange(cursorPosition + lengthDiff, cursorPosition + lengthDiff);
+  } catch (e) {}
+}
+
+// ==========================================
+// 7. MODAL TAMBAH INVOICE & SIMPAN
+// ==========================================
+async function openModalTambahInvoice() {
+  const modal = document.getElementById('modalTambahInvoice');
+  if (modal) {
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  }
+
+  // 1. Ambil data Cabang dari Ref_Cabang
+  try {
+    const cabRes = await fetch(`${DB_URL}/rest/v1/Ref_Cabang?select=*`, {
+      headers: {
+        "apikey": DB_KEY,
+        "Authorization": `Bearer ${DB_KEY}`,
+        "Content-Type": "application/json"
+      }
+    });
+    
+    const selCab = document.getElementById('f_inv_cabang');
+    if (selCab) {
+      selCab.innerHTML = '<option value="">Pilih...</option>';
+      if (cabRes.ok) {
+        const branches = await cabRes.json();
+        branches.forEach(b => {
+          const valCab = typeof b === 'string' ? b : (b.cabang || b.nama_cabang || b.id_cabang || b.ID_Cabang || Object.values(b)[0]);
+          if (valCab) {
+            let opt = document.createElement('option');
+            opt.value = valCab;
+            opt.text = valCab;
+            selCab.add(opt);
+          }
+        });
+      }
+    }
+  } catch (err) {
+    console.error("Gagal memuat cabang:", err);
+  }
+
+  // 2. Ambil data Supplier dari Ref_Supp
+  try {
+    const suppRes = await fetch(`${DB_URL}/rest/v1/Ref_Supp?select=kodesupp,namsupp,tempo`, {
+      headers: {
+        "apikey": DB_KEY,
+        "Authorization": `Bearer ${DB_KEY}`,
+        "Content-Type": "application/json"
+      }
+    });
+
+    const selSupp = document.getElementById('f_inv_kode_supp');
+    if (selSupp) {
+      selSupp.innerHTML = '<option value="">Pilih...</option>';
+      
+      if (suppRes.ok) {
+        const suppliers = await suppRes.json();
+        if (suppliers && suppliers.length > 0) {
+          suppliers.forEach(s => {
+            const kodeVal = s.kodesupp || "";
+            const namaVal = s.namsupp || "";
+            const tempoVal = s.tempo !== undefined ? s.tempo : 0;
+            
+            if (kodeVal) {
+              let opt = document.createElement('option');
+              opt.value = kodeVal;
+              opt.text = kodeVal;
+              opt.dataset.nama = namaVal;
+              opt.dataset.tempo = tempoVal;
+              selSupp.add(opt);
+            }
+          });
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Error fetch Ref_Supp:", err);
+  }
+}
+
+function closeModalTambahInvoice() {
+  const modal = document.getElementById('modalTambahInvoice');
+  if (modal) {
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+  }
+  
+  const fields = ['f_inv_no', 'f_inv_kode_supp', 'f_inv_nama_supp', 'f_inv_cabang', 'f_inv_nilai', 'f_inv_tgl', 'f_inv_tempo', 'f_inv_tempo_hari'];
+  fields.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = "";
+  });
+}
+
+function autoFillSupplier() {
+  const sel = document.getElementById('f_inv_kode_supp');
+  if (!sel || sel.selectedIndex < 0) return;
+  const opt = sel.options[sel.selectedIndex];
+  
+  const namaSuppEl = document.getElementById('f_inv_nama_supp');
+  const tempoHariEl = document.getElementById('f_inv_tempo_hari');
+
+  if (opt && opt.value) {
+    if (namaSuppEl) namaSuppEl.value = opt.dataset.nama || "";
+    if (tempoHariEl) tempoHariEl.value = opt.dataset.tempo || 0;
+    hitungTempo();
+  } else {
+    if (namaSuppEl) namaSuppEl.value = "";
+    if (tempoHariEl) tempoHariEl.value = "";
+    const tglTempoEl = document.getElementById('f_inv_tempo');
+    if (tglTempoEl) tglTempoEl.value = "";
+  }
+}
+
+function hitungTempo() {
+  const tglInvEl = document.getElementById('f_inv_tgl');
+  const hariEl = document.getElementById('f_inv_tempo_hari');
+  const tglTempoEl = document.getElementById('f_inv_tempo');
+
+  if (!tglInvEl || !hariEl || !tglTempoEl) return;
+
+  const tglInv = tglInvEl.value;
+  const hari = parseInt(hariEl.value || 0, 10);
+  
+  if (tglInv && !isNaN(hari)) {
+    let d = new Date(tglInv);
+    if (!isNaN(d.getTime())) {
+      d.setDate(d.getDate() + hari);
+      tglTempoEl.value = d.toISOString().split('T')[0];
+    }
+  }
+}
+
+async function simpanInvoice() {
+  const valNoInv = document.getElementById('f_inv_no')?.value.trim();
+  const valKode = document.getElementById('f_inv_kode_supp')?.value.trim();
+  const valNama = document.getElementById('f_inv_nama_supp')?.value.trim();
+  const valCabang = document.getElementById('f_inv_cabang')?.value.trim();
+  const valNilai = document.getElementById('f_inv_nilai')?.value;
+  const valTgl = document.getElementById('f_inv_tgl')?.value;
+  const valTempoJt = document.getElementById('f_inv_tempo')?.value;
+  
+  if (!valNoInv || !valKode || !valTgl || !valNilai) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Data Belum Lengkap',
+      text: 'Pastikan No Invoice, Cabang, Kode Supplier, Tanggal, dan Nilai sudah terisi.',
+      background: '#0f1115',
+      color: '#fff',
+      confirmButtonColor: '#06b6d4',
+      customClass: { container: 'z-[99999]' }
+    });
+    return;
+  }
+
+  const nilaiNumber = Number(String(valNilai).replace(/[^0-9]/g, "")) || 0;
+  
+  Swal.fire({
+    title: 'Menyimpan...',
+    allowOutsideClick: false,
+    didOpen: () => { Swal.showLoading(); },
+    background: '#0f1115',
+    color: '#fff',
+    customClass: { container: 'z-[99999]' }
+  });
+
+  const payload = {
+    invbeli: valNoInv,
+    ID_Cabang: valCabang,
+    kodesupp: valKode,
+    namasupp: valNama,
+    nombeli: nilaiNumber,
+    tglinvbeli: valTgl,
+    tgljt: valTempoJt || null,
+    statusbeli: 'SIMPAN'
+  };
+
+  try {
+    const response = await fetch(`${DB_URL}/rest/v1/Data_Beli`, {
+      method: 'POST',
+      headers: {
+        "apikey": DB_KEY,
+        "Authorization": `Bearer ${DB_KEY}`,
+        "Content-Type": "application/json",
+        "Prefer": "return=representation"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const responseText = await response.text();
+
+    if (response.ok) {
+      Swal.fire({
+        icon: 'success',
+        title: 'Berhasil!',
+        text: 'Invoice baru berhasil disimpan.',
+        background: '#0f1115',
+        color: '#fff',
+        timer: 1500,
+        showConfirmButton: false,
+        customClass: { container: 'z-[99999]' }
+      });
+      
+      closeModalTambahInvoice();
+      loadBeliTab();
+    } else {
+      throw new Error(responseText);
+    }
+  } catch (err) {
+    Swal.fire({
+      icon: 'error',
+      title: 'Gagal Simpan',
+      text: err.message,
+      background: '#0f1115',
+      color: '#fff',
+      customClass: { container: 'z-[99999]' }
+    });
+  }
 }
   </script>
+  
 </body>
 </html>
