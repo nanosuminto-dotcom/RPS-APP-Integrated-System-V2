@@ -708,30 +708,28 @@
     </aside>
 
     <!-- MAIN CONTENT AREA -->
-    <main class="flex-1 w-full h-screen overflow-y-auto px-2 md:px-4 py-0 bg-[#1a1d23] relative">
-  
-  <!-- KONTROL WRAPPER VERTIKAL -->
-  <div class="flex flex-col w-full h-auto">
-    
-    <!-- HEADER DISPLAY UTAMA (Rapat & Font Lebih Kecil) -->
     <!-- MAIN CONTENT AREA -->
-    <main class="flex-1 w-full h-screen overflow-y-auto px-2 md:px-4 py-0 bg-[#1a1d23] relative">
+<main class="flex-1 w-full h-screen overflow-y-auto px-2 md:px-4 py-0 bg-[#1a1d23] relative">
   
   <!-- KONTROL WRAPPER VERTIKAL -->
   <div class="flex flex-col w-full h-auto">
     
-    <!-- HEADER DISPLAY UTAMA (Rapat & Font Lebih Kecil) -->
-    <div class="sticky top-0 z-20 bg-[#1a1d23]/95 backdrop-blur-md w-full my-0 py-1.5 px-1 border-b border-white/10 flex flex-row justify-between items-center gap-2">
+    <!-- HEADER DISPLAY UTAMA (Lengkap dengan Judul & Tombol Toggle, Sticky & Z-50) -->
+    <div class="sticky top-0 z-50 bg-[#1a1d23]/95 backdrop-blur-md w-full my-0 py-1.5 px-1 border-b border-white/10 flex flex-row justify-between items-center gap-2 shadow-md">
       <div>
         <h1 id="headerTitle" class="text-sm md:text-base font-bold text-cyan-400 uppercase tracking-tight">DASHBOARD UTAMA</h1>
       </div>
       
-      <!-- Tombol Toggle Mode Terang / Gelap -->
+      <!-- Tombol Toggle Mode Terang / Gelap (Kembali Muncul di Pojok Kanan) -->
       <button id="themeToggleBtn" onclick="toggleTheme()" class="px-2 py-1 rounded-md border border-slate-600 bg-slate-800 text-white hover:bg-slate-700 transition flex items-center gap-1 text-[11px] md:text-xs font-semibold shadow-sm flex-shrink-0">
         <span id="themeIcon" class="text-sm">☀️</span>
         <span id="themeText" class="hidden sm:inline">Terang</span>
       </button>
     </div>
+
+    <!-- KONTEN BERIKUTNYA DI BAWAH HEADER -->
+
+    <!-- KONTEN BERIKUTNYA DI BAWAH HEADER -->
     <!-- AREA KUMPULAN TAB / CARD MENU ANDA -->
     <div class="w-full">
   <div id="tab-dashboard" class="w-full space-y-6">
