@@ -6742,6 +6742,26 @@ async function exportPDF(fileName) {
   const namaUser = document.getElementById('navUserName')?.innerText || m.user;
   const now = new Date().toLocaleString('id-ID', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
+  // Ambil nama PT/profil secara dinamis dari tabel 'profil' Supabase
+  let namaPtDinamis = "PT. RITEL PERKAKAS SOLUSINDO"; // Fallback default
+  try {
+    const profRes = await fetch(`${DB_URL}/rest/v1/profil?select=namaprofil`, {
+      headers: {
+        "apikey": DB_KEY,
+        "Authorization": `Bearer ${DB_KEY}`,
+        "Content-Type": "application/json"
+      }
+    });
+    if (profRes.ok) {
+      const dataProfil = await profRes.json();
+      if (dataProfil && dataProfil.length > 0 && dataProfil[0].namaprofil) {
+        namaPtDinamis = dataProfil[0].namaprofil.toString().trim();
+      }
+    }
+  } catch (err) {
+    console.warn("Gagal mengambil profil perusahaan dari Supabase:", err);
+  }
+
   let logoBase64 = null;
 
   try {
@@ -6759,11 +6779,11 @@ async function exportPDF(fileName) {
     console.warn("Gagal memuat logo dari Supabase Storage:", e);
   }
 
-  // 3. Cetak PDF (dengan atau tanpa logo)
-  generatePDFContent(doc, m, namaUser, now, fileName, logoBase64);
+  // 3. Cetak PDF (dengan atau tanpa logo, beserta nama PT dinamis)
+  generatePDFContent(doc, m, namaUser, now, fileName, logoBase64, namaPtDinamis);
 }
 
-function generatePDFContent(doc, m, namaUser, now, fileName, logoBase64) {
+function generatePDFContent(doc, m, namaUser, now, fileName, logoBase64, namaPtDinamis) {
   // Jika logo berhasil dimuat dalam bentuk base64, masukkan ke PDF
   if (logoBase64) {
     doc.addImage(logoBase64, 'JPEG', 14, 8, 14, 16);
@@ -6776,7 +6796,7 @@ function generatePDFContent(doc, m, namaUser, now, fileName, logoBase64) {
 
   doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
-  doc.text("PT. RITEL PERKAKAS SOLUSINDO", 32, 12);
+  doc.text(namaPtDinamis, 32, 12);
 
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
@@ -7164,6 +7184,26 @@ async function exportAnaPDF(fileName) {
   const isAvg = currentAnaTab === 'avg';
   const title = `ANALISA ${isAvg ? 'AVERAGE' : (isPos ? 'POSX' : 'GRABMART')}`;
 
+  // Ambil nama PT/profil secara dinamis dari tabel 'profil' Supabase
+  let namaPtDinamis = "PT. RITEL PERKAKAS SOLUSINDO"; // Fallback default
+  try {
+    const profRes = await fetch(`${DB_URL}/rest/v1/profil?select=namaprofil`, {
+      headers: {
+        "apikey": DB_KEY,
+        "Authorization": `Bearer ${DB_KEY}`,
+        "Content-Type": "application/json"
+      }
+    });
+    if (profRes.ok) {
+      const dataProfil = await profRes.json();
+      if (dataProfil && dataProfil.length > 0 && dataProfil[0].namaprofil) {
+        namaPtDinamis = dataProfil[0].namaprofil.toString().trim();
+      }
+    }
+  } catch (err) {
+    console.warn("Gagal mengambil profil perusahaan dari Supabase:", err);
+  }
+
   // Ambil logo dari Supabase Storage secara asinkron
   let logoBase64 = null;
   try {
@@ -7183,10 +7223,10 @@ async function exportAnaPDF(fileName) {
     doc.addImage(logoBase64, 'JPEG', 14, 8, 14, 16);
   }
 
-  // Header Kop Laporan
+  // Header Kop Laporan (Menggunakan nama PT dinamis dari tabel profil)
   doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
-  doc.text("PT. RITEL PERKAKAS SOLUSINDO", 32, 12);
+  doc.text(namaPtDinamis, 32, 12);
 
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
@@ -7249,6 +7289,7 @@ async function exportAnaPDF(fileName) {
 
   doc.save(`${fileName}.pdf`);
 }
+
 function askAnaFileName(mode) {
   // Mengecek apakah anaData sudah ada isinya
   if (!anaData || anaData.length === 0) {
@@ -10398,11 +10439,12 @@ async function simpanInvoice() {
   }
 }
 // ==========================================
-// 1. HELPER & DROPDOWN CABANG DINAMIS (REF_CABANG)
+// 1. HELPER & DROPDOWN CABANG DINAMIS (URUT BERDASARKAN NO REF_CABANG)
 // ==========================================
 async function loadPurBranchDropdown() {
   try {
-    const response = await fetch(`${DB_URL}/rest/v1/Ref_Cabang?select=*`, {
+    // Ambil data cabang diurutkan berdasarkan kolom No secara ascending (?order=No.asc)
+    const response = await fetch(`${DB_URL}/rest/v1/Ref_Cabang?select=*&order=No.asc`, {
       headers: {
         "apikey": DB_KEY,
         "Authorization": `Bearer ${DB_KEY}`,
@@ -10427,7 +10469,8 @@ async function loadPurBranchDropdown() {
       }
     });
 
-    validBranches.sort().forEach(branch => {
+    // Mengisi dropdown sesuai urutan kolom No dari Supabase
+    validBranches.forEach(branch => {
       const opt = document.createElement('option');
       opt.value = branch;
       opt.textContent = branch;
@@ -10458,7 +10501,7 @@ function clearPurchaseAnalysis() {
 }
 
 // ==========================================
-// 2. PROSES UTAMA PERHITUNGAN PURCHASE ANALYSIS (TANPA BATASAN BARIS)
+// 2. PROSES UTAMA PERHITUNGAN PURCHASE ANALYSIS (URUTAN SESUAI KOLOM NO REF_CABANG)
 // ==========================================
 async function runPurchaseAnalysis() {
   const baseStart = document.getElementById('purBaseStart').value; // Format: "YYYY-MM-DD"
@@ -10490,8 +10533,8 @@ async function runPurchaseAnalysis() {
   });
 
   try {
-    // 1. Ambil daftar cabang valid dari tabel Ref_Cabang secara dinamis
-    const cabangRes = await fetch(`${DB_URL}/rest/v1/Ref_Cabang?select=*`, {
+    // 1. Ambil daftar cabang valid dari tabel Ref_Cabang dengan urutan No.asc
+    const cabangRes = await fetch(`${DB_URL}/rest/v1/Ref_Cabang?select=*&order=No.asc`, {
       headers: {
         "apikey": DB_KEY,
         "Authorization": `Bearer ${DB_KEY}`,
@@ -10509,9 +10552,8 @@ async function runPurchaseAnalysis() {
     });
 
     if (validBranches.length === 0) {
-      validBranches = ['CDK', 'CPY', 'DPK', 'KGD', 'OFFICE', 'ONLINE', 'PKP'];
+      validBranches = ['KGD', 'CDK', 'PKP', 'CPY', 'OFFICE', 'ONLINE', 'DPK'];
     }
-    validBranches.sort();
 
     // 2. Ambil SELURUH data transaksi dari tabel Data_Beli tanpa batas (Looping Pagination 1000 baris per request)
     let rawData = [];
@@ -10545,7 +10587,7 @@ async function runPurchaseAnalysis() {
       }
     }
 
-    // 3. Petakan data ke setiap cabang
+    // 3. Petakan data ke setiap cabang dengan mempertahankan urutan dari Ref_Cabang (No.asc)
     const branchMap = {};
     validBranches.forEach(b => {
       branchMap[b] = { branch: b, valBase: 0, valComp: 0 };
@@ -10560,8 +10602,12 @@ async function runPurchaseAnalysis() {
 
       const tglStr = String(tglRaw).split('T')[0].trim();
 
+      // Jika ada cabang di transaksi yang tidak terdaftar di Ref_Cabang, masukkan di akhir
       if (!branchMap[branch]) {
         branchMap[branch] = { branch: branch, valBase: 0, valComp: 0 };
+        if (!validBranches.includes(branch)) {
+          validBranches.push(branch);
+        }
       }
 
       // Cek Range Pembelian Baru (A) menggunakan perbandingan string YYYY-MM-DD
@@ -10575,12 +10621,13 @@ async function runPurchaseAnalysis() {
       }
     });
 
+    // Susun baris berdasarkan urutan dari validBranches (mengikuti nomor urut Ref_Cabang)
+    let rows = validBranches.map(b => branchMap[b]).filter(Boolean);
+
     // Filter berdasarkan pilihan dropdown cabang tunggal jika tidak "ALL"
-    let rows = Object.values(branchMap);
     if (selectedBranch !== 'ALL') {
       rows = rows.filter(r => r.branch === selectedBranch);
     }
-    rows.sort((a, b) => a.branch.localeCompare(b.branch));
 
     Swal.close();
     renderPurchaseResult({ rows });
