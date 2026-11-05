@@ -817,8 +817,13 @@
     body.light-mode .text-slate-500,
     body.light-mode .text-slate-600,
     body.light-mode .text-slate-700,
+    body.light-mode .text-slate-800,
+    body.light-mode .text-slate-900,
     body.light-mode .text-zinc-500,
     body.light-mode .text-zinc-600,
+    body.light-mode .text-black,
+    body.light-mode .text-gray-950,
+    body.light-mode .text-slate-950,
     body.light-mode .text-white,
     body.light-mode .text-slate-300 {
       color: #475569 !important;
@@ -826,8 +831,38 @@
 
     body.light-mode [id^="tab-"] .text-gray-300,
     body.light-mode [id^="tab-"] .text-slate-300,
-    body.light-mode [id^="tab-"] .text-gray-400 {
+    body.light-mode [id^="tab-"] .text-gray-400,
+    body.light-mode [id^="tab-"] .text-slate-800,
+    body.light-mode [id^="tab-"] .text-slate-900 {
       color: #475569 !important;
+    }
+
+    body.light-mode .bg-slate-900,
+    body.light-mode .bg-slate-800,
+    body.light-mode .bg-slate-700,
+    body.light-mode .bg-slate-950,
+    body.light-mode .bg-gray-900,
+    body.light-mode .bg-gray-800,
+    body.light-mode .bg-gray-700,
+    body.light-mode .bg-neutral-900,
+    body.light-mode .bg-neutral-800,
+    body.light-mode .bg-neutral-700,
+    body.light-mode .bg-neutral-950,
+    body.light-mode .bg-\[#101827\],
+    body.light-mode .bg-\[#0f172a\],
+    body.light-mode .bg-\[#111827\],
+    body.light-mode .bg-\[#1a1f26\],
+    body.light-mode .bg-\[#1a1d23\],
+    body.light-mode .bg-\[#161920\],
+    body.light-mode [class*="bg-slate-900"],
+    body.light-mode [class*="bg-gray-900"],
+    body.light-mode [class*="bg-neutral-900"],
+    body.light-mode [class*="bg-slate-800"],
+    body.light-mode [class*="bg-neutral-800"] {
+      background: linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(240,244,249,0.96) 100%) !important;
+      border-color: var(--border-soft) !important;
+      color: var(--text) !important;
+      box-shadow: var(--shadow-card) !important;
     }
 
     body.light-mode p,
@@ -3360,7 +3395,7 @@
         <div>
           <p class="text-emerald-400 text-[10px] font-black uppercase mb-2 border-b border-emerald-500/20 pb-1">Credit (Pemasukan)</p>
           <div class="grid grid-cols-2 gap-2">
-            <div class="bg-neutral-550 px-2 py-1.5 rounded text-[9px] text-gray-200 flex items-center font-bold">KGD TUNAI</div>
+            <div class="bg-neutral-950 px-2 py-1.5 rounded text-[9px] text-gray-200 flex items-center font-bold">KGD TUNAI</div>
             <input type="text" id="cKgdTunai" class="bg-neutral-800 p-1.5 rounded border border-white/5 text-[10px]">
             
             <div class="bg-neutral-950 px-2 py-1.5 rounded text-[9px] text-gray-200 flex items-center font-bold">KGD DB BCA</div>
