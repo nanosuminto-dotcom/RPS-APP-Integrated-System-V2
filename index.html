@@ -597,20 +597,42 @@
       background: #f8fafc !important;
       color: var(--text) !important;
       border-color: var(--border-soft) !important;
-      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255,255,255,0.7) !important;
+      box-shadow: 0 4px 10px rgba(15, 23, 42, 0.06) !important;
     }
 
     body.light-mode #themeToggleBtn:hover {
       background: #e2e8f0 !important;
     }
 
+    #tab-menu {
+      background: linear-gradient(180deg, #101827 0%, #0d1722 100%) !important;
+    }
+
+    #tab-menu > div:first-child {
+      background: linear-gradient(180deg, #111c2a 0%, #0d1722 100%) !important;
+      border-color: rgba(148,163,184,0.18) !important;
+      box-shadow: 0 10px 20px rgba(2,6,23,0.18) !important;
+    }
+
+    #tab-menu [onclick^="showTab"] {
+      background: linear-gradient(135deg, rgba(28,43,60,0.98), rgba(17,27,39,0.98)) !important;
+      border-color: rgba(148,163,184,0.18) !important;
+      box-shadow: 0 10px 20px rgba(2,6,23,0.16), inset 0 1px 0 rgba(255,255,255,0.04) !important;
+    }
+
+    #tab-menu [onclick^="showTab"] span,
+    #tab-menu [onclick^="showTab"] .text-gray-200,
+    #tab-menu [onclick^="showTab"] .text-slate-200,
+    #tab-menu [onclick^="showTab"] .text-white {
+      color: #e2e8f0 !important;
+      text-shadow: none !important;
+    }
+
     body.light-mode .sticky.top-0,
     body.light-mode .sticky {
-      background: rgba(255,255,255,0.88) !important;
+      background: rgba(255,255,255,0.9) !important;
       border-bottom-color: var(--border-soft) !important;
-      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06) !important;
-      backdrop-filter: blur(12px) !important;
-      -webkit-backdrop-filter: blur(12px) !important;
+      box-shadow: 0 6px 14px rgba(15, 23, 42, 0.05) !important;
     }
 
     body.light-mode #headerTitle {
@@ -618,6 +640,11 @@
       text-shadow: none !important;
       letter-spacing: 0.04em !important;
       font-weight: 800 !important;
+    }
+
+    body.light-mode .menu-title,
+    body.light-mode .app-title {
+      text-shadow: none !important;
     }
 
     body.light-mode #loginPage {
@@ -636,7 +663,7 @@
     body.light-mode .chart-tooltip,
     body.light-mode .matrix-scroll-container,
     body.light-mode .archive-table {
-      background-color: rgba(255,255,255,0.96) !important;
+      background: linear-gradient(180deg, rgba(238,244,250,0.96) 0%, rgba(230,237,245,0.96) 100%) !important;
       border-color: var(--border-soft) !important;
       box-shadow: var(--shadow-soft) !important;
       color: var(--text) !important;
@@ -711,10 +738,10 @@
 
     body.light-mode .matrix-btn.inactive,
     body.light-mode .ana-tab-btn.inactive {
-      background: rgba(255,255,255,0.85) !important;
+      background: rgba(255,255,255,0.9) !important;
       color: var(--text-soft) !important;
-      border-color: var(--border-soft) !important;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.7) !important;
+      border-color: rgba(148,163,184,0.25) !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.7), 0 6px 14px rgba(15,23,42,0.04) !important;
     }
 
     body.light-mode .matrix-btn.active,
@@ -722,6 +749,48 @@
       background: linear-gradient(180deg, #22d3ee, #0ea5e9) !important;
       color: #032437 !important;
       border-color: rgba(14, 165, 233, 0.5) !important;
+      box-shadow: 0 12px 24px rgba(14,165,233,0.18), inset 0 1px 0 rgba(255,255,255,0.45) !important;
+    }
+
+    body.light-mode button[class*="bg-cyan-600"],
+    body.light-mode button[class*="bg-emerald-600"],
+    body.light-mode button[class*="bg-red-600"],
+    body.light-mode button[class*="bg-amber-600"],
+    body.light-mode button[class*="bg-orange-600"],
+    body.light-mode button[class*="bg-indigo-600"],
+    body.light-mode button[class*="bg-sky-600"],
+    body.light-mode .btn-primary,
+    body.light-mode .btn-success,
+    body.light-mode .btn-danger,
+    body.light-mode .btn-warning {
+      box-shadow: 0 10px 20px rgba(15, 23, 42, 0.12), inset 0 1px 0 rgba(255,255,255,0.22) !important;
+      text-shadow: none !important;
+      border: 1px solid rgba(255,255,255,0.08) !important;
+    }
+
+    body.light-mode button[class*="bg-cyan-600"],
+    body.light-mode .btn-primary {
+      background: linear-gradient(180deg, #06b6d4, #0ea5e9) !important;
+      color: #ecfeff !important;
+    }
+
+    body.light-mode button[class*="bg-emerald-600"],
+    body.light-mode .btn-success {
+      background: linear-gradient(180deg, #10b981, #059669) !important;
+      color: #ecfdf5 !important;
+    }
+
+    body.light-mode button[class*="bg-red-600"],
+    body.light-mode .btn-danger {
+      background: linear-gradient(180deg, #ef4444, #dc2626) !important;
+      color: #fff1f2 !important;
+    }
+
+    body.light-mode button[class*="bg-amber-600"],
+    body.light-mode button[class*="bg-orange-600"],
+    body.light-mode .btn-warning {
+      background: linear-gradient(180deg, #f59e0b, #d97706) !important;
+      color: #fff7ed !important;
     }
 
     body.light-mode .active-menu {
@@ -752,7 +821,13 @@
     body.light-mode .text-zinc-600,
     body.light-mode .text-white,
     body.light-mode .text-slate-300 {
-      color: var(--text-soft) !important;
+      color: #475569 !important;
+    }
+
+    body.light-mode [id^="tab-"] .text-gray-300,
+    body.light-mode [id^="tab-"] .text-slate-300,
+    body.light-mode [id^="tab-"] .text-gray-400 {
+      color: #475569 !important;
     }
 
     body.light-mode p,
@@ -768,12 +843,25 @@
     body.light-mode th,
     body.light-mode small,
     body.light-mode div,
-    body.light-mode span:not(button span):not(.text-cyan-400):not(.text-cyan-500):not(.text-emerald-400):not(.text-green-400):not(.text-orange-400):not(.text-red-400):not(.text-blue-400):not(.text-amber-400) {
-      color: var(--text) !important;
+    body.light-mode span:not(button span):not(.text-cyan-300):not(.text-cyan-400):not(.text-cyan-500):not(.text-emerald-400):not(.text-green-400):not(.text-orange-400):not(.text-red-400):not(.text-blue-400):not(.text-amber-400):not(.text-violet-400):not(.text-purple-400):not(.text-indigo-400):not(.text-sky-400):not(.text-lime-400):not(.text-teal-400) {
+      color: #1f2937 !important;
     }
 
+    body.light-mode .text-cyan-300,
     body.light-mode .text-cyan-400,
-    body.light-mode .text-cyan-500 {
+    body.light-mode .text-cyan-500,
+    body.light-mode .text-emerald-400,
+    body.light-mode .text-green-400,
+    body.light-mode .text-orange-400,
+    body.light-mode .text-red-400,
+    body.light-mode .text-blue-400,
+    body.light-mode .text-amber-400,
+    body.light-mode .text-violet-400,
+    body.light-mode .text-purple-400,
+    body.light-mode .text-indigo-400,
+    body.light-mode .text-sky-400,
+    body.light-mode .text-lime-400,
+    body.light-mode .text-teal-400 {
       color: var(--accent-strong) !important;
     }
 
@@ -840,18 +928,18 @@
       border-color: var(--border-soft) !important;
     }
 
-    body.light-mode #tab-search .matrix-btn:not(.active):not(.inactive),
     body.light-mode #tab-search .matrix-btn.inactive,
-    body.light-mode #tab-financeInput button:not(.bg-amber-600):not(.bg-red-600):not(.bg-emerald-600):not(.bg-cyan-600):not(.bg-green-600):not(.bg-yellow-500) {
-      background-color: #f8fafc !important;
+    body.light-mode #tab-analisa .ana-tab-btn.inactive,
+    body.light-mode #tab-paymentSearch .matrix-btn.inactive {
+      background: rgba(255,255,255,0.9) !important;
       color: var(--text) !important;
       border-color: var(--border-soft) !important;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.7), 0 6px 12px rgba(15,23,42,0.05) !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.8) !important;
     }
 
     body.light-mode #tab-search .bg-yellow-500,
-    body.light-mode #tab-analisa .bg-cyan-500,
     body.light-mode #tab-search .bg-slate-700,
+    body.light-mode #tab-analisa .bg-cyan-500,
     body.light-mode #tab-analisa .bg-slate-700 {
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.28), 0 10px 18px rgba(15,23,42,0.08) !important;
     }
@@ -873,6 +961,176 @@
       background: linear-gradient(180deg, #22d3ee, #0ea5e9) !important;
       color: #062435 !important;
       border-color: rgba(14,165,233,0.6) !important;
+    }
+
+    body.light-mode .tab-pane,
+    body.light-mode #tab-search,
+    body.light-mode #tab-analisa,
+    body.light-mode #tab-paymentSearch,
+    body.light-mode #tab-dashboardFinance,
+    body.light-mode #tab-financeInput,
+    body.light-mode #tab-menu {
+      background: linear-gradient(180deg, #edf4fa 0%, #e9eef5 100%) !important;
+      color: var(--text) !important;
+    }
+
+    body.light-mode .matrix-table thead th,
+    body.light-mode .archive-table th,
+    body.light-mode table thead th,
+    body.light-mode table thead tr,
+    body.light-mode #giroTable thead th,
+    body.light-mode #giroTable thead tr,
+    body.light-mode #tab-dashboardFinance table thead tr,
+    body.light-mode #tab-dashboardFinance table thead th {
+      background: linear-gradient(180deg, #eaf1f8 0%, #dfeaf5 100%) !important;
+      color: #0f172a !important;
+      border-color: var(--border-soft) !important;
+      text-shadow: none !important;
+    }
+
+    body.light-mode .matrix-table td,
+    body.light-mode table tbody td,
+    body.light-mode #tbodyGiroData td,
+    body.light-mode #bodyMatriksFinance td {
+      background: rgba(255,255,255,0.72) !important;
+      color: var(--text) !important;
+      border-color: rgba(148,163,184,0.18) !important;
+    }
+
+    body.light-mode .glass,
+    body.light-mode .card,
+    body.light-mode #tab-dashboardFinance .card,
+    body.light-mode #tab-dashboardFinance .glass,
+    body.light-mode #tab-search .glass,
+    body.light-mode #tab-analisa .glass,
+    body.light-mode #tab-paymentSearch .glass,
+    body.light-mode #tab-financeInput .glass,
+    body.light-mode .bg-slate-900\/80,
+    body.light-mode .bg-neutral-900,
+    body.light-mode .bg-neutral-800,
+    body.light-mode .bg-neutral-950 {
+      background: linear-gradient(180deg, rgba(234,242,249,0.96) 0%, rgba(222,232,241,0.96) 100%) !important;
+      border-color: rgba(148,163,184,0.28) !important;
+      box-shadow: 0 8px 16px rgba(15,23,42,0.05), inset 0 1px 0 rgba(255,255,255,0.35) !important;
+      color: var(--text) !important;
+    }
+
+    body.light-mode #tab-dashboardFinance {
+      background: linear-gradient(180deg, #eef4f8 0%, #e7edf3 100%) !important;
+      color: var(--text) !important;
+    }
+
+    body.light-mode #tab-dashboardFinance .card,
+    body.light-mode #tab-dashboardFinance .glass,
+    body.light-mode #tab-dashboardFinance .bg-slate-900\/80,
+    body.light-mode #tab-dashboardFinance .bg-neutral-900,
+    body.light-mode #tab-dashboardFinance .bg-neutral-800 {
+      background: linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(246,249,252,0.96) 100%) !important;
+      border-color: var(--border-soft) !important;
+      box-shadow: var(--shadow-card) !important;
+      color: var(--text) !important;
+    }
+
+    body.light-mode #tab-dashboardFinance .card span,
+    body.light-mode #tab-dashboardFinance .card h2,
+    body.light-mode #tab-dashboardFinance .card small,
+    body.light-mode #tab-dashboardFinance .card div,
+    body.light-mode #tab-dashboardFinance .card p,
+    body.light-mode #tab-dashboardFinance .card .text-gray-400,
+    body.light-mode #tab-dashboardFinance .card .text-gray-500,
+    body.light-mode #tab-dashboardFinance .card .text-slate-400,
+    body.light-mode #tab-dashboardFinance .card .text-slate-500,
+    body.light-mode #tab-dashboardFinance .card .text-white {
+      color: inherit !important;
+    }
+
+    body.light-mode #tab-dashboardFinance .card .text-gray-400,
+    body.light-mode #tab-dashboardFinance .card .text-gray-500,
+    body.light-mode #tab-dashboardFinance .card .text-slate-400,
+    body.light-mode #tab-dashboardFinance .card .text-slate-500 {
+      color: #475569 !important;
+    }
+
+    body.light-mode #tab-dashboardFinance .text-cyan-300,
+    body.light-mode #tab-dashboardFinance .text-cyan-400,
+    body.light-mode #tab-dashboardFinance .text-amber-400,
+    body.light-mode #tab-dashboardFinance .text-orange-400,
+    body.light-mode #tab-dashboardFinance .text-emerald-400,
+    body.light-mode #tab-dashboardFinance .text-purple-400,
+    body.light-mode #tab-dashboardFinance .text-amber-500,
+    body.light-mode #tab-dashboardFinance .text-cyan-500 {
+      color: var(--accent-strong) !important;
+    }
+
+    body.light-mode #tab-dashboardFinance table thead tr,
+    body.light-mode #tab-dashboardFinance table thead th,
+    body.light-mode #tab-dashboardFinance #giroTable thead tr,
+    body.light-mode #tab-dashboardFinance #giroTable thead th {
+      background: linear-gradient(180deg, #edf3f8 0%, #e5edf6 100%) !important;
+      color: #0f172a !important;
+      border-color: var(--border-soft) !important;
+    }
+
+    body.light-mode #tab-dashboardFinance table thead th,
+    body.light-mode #tab-dashboardFinance #giroTable thead th {
+      color: #0f172a !important;
+      font-weight: 800 !important;
+      text-shadow: none !important;
+    }
+
+    body.light-mode #tab-dashboardFinance table tbody td,
+    body.light-mode #tab-dashboardFinance #tbodyGiroData td,
+    body.light-mode #tab-dashboardFinance #bodyMatriksFinance td {
+      color: var(--text) !important;
+      background: rgba(255,255,255,0.38) !important;
+      border-color: rgba(148,163,184,0.15) !important;
+    }
+
+    body.light-mode #tab-menu {
+      background: linear-gradient(180deg, #f3f7fb 0%, #edf3f9 100%) !important;
+      color: var(--text) !important;
+    }
+
+    body.light-mode #tab-menu .bg-\[#0b0f17\],
+    body.light-mode #tab-menu .bg-\[#07090e\],
+    body.light-mode #tab-menu .bg-\[#12161f\],
+    body.light-mode #tab-menu .min-h-screen,
+    body.light-mode #tab-menu .w-full.max-w-md {
+      background: linear-gradient(180deg, #f8fafc 0%, #eef4f9 100%) !important;
+      border-color: var(--border-soft) !important;
+      box-shadow: var(--shadow-card) !important;
+    }
+
+    body.light-mode #tab-menu [onclick^="showTab"] {
+      background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(240,246,251,0.98)) !important;
+      border-color: var(--border-soft) !important;
+      box-shadow: 0 10px 18px rgba(15,23,42,0.06), inset 0 1px 0 rgba(255,255,255,0.8) !important;
+    }
+
+    body.light-mode #tab-menu [onclick^="showTab"] span,
+    body.light-mode #tab-menu [onclick^="showTab"] .text-gray-200,
+    body.light-mode #tab-menu [onclick^="showTab"] .text-slate-200,
+    body.light-mode #tab-menu [onclick^="showTab"] .text-white {
+      color: #0f172a !important;
+      text-shadow: none !important;
+      font-weight: 700 !important;
+    }
+
+    body.light-mode #tab-menu [onclick^="showTab"] .group-hover\:text-cyan-300,
+    body.light-mode #tab-menu [onclick^="showTab"] .group-hover\:text-blue-300,
+    body.light-mode #tab-menu [onclick^="showTab"] .group-hover\:text-emerald-300,
+    body.light-mode #tab-menu [onclick^="showTab"] .group-hover\:text-indigo-300,
+    body.light-mode #tab-menu [onclick^="showTab"] .group-hover\:text-violet-300,
+    body.light-mode #tab-menu [onclick^="showTab"] .group-hover\:text-teal-300,
+    body.light-mode #tab-menu [onclick^="showTab"] .group-hover\:text-sky-300,
+    body.light-mode #tab-menu [onclick^="showTab"] .group-hover\:text-amber-300,
+    body.light-mode #tab-menu [onclick^="showTab"] .group-hover\:text-orange-300,
+    body.light-mode #tab-menu [onclick^="showTab"] .group-hover\:text-yellow-300 {
+      color: var(--text) !important;
+    }
+
+    body.light-mode #tab-menu [onclick^="showTab"] .w-11.h-11 {
+      box-shadow: 0 10px 18px rgba(15,23,42,0.08), inset 0 1px 0 rgba(255,255,255,0.25) !important;
     }
 
     body.light-mode #tab-search .bg-green-600\/25,
@@ -8154,6 +8412,10 @@ function renderYoYChart(canvasId, yearData, labelText, defaultColor = '#06b6d4')
   const canvas = document.getElementById(canvasId);
   if(!canvas) return;
   const ctx = canvas.getContext('2d');
+  const isLight = document.body.classList.contains('light-mode');
+  const textColor = isLight ? '#0f172a' : 'rgba(255,255,255,0.8)';
+  const mutedColor = isLight ? '#475569' : 'rgba(255,255,255,0.5)';
+  const gridColor = isLight ? 'rgba(15,23,42,0.08)' : 'rgba(255,255,255,0.03)';
   
   if (window['myChart' + canvasId]) window['myChart' + canvasId].destroy();
 
@@ -8189,12 +8451,15 @@ function renderYoYChart(canvasId, yearData, labelText, defaultColor = '#06b6d4')
         legend: { 
           position: 'top', 
           align: 'end', 
-          labels: { color: 'rgba(255,255,255,0.5)', font: { size: 9 }, usePointStyle: true, boxWidth: 6 } 
+          labels: { color: textColor, font: { size: 9 }, usePointStyle: true, boxWidth: 6 } 
         },
         tooltip: { 
           enabled: true,
-          backgroundColor: '#1a1d23', 
-          titleColor: '#fff', 
+          backgroundColor: isLight ? '#f8fafc' : '#1a1d23', 
+          titleColor: isLight ? '#0f172a' : '#fff', 
+          bodyColor: isLight ? '#0f172a' : '#fff',
+          borderColor: isLight ? 'rgba(148,163,184,0.22)' : 'rgba(255,255,255,0.08)',
+          borderWidth: 1,
           callbacks: {
             label: function(context) {
               let label = context.dataset.label || '';
@@ -8209,8 +8474,8 @@ function renderYoYChart(canvasId, yearData, labelText, defaultColor = '#06b6d4')
         }
       },
       scales: {
-        y: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: 'rgba(255,255,255,0.3)', font: { size: 8 } } },
-        x: { grid: { display: false }, ticks: { color: 'rgba(255,255,255,0.3)', font: { size: 8 } } }
+        y: { grid: { color: gridColor }, ticks: { color: mutedColor, font: { size: 8 } } },
+        x: { grid: { display: false }, ticks: { color: mutedColor, font: { size: 8 } } }
       }
     }
   });
@@ -8580,6 +8845,10 @@ function renderBarChartsCanvas(rows) {
     const labels = rows.map(r => r.label);
     const salesData = rows.map(r => r.sales);
     const freqData = rows.map(r => r.freq);
+    const isLight = document.body.classList.contains('light-mode');
+    const textColor = isLight ? '#0f172a' : '#ffffff';
+    const gridColor = isLight ? 'rgba(15,23,42,0.10)' : 'rgba(255,255,255,0.1)';
+    const labelColor = isLight ? '#334155' : '#ffffff';
     
     const formatSmart = (value) => {
         if (value >= 1000000) {
@@ -8610,7 +8879,7 @@ function renderBarChartsCanvas(rows) {
                 datalabels: {
                     anchor: 'end',      
                     align: 'top',      
-                    color: '#ffffff',   
+                    color: textColor,   
                     font: {
                         size: 10,
                         weight: 'bold'
@@ -8620,6 +8889,11 @@ function renderBarChartsCanvas(rows) {
                     }
                 },
                 tooltip: {
+                    backgroundColor: isLight ? '#f8fafc' : '#1a1d23',
+                    titleColor: isLight ? '#0f172a' : '#fff',
+                    bodyColor: isLight ? '#0f172a' : '#fff',
+                    borderColor: isLight ? 'rgba(148,163,184,0.22)' : 'rgba(255,255,255,0.08)',
+                    borderWidth: 1,
                     callbacks: {
                         label: function(context) {
                             let val = context.raw || 0;
@@ -8630,19 +8904,19 @@ function renderBarChartsCanvas(rows) {
             },
             scales: {
                 x: { 
-                    ticks: { color: '#ffffff', font: { size: 10, weight: 'bold' } }, 
+                    ticks: { color: labelColor, font: { size: 10, weight: 'bold' } }, 
                     grid: { display: false } 
                 },
                 y: { 
                     grace: '15%',
                     ticks: { 
-                        color: '#ffffff', 
+                        color: labelColor, 
                         font: { size: 10, weight: 'bold' },
                         callback: function(value) {
                             return isCurrency ? formatSmart(value) : value;
                         }
                     }, 
-                    grid: { color: 'rgba(255,255,255,0.1)' } 
+                    grid: { color: gridColor } 
                 }
             }
         },
