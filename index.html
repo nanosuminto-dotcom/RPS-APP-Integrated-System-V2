@@ -41,13 +41,13 @@
       font-family: 'Plus Jakarta Sans', sans-serif;
       background-color: #1a1d23;
       color: white;
-      transition: background-color 0.2s ease, color 0.2s ease;
+      transition: background-color 0.28s ease, color 0.28s ease, border-color 0.28s ease, box-shadow 0.28s ease;
     }
 
     body {
       visibility: hidden;
       opacity: 0;
-      transition: opacity 0.08s ease;
+      transition: opacity 0.12s ease;
     }
 
     body.app-ready {
@@ -62,6 +62,10 @@
     .glass { background: #252a33; border: 1px solid #343b47; border-radius: 12px; }
     .hidden { display: none !important; }
     .val-mini { font-size: 11px; font-weight: 700; color: #ffffff; }
+
+    body.light-mode .val-mini {
+      color: #334155 !important;
+    }
 
     /* ==========================================
        2. SIDEBAR & MENU STYLING
@@ -115,7 +119,9 @@
       text-transform: uppercase;
       letter-spacing: 0.15em;
       background: linear-gradient(90deg, #fbbf24, #f59e0b);
+      background-clip: text;
       -webkit-background-clip: text;
+      color: transparent;
       -webkit-text-fill-color: transparent;
       transition: 0.3s;
     }
@@ -126,6 +132,12 @@
       font-weight: 900;
       text-transform: uppercase;
       text-shadow: 0 0 10px rgba(245, 158, 11, 0.3);
+    }
+
+    body.light-mode .app-title,
+    body.light-mode .menu-title {
+      color: #f59e0b !important;
+      text-shadow: 0 0 10px rgba(245, 158, 11, 0.15) !important;
     }
 
     /* ==========================================
@@ -139,14 +151,65 @@
     
     .chart-select { background: #1a1d23; color: #22d3ee; border: 1px solid #343b47; font-size: 9px; font-weight: 800; padding: 4px 8px; border-radius: 6px; cursor: pointer; outline: none; }
     
-    .matrix-btn { font-size: 9px; font-weight: 800; padding: 4px 12px; border-radius: 6px; transition: 0.3s; }
-    .matrix-btn.active { background: #22d3ee; color: #000; }
-    .matrix-btn.inactive { background: #1a1d23; color: #475569; }
+    .matrix-btn {
+      font-size: 9px;
+      font-weight: 800;
+      padding: 4px 12px;
+      border-radius: 6px;
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      background: rgba(15, 23, 42, 0.65);
+      color: #dfeaf6;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+      transition: all 0.22s ease;
+    }
+    .matrix-btn:hover:not(:disabled) {
+      filter: brightness(1.08);
+      transform: translateY(-1px);
+      box-shadow: 0 8px 16px rgba(15, 23, 42, 0.18), inset 0 1px 0 rgba(255,255,255,0.12);
+    }
+    .matrix-btn:active:not(:disabled) {
+      transform: translateY(0) scale(0.98);
+      filter: brightness(0.96);
+    }
+    .matrix-btn.active {
+      background: linear-gradient(180deg, #22d3ee, #0ea5e9);
+      color: #062638;
+      border-color: rgba(34, 211, 238, 0.7);
+      box-shadow: 0 10px 18px rgba(34, 211, 238, 0.2), inset 0 1px 0 rgba(255,255,255,0.4);
+    }
+    .matrix-btn.inactive { background: rgba(15, 23, 42, 0.7); color: #9aa9bb; border-color: rgba(148,163,184,0.18); }
     .matrix-btn.active-tab { background-color: #2563eb !important; color: white !important; border: none !important; }
 
-    .ana-tab-btn { font-size: 10px; font-weight: 900; padding: 8px 20px; border-radius: 8px; transition: 0.3s; text-transform: uppercase; letter-spacing: 0.05em; }
-    .ana-tab-btn.active { background: #22d3ee; color: #000; }
-    .ana-tab-btn.inactive { background: #1a1d23; color: #475569; border: 1px solid #343b47; }
+    .ana-tab-btn {
+      font-size: 10px;
+      font-weight: 900;
+      padding: 8px 20px;
+      border-radius: 8px;
+      border: 1px solid rgba(148,163,184,0.12);
+      background: rgba(15, 23, 42, 0.7);
+      color: #cbd5e1;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+      transition: all 0.22s ease;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .ana-tab-btn:hover:not(:disabled):not(.active) {
+      background: rgba(34, 211, 238, 0.08);
+      color: #e0f2fe;
+      border-color: rgba(34, 211, 238, 0.28);
+      transform: translateY(-1px);
+    }
+    .ana-tab-btn:active:not(:disabled) {
+      transform: translateY(0) scale(0.98);
+      filter: brightness(0.96);
+    }
+    .ana-tab-btn.active {
+      background: linear-gradient(180deg, #22d3ee, #0ea5e9);
+      color: #052437;
+      border-color: rgba(34, 211, 238, 0.8);
+      box-shadow: 0 10px 18px rgba(34, 211, 238, 0.22), inset 0 1px 0 rgba(255,255,255,0.42);
+    }
+    .ana-tab-btn.inactive { background: rgba(15, 23, 42, 0.78); color: #9aa9bb; border: 1px solid rgba(148,163,184,0.18); }
 
     input, select, textarea, .glass {
       max-width: 100% !important;
@@ -246,6 +309,7 @@
         border: 1px solid #000 !important;
         white-space: nowrap !important; 
         -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
       }
       
       table.matrix-table tr, table.giro-table tr { page-break-inside: avoid !important; }
@@ -468,89 +532,392 @@
     }
 
     /* ==========================================================
-    9. SYNCED LIGHT MODE CONFIGURATION (SMART ACCENT PRESERVATION)
+    9. THEME LIGHT / DARK - COMFORTABLE, CONSISTENT, SAFE
    ========================================================== */
 
-    /* Latar Belakang Utama */
+    :root {
+      --page-bg: #111827;
+      --page-bg-soft: #0f172a;
+      --surface: #1b2230;
+      --surface-strong: #212a38;
+      --surface-soft: #f8fafc;
+      --surface-panel: rgba(255,255,255,0.04);
+      --border: rgba(148,163,184,0.2);
+      --border-soft: #dfe7f1;
+      --text: #e5edf7;
+      --text-strong: #f8fafc;
+      --text-soft: #b6c2d4;
+      --text-muted: #7c8ca6;
+      --shadow-soft: 0 10px 22px rgba(15, 23, 42, 0.18);
+      --shadow-card: 0 8px 20px rgba(15, 23, 42, 0.12);
+      --accent: #22d3ee;
+      --accent-strong: #0891b2;
+      --warning: #f59e0b;
+      --warning-soft: rgba(245, 158, 11, 0.15);
+      --success: #22c55e;
+      --danger: #ef4444;
+      --muted-fill: #e2e8f0;
+    }
+
     body.light-mode {
-      background-color: #eef2f6 !important; 
-      color: #1e293b !important;
+      --page-bg: #f3f6fb;
+      --page-bg-soft: #edf3f9;
+      --surface: #ffffff;
+      --surface-strong: #f8fafc;
+      --surface-soft: #f8fafc;
+      --surface-panel: rgba(255,255,255,0.88);
+      --border: #dfe7f1;
+      --border-soft: #cbd5e1;
+      --text: #0f172a;
+      --text-strong: #0f172a;
+      --text-soft: #475569;
+      --text-muted: #64748b;
+      --shadow-soft: 0 12px 28px rgba(15, 23, 42, 0.08);
+      --shadow-card: 0 8px 18px rgba(15, 23, 42, 0.05);
+      --accent: #0ea5e9;
+      --accent-strong: #0369a1;
+      --warning: #d97706;
+      --warning-soft: rgba(217, 119, 6, 0.12);
+      --muted-fill: #e2e8f0;
+      background: linear-gradient(180deg, var(--page-bg) 0%, var(--page-bg-soft) 100%) !important;
+      color: var(--text) !important;
     }
 
-    /* Paksa teks umum menjadi tajam, KECUALI di dalam tombol atau elemen berwarna */
-    body.light-mode p:not([class*="bg-"]):not([class*="text-white"]), 
-    body.light-mode span:not(button span):not([class*="btn"] span):not([class*="text-white"]):not([class*="text-emerald"]):not([class*="text-cyan"]):not([class*="text-orange"]):not([class*="text-blue"]):not([class*="text-red"]), 
-    body.light-mode h1, 
-    body.light-mode h2, 
-    body.light-mode h3, 
-    body.light-mode h4, 
-    body.light-mode h5, 
-    body.light-mode h6, 
-    body.light-mode label, 
-    body.light-mode a:not(button):not(.btn), 
-    body.light-mode li,
-    body.light-mode .text-xs,
-    body.light-mode .text-sm {
-      color: #1e293b !important;
+    body.light-mode * {
+      transition: background-color 0.28s ease, color 0.28s ease, border-color 0.28s ease, box-shadow 0.28s ease;
     }
 
-    /* Pengecualian khusus untuk teks ber-aksen warna */
-    body.light-mode #headerTitle,
-    body.light-mode .text-cyan-400,
-    body.light-mode .text-cyan-500 {
-      color: #0284c7 !important;
+    body.light-mode main,
+    body.light-mode #mainArea,
+    body.light-mode [id^="tab-"] {
+      background: linear-gradient(180deg, #f8fafc 0%, #eef4f9 100%) !important;
     }
 
-    /* 
-      SIDEBAR, HEADER, PANEL, KARTU (Hanya menargetkan warna netral: abu-abu/putih/slate/gray/gelap bawaan)
-      Elemen dengan background tombol warna lain (emerald, blue, orange, dll) otomatis diabaikan (:not).
-    */
+    body.light-mode #themeToggleBtn {
+      background: #f8fafc !important;
+      color: var(--text) !important;
+      border-color: var(--border-soft) !important;
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255,255,255,0.7) !important;
+    }
+
+    body.light-mode #themeToggleBtn:hover {
+      background: #e2e8f0 !important;
+    }
+
+    body.light-mode .sticky.top-0,
+    body.light-mode .sticky {
+      background: rgba(255,255,255,0.88) !important;
+      border-bottom-color: var(--border-soft) !important;
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06) !important;
+      backdrop-filter: blur(12px) !important;
+      -webkit-backdrop-filter: blur(12px) !important;
+    }
+
+    body.light-mode #headerTitle {
+      color: #0f172a !important;
+      text-shadow: none !important;
+      letter-spacing: 0.04em !important;
+      font-weight: 800 !important;
+    }
+
+    body.light-mode #loginPage {
+      background: linear-gradient(180deg, #f3f7fb 0%, #ebf2f8 100%) !important;
+    }
+
+    body.light-mode #loginPage .glass,
     body.light-mode aside,
     body.light-mode nav,
     body.light-mode header,
-    body.light-mode .glass, 
+    body.light-mode .glass,
     body.light-mode .card,
     body.light-mode section,
-    body.light-mode [class*="bg-slate-"]:not(button):not(.btn):not([class*="bg-slate-6"]):not([class*="bg-slate-7"]):not([class*="bg-slate-8"]),
-    body.light-mode [class*="bg-gray-"]:not(button):not(.btn):not([class*="bg-gray-6"]):not([class*="bg-gray-7"]):not([class*="bg-gray-8"]),
-    body.light-mode [class*="bg-[#1"]:not(button):not(.btn),
-    body.light-mode [class*="bg-[#0"]:not(button):not(.btn),
-    body.light-mode [class*="tooltip"],
+    body.light-mode .mobile-nav,
     body.light-mode .apexcharts-tooltip,
-    body.light-mode .chart-tooltip {
-      background-color: #ffffff !important;
-      border-color: #cbd5e1 !important;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03) !important;
-      color: #1e293b !important;
+    body.light-mode .chart-tooltip,
+    body.light-mode .matrix-scroll-container,
+    body.light-mode .archive-table {
+      background-color: rgba(255,255,255,0.96) !important;
+      border-color: var(--border-soft) !important;
+      box-shadow: var(--shadow-soft) !important;
+      color: var(--text) !important;
     }
 
-    /* Menyelaraskan teks angka sumbu & legenda grafik */
-    body.light-mode .apexcharts-text tspan,
-    body.light-mode .apexcharts-xaxis-label tspan,
-    body.light-mode .apexcharts-yaxis-label tspan,
-    body.light-mode .apexcharts-legend-text,
-    body.light-mode text {
-      fill: #334155 !important; 
-      color: #334155 !important;
-      font-weight: 600 !important;
+    body.light-mode .sidebar-item,
+    body.light-mode .nav-btn,
+    body.light-mode .label-mini,
+    body.light-mode .menu-item-label,
+    body.light-mode .sidebar-item span,
+    body.light-mode .sidebar-item p,
+    body.light-mode .sidebar-item div,
+    body.light-mode #sideVersion {
+      color: var(--text-soft) !important;
     }
 
-    /* Tooltip chart */
-    body.light-mode .apexcharts-tooltip * {
-      color: #1e293b !important;
-      background-color: #ffffff !important;
+    body.light-mode .sidebar-item:hover {
+      background: rgba(14, 165, 233, 0.08) !important;
+      color: var(--text) !important;
     }
 
-    /* Input, Select, Textarea (Form Input Netral) */
-    body.light-mode input,
+    button,
+    .btn,
+    .matrix-btn,
+    .ana-tab-btn,
+    .nav-btn {
+      position: relative;
+      transition: transform 0.18s ease, box-shadow 0.22s ease, filter 0.22s ease, background-color 0.22s ease, border-color 0.22s ease, opacity 0.2s ease;
+      will-change: transform, box-shadow, filter;
+    }
+
+    button:hover:not(:disabled),
+    .btn:hover:not(:disabled),
+    .matrix-btn:hover:not(:disabled),
+    .ana-tab-btn:hover:not(:disabled),
+    .nav-btn:hover:not(:disabled) {
+      transform: translateY(-1px);
+      filter: brightness(1.06);
+    }
+
+    button:active:not(:disabled),
+    .btn:active:not(:disabled),
+    .matrix-btn:active:not(:disabled),
+    .ana-tab-btn:active:not(:disabled),
+    .nav-btn:active:not(:disabled) {
+      transform: translateY(0) scale(0.99);
+      filter: brightness(0.96);
+    }
+
+    button:focus-visible,
+    .btn:focus-visible,
+    .matrix-btn:focus-visible,
+    .ana-tab-btn:focus-visible,
+    .nav-btn:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.18), 0 8px 20px rgba(14, 165, 233, 0.12);
+    }
+
+    .matrix-btn.active,
+    .ana-tab-btn.active,
+    .nav-btn.active,
+    .active-menu {
+      box-shadow: 0 8px 18px rgba(34, 211, 238, 0.18), inset 0 1px 0 rgba(255,255,255,0.28) !important;
+    }
+
+    body.light-mode .matrix-btn.active,
+    body.light-mode .ana-tab-btn.active,
+    body.light-mode .nav-btn.active,
+    body.light-mode .active-menu {
+      box-shadow: 0 10px 22px rgba(14, 165, 233, 0.12), inset 0 1px 0 rgba(255,255,255,0.45) !important;
+    }
+
+    body.light-mode .matrix-btn.inactive,
+    body.light-mode .ana-tab-btn.inactive {
+      background: rgba(255,255,255,0.85) !important;
+      color: var(--text-soft) !important;
+      border-color: var(--border-soft) !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.7) !important;
+    }
+
+    body.light-mode .matrix-btn.active,
+    body.light-mode .ana-tab-btn.active {
+      background: linear-gradient(180deg, #22d3ee, #0ea5e9) !important;
+      color: #032437 !important;
+      border-color: rgba(14, 165, 233, 0.5) !important;
+    }
+
+    body.light-mode .active-menu {
+      background: linear-gradient(90deg, rgba(14, 165, 233, 0.12), rgba(59, 130, 246, 0.08)) !important;
+      color: var(--accent-strong) !important;
+      border-left-color: var(--accent-strong) !important;
+      box-shadow: inset 0 0 0 1px rgba(3, 105, 161, 0.08), 0 8px 20px rgba(14, 165, 233, 0.08) !important;
+    }
+
+    body.light-mode .nav-btn.active {
+      color: var(--accent-strong) !important;
+      background: rgba(14, 165, 233, 0.08) !important;
+    }
+
+    body.light-mode .menu-title,
+    body.light-mode .app-title {
+      color: #f59e0b !important;
+      text-shadow: 0 0 10px rgba(245, 158, 11, 0.14) !important;
+    }
+
+    body.light-mode .text-gray-500,
+    body.light-mode .text-gray-600,
+    body.light-mode .text-slate-400,
+    body.light-mode .text-slate-500,
+    body.light-mode .text-slate-600,
+    body.light-mode .text-slate-700,
+    body.light-mode .text-zinc-500,
+    body.light-mode .text-zinc-600,
+    body.light-mode .text-white,
+    body.light-mode .text-slate-300 {
+      color: var(--text-soft) !important;
+    }
+
+    body.light-mode p,
+    body.light-mode h1,
+    body.light-mode h2,
+    body.light-mode h3,
+    body.light-mode h4,
+    body.light-mode h5,
+    body.light-mode h6,
+    body.light-mode label,
+    body.light-mode li,
+    body.light-mode td,
+    body.light-mode th,
+    body.light-mode small,
+    body.light-mode div,
+    body.light-mode span:not(button span):not(.text-cyan-400):not(.text-cyan-500):not(.text-emerald-400):not(.text-green-400):not(.text-orange-400):not(.text-red-400):not(.text-blue-400):not(.text-amber-400) {
+      color: var(--text) !important;
+    }
+
+    body.light-mode .text-cyan-400,
+    body.light-mode .text-cyan-500 {
+      color: var(--accent-strong) !important;
+    }
+
+    #headerTitle {
+      color: #bfe7ff !important;
+      letter-spacing: 0.04em !important;
+      text-shadow: 0 0 12px rgba(103, 232, 249, 0.18) !important;
+      transition: color 0.25s ease, text-shadow 0.25s ease;
+    }
+
+    body.light-mode .input-field,
     body.light-mode select,
-    body.light-mode textarea {
-      background-color: #f8fafc !important;
-      border: 1px solid #cbd5e1 !important;
-      color: #1e293b !important;
+    body.light-mode textarea,
+    body.light-mode input,
+    body.light-mode .chart-select {
+      background-color: #ffffff !important;
+      border: 1px solid var(--border-soft) !important;
+      color: var(--text) !important;
+      box-shadow: inset 0 1px 2px rgba(148,163,184,0.12) !important;
     }
 
-    /* Tabel & Kolom Matriks / Logistik Analysis */
+    body.light-mode #tab-search .glass,
+    body.light-mode #tab-analisa .glass,
+    body.light-mode #tab-paymentSearch .glass,
+    body.light-mode #tab-financeInput,
+    body.light-mode #tab-financeInput .glass,
+    body.light-mode #tab-financeInput .w-5\/12,
+    body.light-mode #tab-financeInput .flex-1.glass {
+      background: linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(248,250,252,0.96) 100%) !important;
+      border-color: var(--border-soft) !important;
+      box-shadow: var(--shadow-card) !important;
+      color: var(--text) !important;
+    }
+
+    body.light-mode #tab-search .glass,
+    body.light-mode #tab-analisa .glass,
+    body.light-mode #tab-paymentSearch .glass {
+      background: linear-gradient(180deg, rgba(255,255,255,0.94) 0%, rgba(248,250,252,0.98) 100%) !important;
+    }
+
+    body.light-mode #tab-search .bg-\[#1a1f26\],
+    body.light-mode #tab-analisa .bg-\[#1a1d23\],
+    body.light-mode #tab-paymentSearch .bg-\[#1a1d23\],
+    body.light-mode #tab-search .bg-\[#161920\],
+    body.light-mode #tab-analisa .bg-\[#161920\],
+    body.light-mode #tab-financeInput .bg-neutral-800,
+    body.light-mode #tab-financeInput .bg-neutral-900,
+    body.light-mode #tab-financeInput .bg-neutral-950,
+    body.light-mode #tab-financeInput .bg-slate-900\/40,
+    body.light-mode #tab-financeInput .bg-slate-900\/80,
+    body.light-mode #tab-financeInput .bg-neutral-550 {
+      background-color: rgba(255,255,255,0.9) !important;
+      border-color: var(--border-soft) !important;
+      color: var(--text) !important;
+    }
+
+    body.light-mode #tab-search .bg-\[#1a1f26\] th,
+    body.light-mode #tab-search .bg-\[#161920\] th,
+    body.light-mode #tab-analisa thead tr,
+    body.light-mode #tab-paymentSearch thead tr,
+    body.light-mode #tab-financeInput thead tr {
+      background-color: #edf2f7 !important;
+      color: var(--text-soft) !important;
+      border-color: var(--border-soft) !important;
+    }
+
+    body.light-mode #tab-search .matrix-btn:not(.active):not(.inactive),
+    body.light-mode #tab-search .matrix-btn.inactive,
+    body.light-mode #tab-financeInput button:not(.bg-amber-600):not(.bg-red-600):not(.bg-emerald-600):not(.bg-cyan-600):not(.bg-green-600):not(.bg-yellow-500) {
+      background-color: #f8fafc !important;
+      color: var(--text) !important;
+      border-color: var(--border-soft) !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.7), 0 6px 12px rgba(15,23,42,0.05) !important;
+    }
+
+    body.light-mode #tab-search .bg-yellow-500,
+    body.light-mode #tab-analisa .bg-cyan-500,
+    body.light-mode #tab-search .bg-slate-700,
+    body.light-mode #tab-analisa .bg-slate-700 {
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.28), 0 10px 18px rgba(15,23,42,0.08) !important;
+    }
+
+    body.light-mode #tab-search .bg-yellow-500 {
+      background: linear-gradient(180deg, #facc15, #eab308) !important;
+      color: #111827 !important;
+      border-color: rgba(234, 179, 8, 0.5) !important;
+    }
+
+    body.light-mode #tab-search .bg-slate-700,
+    body.light-mode #tab-analisa .bg-slate-700 {
+      background: linear-gradient(180deg, #475569, #334155) !important;
+      color: #f8fafc !important;
+      border-color: rgba(148,163,184,0.45) !important;
+    }
+
+    body.light-mode #tab-analisa .bg-cyan-500 {
+      background: linear-gradient(180deg, #22d3ee, #0ea5e9) !important;
+      color: #062435 !important;
+      border-color: rgba(14,165,233,0.6) !important;
+    }
+
+    body.light-mode #tab-search .bg-green-600\/25,
+    body.light-mode #tab-search .bg-red-600\/25,
+    body.light-mode #tab-analisa .bg-green-600\/25,
+    body.light-mode #tab-analisa .bg-red-600\/25,
+    body.light-mode #tab-paymentSearch .bg-green-600\/25,
+    body.light-mode #tab-paymentSearch .bg-red-600\/25 {
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.3) !important;
+    }
+
+    body.light-mode #tab-search .bg-green-600\/25,
+    body.light-mode #tab-analisa .bg-green-600\/25,
+    body.light-mode #tab-paymentSearch .bg-green-600\/25 {
+      background-color: rgba(34, 197, 94, 0.14) !important;
+      color: #166534 !important;
+      border-color: rgba(34, 197, 94, 0.35) !important;
+    }
+
+    body.light-mode #tab-search .bg-red-600\/25,
+    body.light-mode #tab-analisa .bg-red-600\/25,
+    body.light-mode #tab-paymentSearch .bg-red-600\/25 {
+      background-color: rgba(239, 68, 68, 0.12) !important;
+      color: #991b1b !important;
+      border-color: rgba(239, 68, 68, 0.3) !important;
+    }
+
+    body.light-mode #tab-financeInput button.bg-amber-600,
+    body.light-mode #tab-financeInput button.bg-emerald-600,
+    body.light-mode #tab-financeInput button.bg-cyan-600,
+    body.light-mode #tab-financeInput button.bg-red-600 {
+      box-shadow: 0 10px 18px rgba(15, 23, 42, 0.12) !important;
+    }
+
+    body.light-mode .input-field::placeholder,
+    body.light-mode input::placeholder,
+    body.light-mode textarea::placeholder {
+      color: var(--text-muted) !important;
+    }
+
+    body.light-mode .progress-bar {
+      background: var(--muted-fill) !important;
+      box-shadow: inset 0 1px 2px rgba(15,23,42,0.06) !important;
+    }
+
     body.light-mode table {
       background-color: #ffffff !important;
       border-collapse: collapse !important;
@@ -558,26 +925,169 @@
 
     body.light-mode th {
       background-color: #e2e8f0 !important;
-      color: #0f172a !important;
-      border: 1px solid #cbd5e1 !important;
-    }
-
-    body.light-mode tr td:first-child,
-    body.light-mode th:first-child,
-    body.light-mode .unit-cell {
-      background-color: #e2e8f0 !important;
-      color: #0f172a !important;
-      border: 1px solid #cbd5e1 !important;
+      color: var(--text) !important;
+      border: 1px solid var(--border-soft) !important;
     }
 
     body.light-mode td {
       background-color: #ffffff !important;
-      color: #1e293b !important;
+      color: var(--text) !important;
       border: 1px solid #e2e8f0 !important;
     }
 
-    body.light-mode tr:nth-child(even) td {
+    body.light-mode tr:nth-child(even) td,
+    body.light-mode tr:nth-child(even) th {
       background-color: #f8fafc !important;
+    }
+
+    body.light-mode .unit-cell,
+    body.light-mode tr td:first-child,
+    body.light-mode th:first-child {
+      background-color: #edf2f7 !important;
+      color: var(--text) !important;
+      border: 1px solid var(--border-soft) !important;
+    }
+
+    body.light-mode .apexcharts-text tspan,
+    body.light-mode .apexcharts-xaxis-label tspan,
+    body.light-mode .apexcharts-yaxis-label tspan,
+    body.light-mode .apexcharts-legend-text,
+    body.light-mode text {
+      fill: #334155 !important;
+      color: #334155 !important;
+      font-weight: 600 !important;
+    }
+
+    body.light-mode .apexcharts-tooltip * {
+      color: var(--text) !important;
+      background-color: #ffffff !important;
+    }
+
+    body.light-mode .matrix-scroll-container,
+    body.light-mode .archive-table,
+    body.light-mode .glass,
+    body.light-mode .card {
+      box-shadow: var(--shadow-card) !important;
+    }
+
+    body.light-mode .bg-slate-900,
+    body.light-mode .bg-slate-800,
+    body.light-mode .bg-slate-700,
+    body.light-mode [class*="bg-slate-"]:not(button):not(.btn),
+    body.light-mode [class*="bg-gray-"]:not(button):not(.btn),
+    body.light-mode [class*="bg-zinc-"]:not(button):not(.btn) {
+      background-color: var(--surface) !important;
+      border-color: var(--border) !important;
+    }
+
+    body.light-mode [id^="tab-financeInput"] {
+      background: linear-gradient(180deg, #f4f8fc 0%, #eef4fa 100%) !important;
+    }
+
+    body.light-mode [id^="tab-financeInput"] .glass,
+    body.light-mode [id^="tab-financeInput"] .bg-white\/5,
+    body.light-mode [id^="tab-financeInput"] .bg-white\/10,
+    body.light-mode [id^="tab-financeInput"] .bg-black\/5,
+    body.light-mode [id^="tab-financeInput"] .bg-black\/10,
+    body.light-mode [id^="tab-financeInput"] table,
+    body.light-mode [id^="tab-financeInput"] th,
+    body.light-mode [id^="tab-financeInput"] td {
+      background-color: rgba(255,255,255,0.96) !important;
+      border-color: var(--border-soft) !important;
+      color: var(--text) !important;
+      box-shadow: none !important;
+    }
+
+    body.light-mode [id^="tab-financeInput"] .input-field,
+    body.light-mode [id^="tab-financeInput"] select,
+    body.light-mode [id^="tab-financeInput"] input,
+    body.light-mode [id^="tab-financeInput"] textarea {
+      background-color: #ffffff !important;
+      border: 1px solid var(--border-soft) !important;
+      color: var(--text) !important;
+      box-shadow: inset 0 1px 2px rgba(148,163,184,0.12) !important;
+    }
+
+    body.light-mode [id^="tab-financeInput"] .label-mini,
+    body.light-mode [id^="tab-financeInput"] .text-gray-500,
+    body.light-mode [id^="tab-financeInput"] .text-gray-400,
+    body.light-mode [id^="tab-financeInput"] .text-slate-400,
+    body.light-mode [id^="tab-financeInput"] .text-slate-500, 
+    body.light-mode [id^="tab-financeInput"] .text-white,
+    body.light-mode [id^="tab-financeInput"] .text-white\/50 {
+      color: var(--text-soft) !important;
+    }
+
+    body.light-mode [id^="tab-financeInput"] .text-cyan-400,
+    body.light-mode [id^="tab-financeInput"] .text-orange-400,
+    body.light-mode [id^="tab-financeInput"] .text-blue-400,
+    body.light-mode [id^="tab-financeInput"] .text-pink-400,
+    body.light-mode [id^="tab-financeInput"] .text-green-400,
+    body.light-mode [id^="tab-financeInput"] .text-yellow-300 {
+      color: var(--accent-strong) !important;
+    }
+
+    body.light-mode [id^="tab-financeInput"] .bg-black\/5,
+    body.light-mode [id^="tab-financeInput"] .bg-black\/10 {
+      background-color: rgba(148,163,184,0.08) !important;
+    }
+
+    body.light-mode [id^="tab-financeInput"] button:not(.bg-cyan-500):not(.bg-orange-500):not(.bg-yellow-500):not(.bg-green-600):not(.bg-red-600):not(.bg-emerald-600) {
+      background-color: #f8fafc !important;
+      color: var(--text) !important;
+      border-color: var(--border-soft) !important;
+    }
+
+    body.light-mode [id^="tab-financeInput"] button.bg-cyan-500,
+    body.light-mode [id^="tab-financeInput"] button.bg-orange-500,
+    body.light-mode [id^="tab-financeInput"] button.bg-yellow-500,
+    body.light-mode [id^="tab-financeInput"] button.bg-green-600,
+    body.light-mode [id^="tab-financeInput"] button.bg-red-600,
+    body.light-mode [id^="tab-financeInput"] button.bg-emerald-600 {
+      box-shadow: 0 10px 18px rgba(15, 23, 42, 0.12) !important;
+    }
+
+    body.light-mode button:not(.bg-cyan-500):not(.bg-cyan-400):not(.bg-emerald-500):not(.bg-green-500):not(.bg-orange-500):not(.bg-red-500):not(.bg-blue-500):not(.bg-indigo-500):not(.bg-violet-500):not(.bg-amber-500):not(.bg-yellow-500) {
+      background-color: var(--surface-3) !important;
+      color: var(--text) !important;
+      border-color: var(--border-soft) !important;
+    }
+
+    body:not(.light-mode) {
+      background-color: var(--page-bg) !important;
+      color: var(--text) !important;
+    }
+
+    body:not(.light-mode) .glass,
+    body:not(.light-mode) .card,
+    body:not(.light-mode) section,
+    body:not(.light-mode) aside,
+    body:not(.light-mode) nav,
+    body:not(.light-mode) header,
+    body:not(.light-mode) .matrix-scroll-container,
+    body:not(.light-mode) .archive-table,
+    body:not(.light-mode) .mobile-nav {
+      background-color: rgba(31, 36, 48, 0.96) !important;
+      border-color: rgba(148, 163, 184, 0.18) !important;
+      box-shadow: var(--shadow-soft) !important;
+    }
+
+    body:not(.light-mode) .sidebar-item,
+    body:not(.light-mode) .nav-btn,
+    body:not(.light-mode) .label-mini,
+    body:not(.light-mode) .menu-item-label {
+      color: var(--text-soft) !important;
+    }
+
+    body:not(.light-mode) .sidebar-item:hover {
+      background: rgba(255,255,255,0.06) !important;
+      color: #ffffff !important;
+    }
+
+    body:not(.light-mode) .active-menu {
+      background: rgba(34, 211, 238, 0.08) !important;
+      color: #67e8f9 !important;
+      border-left-color: #67e8f9 !important;
     }
   </style>
 </head>
@@ -611,7 +1121,7 @@
     <aside id="sidebar" class="w-fit min-w-[180px] max-w-[220px] h-screen border-r border-[#343b47] flex flex-col p-2 bg-[#1a1d23] sticky top-0 overflow-hidden shrink-0">
       <div class="px-2 mb-4 shrink-0 border-b border-white/5 pb-2">
         <div id="sideAppName" class="font-black text-xl italic tracking-tighter uppercase leading-tight" 
-             style="background: linear-gradient(90deg, #fbbf24, #f59e0b); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+             style="background: linear-gradient(90deg, #fbbf24, #f59e0b); background-clip: text; -webkit-background-clip: text; color: transparent; -webkit-text-fill-color: transparent;">
           RPS APP Integrated System
         </div>
         <div id="sideVersion" class="text-[8px] text-gray-400 font-bold tracking-[0.2em] uppercase mt-1">
@@ -718,7 +1228,7 @@
     <!-- HEADER DISPLAY UTAMA (Lengkap dengan Judul & Tombol Toggle, Sticky & Z-50) -->
     <div class="sticky top-0 z-50 bg-[#1a1d23]/95 backdrop-blur-md w-full my-0 py-1.5 px-1 border-b border-white/10 flex flex-row justify-between items-center gap-2 shadow-md">
       <div>
-        <h1 id="headerTitle" class="text-sm md:text-base font-bold text-cyan-400 uppercase tracking-tight">DASHBOARD UTAMA</h1>
+        <h1 id="headerTitle" class="text-sm md:text-base font-extrabold uppercase tracking-[0.08em]">DASHBOARD UTAMA</h1>
       </div>
       
       <!-- Tombol Toggle Mode Terang / Gelap (Kembali Muncul di Pojok Kanan) -->
@@ -1330,7 +1840,7 @@
 
             <!-- Sisi Kanan: Tombol Mode, Min/Max, & Ekspor -->
             <div class="flex flex-wrap items-center gap-2">
-                <div class="flex gap-0.5 bg-[#1a1d23] p-0.5 rounded border border-white/5">
+                <div class="flex gap-0.5 bg-[#1a1f26] p-0.5 rounded border border-white/5">
                     <button type="button" onclick="setReportMode('hari')" id="btnHari" class="matrix-btn !py-1 !px-2 !text-[8px] active">HARIAN</button>
                     <button type="button" onclick="setReportMode('bulan')" id="btnBulan" class="matrix-btn !py-1 !px-2 !text-[8px] inactive">BULANAN</button>
                     <button type="button" onclick="setReportMode('tahun')" id="btnTahun" class="matrix-btn !py-1 !px-2 !text-[8px] inactive">TAHUNAN</button>
@@ -2546,7 +3056,7 @@
         <div>
           <p class="text-emerald-400 text-[10px] font-black uppercase mb-2 border-b border-emerald-500/20 pb-1">Credit (Pemasukan)</p>
           <div class="grid grid-cols-2 gap-2">
-            <div class="bg-neutral-950 px-2 py-1.5 rounded text-[9px] text-gray-200 flex items-center font-bold">KGD TUNAI</div>
+            <div class="bg-neutral-550 px-2 py-1.5 rounded text-[9px] text-gray-200 flex items-center font-bold">KGD TUNAI</div>
             <input type="text" id="cKgdTunai" class="bg-neutral-800 p-1.5 rounded border border-white/5 text-[10px]">
             
             <div class="bg-neutral-950 px-2 py-1.5 rounded text-[9px] text-gray-200 flex items-center font-bold">KGD DB BCA</div>
