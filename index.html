@@ -4132,6 +4132,95 @@
   </div>
 
 </div>
+<div id="tab-supplier-analisa" class="tab-content hidden flex flex-col space-y-3 h-[calc(100vh-100px)]">
+  
+  <!-- BARIS UTAMA (Filter Tanggal A & B, Tombol Aksi, & Filter Limit Supplier) -->
+  <div class="glass px-3 py-2 flex-shrink-0">
+    <form onsubmit="event.preventDefault(); runSupplierAnalysis();" class="flex flex-wrap items-end justify-between gap-1 m-0">
+      
+      <!-- Sisi Kiri: Filter Range A, Range B, Tombol Hitung & Reset -->
+      <div class="flex flex-wrap items-end gap-2">
+        <div>
+          <label class="block text-[7px] text-cyan-400 font-black uppercase mb-0.5">Range Pembelian Baru (A)</label>
+          <div class="flex gap-1">
+            <input type="date" id="suppBaseStart" tabindex="1" class="input-field !py-1 !px-2 !text-[10px] h-7 w-28 focus:ring-2 focus:ring-cyan-400/50">
+            <input type="date" id="suppBaseEnd" tabindex="2" class="input-field !py-1 !px-2 !text-[10px] h-7 w-28 focus:ring-2 focus:ring-cyan-400/50">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-[7px] text-gray-500 font-bold uppercase mb-0.5">Range Pembanding (B)</label>
+          <div class="flex gap-1">
+            <input type="date" id="suppCompStart" tabindex="3" class="input-field !py-1 !px-2 !text-[10px] h-7 w-28 focus:ring-2 focus:ring-cyan-400/50">
+            <input type="date" id="suppCompEnd" tabindex="4" class="input-field !py-1 !px-2 !text-[10px] h-7 w-28 focus:ring-2 focus:ring-cyan-400/50">
+          </div>
+        </div>
+        
+        <!-- Tombol Hitung & Reset Minimalis -->
+        <div class="flex items-center gap-1">
+          <button type="submit" tabindex="5" class="bg-cyan-500 hover:bg-cyan-400 focus:bg-cyan-300 active:scale-95 text-black font-black rounded px-3 h-7 text-[8px] uppercase tracking-wider transition shadow-sm focus:ring-2 focus:ring-white">
+            Hitung Supplier
+          </button>
+          <button type="button" onclick="clearSupplierAnalysis()" tabindex="6" class="bg-slate-700 hover:bg-slate-600 focus:bg-slate-500 active:scale-95 text-white font-bold rounded px-2.5 h-7 text-[8px] uppercase tracking-wider transition shadow-sm focus:ring-2 focus:ring-white">
+            Reset
+          </button>
+        </div>
+      </div>
+
+      <!-- Sisi Kanan: Pilihan Limit Supplier, Pencarian Cepat & Ekspor -->
+      <div class="flex flex-wrap items-end gap-2">
+        <div class="flex flex-col">
+          <label class="block text-[7px] text-gray-400 font-bold uppercase mb-0.5">Limit</label>
+          <div class="flex gap-0.5 bg-[#1a1d23] p-0.5 rounded border border-white/5 overflow-x-auto h-7 items-center">
+            <button type="button" onclick="setSuppLimit(10)" id="suppBtn10" class="ana-tab-btn !py-1 !px-2 !text-[8px] active">TOP 10</button>
+            <button type="button" onclick="setSuppLimit(25)" id="suppBtn25" class="ana-tab-btn !py-1 !px-2 !text-[8px] inactive">TOP 25</button>
+            <button type="button" onclick="setSuppLimit(50)" id="suppBtn50" class="ana-tab-btn !py-1 !px-2 !text-[8px] inactive">TOP 50</button>
+            <button type="button" onclick="setSuppLimit('ALL')" id="suppBtnAll" class="ana-tab-btn !py-1 !px-2 !text-[8px] inactive">ALL</button>
+          </div>
+        </div>
+
+        <!-- Pencarian Cepat Supplier -->
+        <div class="flex flex-col">
+          <label class="block text-[7px] text-gray-400 font-bold uppercase mb-0.5">Cari Supplier</label>
+          <input type="text" id="suppSearchKey" oninput="filterSupplierTableLocally()" placeholder="Ketik nama/kode..." class="input-field !py-1 !px-2 !text-[10px] h-7 w-36 focus:ring-2 focus:ring-cyan-400/50">
+        </div>
+
+        <div class="flex gap-1 h-7 items-end">
+          <button type="button" onclick="askFileName('suppExcel')" class="bg-green-600/25 hover:bg-green-600 text-green-400 hover:text-white border border-green-600/40 px-3 h-7 rounded text-[8px] font-black uppercase transition active:scale-95 flex items-center">Excel</button>
+          <button type="button" onclick="askFileName('suppPDF')" class="bg-red-600/25 hover:bg-red-600 text-red-400 hover:text-white border border-red-600/40 px-3 h-7 rounded text-[8px] font-black uppercase transition active:scale-95 flex items-center">PDF</button>
+        </div>
+      </div>
+
+    </form>
+  </div>
+
+  <!-- KONTAINER UTAMA TABEL SUPPLIER ANALYSIS -->
+  <div class="glass flex flex-col flex-grow overflow-hidden relative">
+    <div class="overflow-x-auto overflow-y-auto flex-grow pb-12">
+      <table class="archive-table w-full text-[10px] min-w-[700px]">
+        <thead class="sticky top-0 z-20 shadow-md">
+          <tr class="bg-[#1a1d23] uppercase text-gray-400 border-b border-[#343b47]">
+            <th class="p-3 sticky left-0 bg-[#1a1d23] z-30 w-48 text-left">Supplier (Kode & Nama)</th>
+            <th id="suppCol1" class="p-3 text-center">Beli Baru (A)</th>
+            <th id="suppCol2" class="p-3 text-center">Beli Lama (B)</th>
+            <th class="p-3 text-center text-white bg-white/5">Beli Gap & Growth</th>
+          </tr>
+        </thead>
+        <tbody id="suppResult" class="divide-y divide-white/5">
+          <!-- Baris Supplier yang akan dirender berdasarkan akumulasi data_beli -->
+        </tbody>
+      </table>
+    </div>
+    
+    <!-- Footer Terkunci Permanen di Bawah Kontainer -->
+    <div class="absolute bottom-0 left-0 right-0 z-20 bg-[#161920] border-t-2 border-[#343b47] shadow-2xl">
+      <table class="archive-table w-full text-[10px]">
+        <tfoot id="suppFooter"></tfoot>
+      </table>
+    </div>
+  </div>
+
+</div>
 <div id="tab-info-promo" class="hidden space-y-4 p-4">
   <div class="flex justify-between items-center flex-wrap gap-2">
     <!-- Filter Status Tab (Pills) -->
