@@ -8352,7 +8352,6 @@ async function loadGrafikModule() {
       let fPosVal = row.Freq_PosX !== null && row.Freq_PosX !== undefined ? Number(row.Freq_PosX) : 0;
       let grabVal = row.Sales_Grabmart !== null && row.Sales_Grabmart !== undefined ? Number(row.Sales_Grabmart) : 0;
       
-      // Perbaikan aman untuk membaca Freq_Grabmart / Freq_Grabm meskipun bernilai 0, null, atau tidak ada
       let fGrabVal = 0;
       if (row.Freq_Grabm !== null && row.Freq_Grabm !== undefined && !isNaN(row.Freq_Grabm)) {
         fGrabVal = Number(row.Freq_Grabm);
@@ -8396,10 +8395,12 @@ function updateGrafikDashboard() {
   const metricEl = document.getElementById('grMetricSwitch');
   const metric = metricEl ? metricEl.value : 'sales'; 
   
-  // Ambil tanggal hari ini sebagai acuan bulan & tanggal batas YTD
-  const today = new Date();
-  const cM = today.getMonth(); // Bulan saat ini (0-11)
-  const cD = today.getDate();  // Tanggal hari ini
+  // Acuan tanggal hari ini dikurangi 1 hari (Up to Date - 1 Hari)
+  const todayMinus1 = new Date();
+  todayMinus1.setDate(todayMinus1.getDate() - 1);
+  
+  const cM = todayMinus1.getMonth(); // Bulan (0-11) dari H-1
+  const cD = todayMinus1.getDate();  // Tanggal dari H-1
 
   let salesNowAcc = 0; 
   let salesLastAcc = 0;
@@ -8427,7 +8428,7 @@ function updateGrafikDashboard() {
 
     let activeCardVal = (metric === 'freq') ? valF : valS;
     
-    // LOGIKA YTD AKURAT SESUAI PILIHAN DROPDOWN (yearTo vs yearTo - 1)
+    // LOGIKA YTD UP-TO-DATE -1 HARI (Tahun ini & Tahun Lalu)
     if (y === yearTo && (m < cM || (m === cM && d <= cD))) {
       salesNowAcc += activeCardVal;
     }
@@ -8448,7 +8449,7 @@ function updateGrafikDashboard() {
     }
   });
 
-  // Buat objek tanggal simulasi untuk label card berdasarkan tahun dropdown yang aktif
+  // Buat objek tanggal simulasi untuk label card berdasarkan H-1 dari tahun dropdown aktif
   const dateNowLabel = new Date(yearTo, cM, cD);
   const dateLastLabel = new Date(yearTo - 1, cM, cD);
 
@@ -8471,7 +8472,7 @@ function updateGrafikDashboard() {
   }
   if(document.getElementById('grGrowth')) document.getElementById('grGrowth').innerText = growth + "%";
   
-  // Label periode card kini akurat mengikuti tahun yang dipilih pada dropdown (`yearTo`)
+  // Label periode card kini akurat mengikuti H-1 dari tahun yang dipilih pada dropdown
   if(document.getElementById('grDateNow')) document.getElementById('grDateNow').innerText = `PERIODE: JAN - S.D ${dateNowLabel.toLocaleDateString('id-ID')}`;
   if(document.getElementById('grDateLast')) document.getElementById('grDateLast').innerText = `PERIODE: JAN - S.D ${dateLastLabel.toLocaleDateString('id-ID')}`;
 
@@ -8505,12 +8506,13 @@ function updateGrafikDashboard() {
   const currentYearData = activeRawData[yearTo] || Array(12).fill(0);
   const currentAccData = yearDataAcc[yearTo] || Array(12).fill(0);
 
-  renderGrafikTables(currentYearData, yearTo, metric);      
-  renderAccTable(currentAccData, yearTo, metric);          
+  renderGrafikTables(currentYearData, yearTo, metric);       
+  renderAccTable(currentAccData, yearTo, metric);         
   
   renderYoYChart('cLineSalesMulti', activeRawData, chartLabelText, chartColor);             
   renderYoYChart('cLineSalesAcc', yearDataAcc, 'Accum ' + chartLabelText, chartColor);       
 }
+
 // --- 4. RENDER TABEL & GRAFIK ---
 function renderGrafikTables(dataArray, year, metric = 'sales') {
   const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
