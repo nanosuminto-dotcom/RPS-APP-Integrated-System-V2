@@ -3066,6 +3066,10 @@
     </div>
 
     <div class="flex justify-end items-center mt-5 pt-4 border-t border-white/10 gap-3">
+      <button type="button" onclick="cetakNotaTerpilih()" 
+              class="bg-amber-500 text-white px-6 py-2 rounded text-[10px] font-black hover:bg-amber-600 transition-all uppercase shadow-lg shadow-amber-900/20 flex items-center gap-1.5">
+        <i class="fas fa-print"></i> Print Out
+      </button>
       <button type="button" onclick="prosesCetak('preview')" 
               class="bg-emerald-500 text-white px-6 py-2 rounded text-[10px] font-black hover:bg-emerald-600 transition-all uppercase shadow-lg shadow-emerald-900/20 flex items-center gap-1.5">
         <i class="fas fa-eye"></i> Preview
@@ -13051,6 +13055,478 @@ function hapusSeluruhPayment() {
       }
     }
   });
+}
+document.addEventListener("DOMContentLoaded", () => {
+  const formInputs = [
+    "f_tgl_bayar",
+    "f_sup_search",
+    "f_jenis_bayar",
+    "f_rek_asal",
+    "f_note_bayar",
+    "f_disc_pro",
+    "f_admin_pro"
+  ];
+
+  formInputs.forEach((id, index) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+
+    el.addEventListener("focus", function() {
+      this.classList.add("border-cyan-400", "ring-2", "ring-cyan-400/40", "bg-cyan-500/10", "shadow-[0_0_10px_rgba(6,182,212,0.3)]");
+    });
+    
+    el.addEventListener("blur", function() {
+      this.classList.remove("border-cyan-400", "ring-2", "ring-cyan-400/40", "bg-cyan-500/10", "shadow-[0_0_10px_rgba(6,182,212,0.3)]");
+    });
+
+    el.addEventListener("keydown", function(e) {
+      if (id === "f_sup_search") {
+        const dropdown = document.getElementById("supplierCustomDropdown");
+        const items = dropdown ? dropdown.querySelectorAll("div") : [];
+        
+        if (dropdown && !dropdown.classList.contains("hidden") && items.length > 0) {
+          let activeItem = dropdown.querySelector(".bg-cyan-500\\/20");
+          let currentIndex = Array.from(items).indexOf(activeItem);
+
+          if (e.key === "ArrowDown") {
+            e.preventDefault();
+            if (currentIndex < items.length - 1) {
+              if (activeItem) activeItem.classList.remove("bg-cyan-500/20");
+              items[currentIndex + 1].classList.add("bg-cyan-500/20");
+              items[currentIndex + 1].scrollIntoView({ block: "nearest" });
+            }
+            return;
+          } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            if (currentIndex > 0) {
+              if (activeItem) activeItem.classList.remove("bg-cyan-500/20");
+              items[currentIndex - 1].classList.add("bg-cyan-500/20");
+              items[currentIndex - 1].scrollIntoView({ block: "nearest" });
+            }
+            return;
+          } else if (e.key === "Enter") {
+            e.preventDefault();
+            const selectedTarget = activeItem || items[0];
+            if (selectedTarget) {
+              selectedTarget.click();
+            }
+            pindahKeBerikutnya(index, formInputs);
+            return;
+          }
+        }
+      }
+
+      if (e.key === "Enter") {
+        e.preventDefault();
+        pindahKeBerikutnya(index, formInputs);
+        return;
+      }
+
+      if (e.key === "ArrowRight") {
+        let canMoveRight = true;
+        if (el.tagName === "INPUT" && (el.type === "text" || el.type === "number")) {
+          if (el.selectionStart < el.value.length) canMoveRight = false;
+        }
+        if (canMoveRight) {
+          e.preventDefault();
+          pindahKeBerikutnya(index, formInputs);
+        }
+        return;
+      }
+
+      if (e.key === "ArrowLeft") {
+        let canMoveLeft = true;
+        if (el.tagName === "INPUT" && (el.type === "text" || el.type === "number")) {
+          if (el.selectionStart > 0) canMoveLeft = false;
+        }
+        if (canMoveLeft) {
+          e.preventDefault();
+          pindahKeSebelumnya(index, formInputs);
+        }
+        return;
+      }
+    });
+  });
+});
+
+function pindahKeBerikutnya(currentIndex, formInputs) {
+  const nextId = formInputs[currentIndex + 1];
+  if (nextId) {
+    const nextEl = document.getElementById(nextId);
+    if (nextEl) {
+      nextEl.focus();
+      if (nextEl.tagName === "INPUT" && nextEl.type === "text") {
+        nextEl.select();
+      }
+    }
+  } else {
+    const btnSimpan = document.getElementById("btnSimpan");
+    if (btnSimpan) btnSimpan.focus();
+  }
+}
+
+function pindahKeSebelumnya(currentIndex, formInputs) {
+  const prevId = formInputs[currentIndex - 1];
+  if (prevId) {
+    const prevEl = document.getElementById(prevId);
+    if (prevEl) {
+      prevEl.focus();
+      if (prevEl.tagName === "INPUT" && prevEl.type === "text") {
+        prevEl.select();
+      }
+    }
+  }
+}
+// --- 1. FUNGSI PENDUKUNG CETAK DARI SUPABASE (AGAR PROSES CETAK UTAMA TIDAK ERROR) ---
+async function fetchCetakDataFromSupabase(f) {
+  try {
+    let query = dbClient.from('Data_Bayar').select('*');
+
+    // Filter berdasarkan list ID yang dicentang atau kriteria pencarian
+    if (f.id_list && f.id_list.length > 0) {
+      query = query.in('id_bayar', f.id_list);
+    } else {
+      if (f.id_payment) {
+        query = query.ilike('id_bayar', `%${f.id_payment.trim()}%`);
+      }
+      if (f.kode_supplier) {
+        query = query.ilike('kode_supp', `%${f.kode_supplier.trim()}%`);
+      }
+      if (f.tgl_mulai && f.tgl_selesai) {
+        query = query.gte('tanggal', f.tgl_mulai).lte('tanggal', f.tgl_selesai);
+      }
+    }
+
+    const { data: records, error } = await query.order('id', { ascending: false });
+    if (error) throw error;
+
+    if (!records || records.length === 0) return [];
+
+    // Grouping data baris invoice per id_bayar untuk format template cetak
+    const resultMap = {};
+
+    records.forEach(row => {
+      const id = row.id_bayar ? row.id_bayar.trim() : "";
+      if (!id) return;
+
+      const invData = {
+        no: row.no_invoice || "-",
+        tgl: row.tgl_invoice || row.tanggal || "-",
+        val: Number(row.nominal || 0),
+        cabang: row.cabang || "-",
+        jthTempo: row.tgl_jth_tempo || (row.estimasi_bayar ? row.estimasi_bayar.split(' ')[0] : "-")
+      };
+
+      if (resultMap[id]) {
+        resultMap[id].invoices.push(invData);
+        // Total bruto sementara, nanti di template dikurangi potongan & admin
+        resultMap[id].total += invData.val;
+      } else {
+        resultMap[id] = {
+          id: id,
+          supplier: row.kode_supp || "-",
+          admin_name: row.username || "ADMIN",
+          jenis: row.jenis || "-",
+          bank: row.bank_rek_an || "-",
+          rekSumber: row.sumber_rek || "-",
+          tglBuat: row.tanggal || "-",
+          estimasi: row.estimasi_bayar || row.tgl_jth_tempo || "-",
+          invoices: [invData],
+          total: invData.val,
+          catatan: row.catatan || "",
+          potongan: Number(row.potongan || 0),
+          admin: Number(row.admin || 0)
+        };
+      }
+    });
+
+    // Kalkulasi nilai Netto akhir per ID (Total Bruto - Potongan + Admin)
+    return Object.values(resultMap).map(item => {
+      item.total = item.total - item.potongan + item.admin;
+      return item;
+    });
+
+  } catch (err) {
+    console.error("Gagal mengambil data cetak dari Supabase:", err);
+    throw err;
+  }
+}
+
+// --- 2. KONTROL MODAL CETAK ---
+function openModalCetak() {
+  const modal = document.getElementById('modalCetakAdvanced');
+  if (modal) {
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  }
+}
+
+function closeModalCetak() {
+  const modal = document.getElementById('modalCetakAdvanced');
+  if (modal) {
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+  }
+  // Reset Input agar bersih saat dibuka lagi
+  ['printID', 'printSupplier', 'printDateStart', 'printDateEnd'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+
+  // Reset tabel checklist & uncheck master checkbox
+  const chkMaster = document.getElementById('checkAllInvoice');
+  if (chkMaster) chkMaster.checked = false;
+
+  const tBody = document.getElementById('bodyChecklistPrint');
+  if (tBody) {
+    tBody.innerHTML = `
+      <tr>
+        <td colspan="6" class="text-center p-10 text-gray-500 italic text-[10px] tracking-widest">
+          BELUM ADA DATA. SILAKAN CARI...
+        </td>
+      </tr>`;
+  }
+}
+
+// --- 3. FUNGSI PROSES CETAK UTAMA (SUPABASE NATIVE) ---
+async function prosesCetak(mode) {
+  const checkboxes = document.querySelectorAll('.chk-print-item:checked');
+  let listID = [];
+  checkboxes.forEach(chk => listID.push(chk.value));
+
+  const filterParams = {
+    id_list: listID,
+    id_payment: document.getElementById('printID') ? document.getElementById('printID').value.trim() : "",
+    kode_supplier: document.getElementById('printSupplier') ? document.getElementById('printSupplier').value.trim() : "",
+    tgl_mulai: document.getElementById('printDateStart') ? document.getElementById('printDateStart').value : "",
+    tgl_selesai: document.getElementById('printDateEnd') ? document.getElementById('printDateEnd').value : ""
+  };
+
+  if (listID.length === 0 && !filterParams.id_payment && !filterParams.kode_supplier && !filterParams.tgl_mulai) {
+    Swal.fire({ icon: 'warning', title: 'Data Belum Dipilih', text: 'Pilih data melalui checkbox atau masukkan kriteria pencarian!' });
+    return;
+  }
+
+  Swal.fire({ 
+    title: 'Memproses Data...', 
+    allowOutsideClick: false, 
+    didOpen: () => { Swal.showLoading(); } 
+  });
+
+  try {
+    const dataListFinal = await fetchCetakDataFromSupabase(filterParams);
+
+    if (!dataListFinal || dataListFinal.length === 0) {
+      return Swal.fire('Tidak Ditemukan', 'Tidak ada data yang sesuai dengan kriteria Anda.', 'info');
+    }
+
+    Swal.fire({
+      icon: 'success',
+      title: 'Berhasil!',
+      text: `Ditemukan ${dataListFinal.length} nota.`,
+      timer: 1500,
+      showConfirmButton: false
+    });
+
+    const contentHtml = generateTemplateHTML(dataListFinal);
+
+    if (mode === 'preview') {
+      bukaJendelaPreview(contentHtml);
+    } else {
+      downloadPDFLangsung(contentHtml, dataListFinal.length);
+    }
+
+  } catch (err) {
+    console.error("Gagal proses cetak:", err);
+    Swal.fire('Error', 'Terjadi kesalahan saat memproses data cetak: ' + err.message, 'error');
+  }
+}
+
+// --- 4. FUNGSI PREVIEW / PRINT FISIK ---
+function bukaJendelaPreview(contentHtml) {
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) {
+    Swal.fire('Perhatian', 'Popup diblokir oleh browser Anda. Izinkan popup untuk mencetak.', 'warning');
+    return;
+  }
+  printWindow.document.write(contentHtml);
+  printWindow.document.close();
+  printWindow.onload = () => {
+    printWindow.focus();
+    printWindow.print();
+  };
+}
+
+// --- 5. FUNGSI EXPORT PDF LANGSUNG ---
+async function downloadPDFLangsung(contentHtml, totalNota) {
+  Swal.fire({ 
+    title: `Mengekspor ${totalNota} Nota ke PDF...`, 
+    allowOutsideClick: false, 
+    didOpen: () => { Swal.showLoading(); } 
+  });
+
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = contentHtml;
+  document.body.appendChild(tempDiv);
+
+  const opt = {
+    margin: 10,
+    filename: `Nota_Bayar_${new Date().getTime()}.pdf`,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  };
+
+  try {
+    await html2pdf().set(opt).from(tempDiv).save();
+    Swal.close();
+  } catch (e) {
+    console.error(e);
+    Swal.fire('Gagal Export', 'Terjadi kesalahan saat membuat PDF.', 'error');
+  } finally {
+    document.body.removeChild(tempDiv);
+  }
+}
+
+// --- 6. FUNGSI CARI DATA UNTUK CHECKLIST (SUPABASE NATIVE) ---
+async function cariDataUntukChecklist() {
+  const printIDVal = document.getElementById('printID')?.value.trim() || '';
+  const printSupplierVal = document.getElementById('printSupplier')?.value.trim() || '';
+  const printDateStartVal = document.getElementById('printDateStart')?.value || '';
+  const printDateEndVal = document.getElementById('printDateEnd')?.value || '';
+
+  const tBody = document.getElementById('bodyChecklistPrint');
+  if (!tBody) return;
+
+  tBody.innerHTML = `
+    <tr>
+      <td colspan="6" class="text-center p-12">
+        <div class="inline-block animate-spin rounded-full h-4 w-4 border-2 border-cyan-500 border-t-transparent mb-1"></div>
+        <div class="text-cyan-400 font-bold text-[9px] tracking-widest uppercase">Membaca Database Supabase...</div>
+      </td>
+    </tr>`;
+
+  try {
+    let query = dbClient.from('Data_Bayar').select('*');
+
+    if (printIDVal) {
+      query = query.ilike('id_bayar', `%${printIDVal}%`);
+    }
+    if (printSupplierVal) {
+      query = query.ilike('kode_supp', `%${printSupplierVal}%`);
+    }
+    if (printDateStartVal && printDateEndVal) {
+      query = query.gte('tanggal', printDateStartVal).lte('tanggal', printDateEndVal);
+    }
+
+    const { data: records, error } = await query.order('id', { ascending: false });
+    if (error) throw error;
+
+    if (!records || records.length === 0) {
+      tBody.innerHTML = `<tr><td colspan="6" class="text-center p-10 text-rose-400 font-bold text-[9px] uppercase tracking-wider">TIDAK ADA DATA DITEMUKAN</td></tr>`;
+      return;
+    }
+
+    const resultMap = {};
+    records.forEach(row => {
+      const id = row.id_bayar ? row.id_bayar.trim() : "";
+      if (!id) return;
+
+      const nominal = Number(row.nominal || 0);
+      const potongan = Number(row.potongan || 0);
+      const admin = Number(row.admin || 0);
+
+      if (resultMap[id]) {
+        resultMap[id].totalBruto += nominal;
+      } else {
+        resultMap[id] = {
+          id: id,
+          supplier: row.kode_supp || "-",
+          tglBuat: row.tanggal || "-",
+          jenis: row.jenis || "-",
+          estimasi: row.estimasi_bayar || row.tgl_jth_tempo || "-",
+          totalBruto: nominal,
+          potongan: potongan,
+          admin: admin
+        };
+      }
+    });
+
+    const dataList = Object.values(resultMap).map(item => {
+      item.total = item.totalBruto - item.potongan + item.admin;
+      return item;
+    });
+
+    // Secara default, saat hasil pencarian muncul, master checkbox dicentang dan semua baris ikut tercentang
+    const chkMaster = document.getElementById('checkAllInvoice');
+    if (chkMaster) chkMaster.checked = true;
+
+    let html = '';
+    dataList.forEach(item => {
+      const totalFmt = Math.round(item.total).toLocaleString('id-ID');
+      const tglBuat = item.tglBuat || '-';
+      const jenisBeli = item.jenis || '-';
+      const estBayar = item.estimasi ? item.estimasi.split(' ')[0] : '-';
+
+      html += `
+        <tr class="border-b border-white/5 hover:bg-white/5 transition-all text-[10px] group">
+          <td class="p-2 text-center">
+            <input type="checkbox" class="chk-print-item accent-cyan-500 w-3.5 h-3.5 cursor-pointer" value="${item.id}" checked>
+          </td>
+          <td class="p-2 text-gray-400 whitespace-nowrap text-[9px]">${tglBuat}</td>
+          <td class="p-2 group-hover:text-cyan-400 transition-colors truncate">
+            <span class="font-bold text-white block tracking-wider">${item.id}</span>
+            <span class="text-[9px] text-gray-500 block truncate">${item.supplier}</span>
+          </td>
+          <td class="p-2 text-gray-300 font-medium truncate text-[9px]">${jenisBeli}</td>
+          <td class="p-2 text-right font-black text-cyan-400 whitespace-nowrap">Rp ${totalFmt}</td>
+          <td class="p-2 text-right text-amber-400 font-medium whitespace-nowrap text-[9px]">${estBayar}</td>
+        </tr>`;
+    });
+
+    tBody.innerHTML = html;
+
+  } catch (err) {
+    console.error("Gagal memuat data checklist cetak:", err);
+    tBody.innerHTML = `<tr><td colspan="6" class="text-center p-10 text-rose-500 text-[9px]">Error: ${err.message}</td></tr>`;
+  }
+}
+
+// --- 7. FUNGSI SELECT ALL / MASTER CHECKBOX (FIXED UNTUK CHECK & UNCHECK) ---
+function toggleSelectAllInvoice(masterCheckbox) {
+  const checkboxes = document.querySelectorAll('.chk-print-item');
+  checkboxes.forEach(chk => {
+    chk.checked = masterCheckbox.checked;
+  });
+}
+// --- FUNGSI RESET & KOSONGKAN TAMPILAN TANPA MEMUAT ULANG DATA ---
+function resetModalCetak() {
+  // 1. Kosongkan semua inputan teks & date
+  ['printID', 'printSupplier', 'printDateStart', 'printDateEnd'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+
+  // 2. Uncheck master checkbox jika ada
+  const chkMaster = document.getElementById('checkAllInvoice');
+  if (chkMaster) chkMaster.checked = false;
+
+  // 3. Kembalikan tampilan tabel ke kondisi kosong awal
+  const tBody = document.getElementById('bodyChecklistPrint');
+  if (tBody) {
+    tBody.innerHTML = `
+      <tr>
+        <td colspan="6" class="text-center p-10 text-gray-500 italic text-[10px] tracking-widest">
+          BELUM ADA DATA. SILAKAN CARI...
+        </td>
+      </tr>`;
+  }
+  
+  // 4. Notifikasi toast kecil
+  if (typeof Swal !== 'undefined') {
+    const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });
+    Toast.fire({ icon: 'info', title: 'Tampilan telah dikosongkan' });
+  }
 }
   </script>
 </body>
