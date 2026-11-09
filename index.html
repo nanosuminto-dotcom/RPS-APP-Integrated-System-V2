@@ -11664,6 +11664,473 @@ function renderPurchaseResult(res) {
 document.addEventListener("DOMContentLoaded", () => {
   loadPurBranchDropdown();
 });
+let fullPaymentData = []; 
+let currentFilteredData = [];
+let currentSort = { col: 'id', asc: false };
+
+// --- A. INISIALISASI & LOAD DARI SUPABASE ---
+document.addEventListener('DOMContentLoaded', function() {
+  loadDaftarPembayaran();
+});
+
+async function loadDaftarPembayaran() {
+  const tbody = document.getElementById('pembayaranTableBody');
+  if(!tbody) return;
+
+  if (fullPaymentData.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="10" class="p-8 text-center text-cyan-400 animate-pulse font-black">MEMUAT DATA DARI SUPABASE...</td></tr>`;
+  }
+
+  try {
+    let { data, error } = await dbClient
+      .from('Data_Bayar')
+      .select('*')
+      .order('id', { ascending: false });
+
+    if (error) throw error;
+
+    console.log("Data berhasil dimuat dari Supabase:", data ? data.length : 0, "baris");
+
+    fullPaymentData = (data || []).map(r => {
+      const nominal = Number(r.nominal || 0);
+      const potongan = Number(r.potongan || 0);
+      const admin = Number(r.admin || 0);
+      const totalBersih = nominal - potongan + admin;
+
+      return {
+        dbId: r.id,
+        id: r.id_bayar || '',
+        tanggal: r.tanggal || '',
+        tglInvoice: r.tgl_invoice || '',
+        noInvoice: r.no_invoice || '',
+        kodeSupp: r.kode_supp || '',
+        nominal: nominal,
+        jenis: r.jenis || '',
+        bankRekAn: r.bank_rek_an || '',
+        status: r.status || 'Draft',
+        estimasi: r.estimasi_bayar || r.tgl_jth_tempo || '',
+        tglEdar: r.tanggal_edar || '',
+        tglLunas: r.tanggal_lunas || '',
+        tglProses: r.tanggal_proses || '',
+        tglDraft: r.tanggal || '',
+        username: r.username || '',
+        cabang: r.cabang || '',
+        catatan: r.catatan || '',
+        sumberRek: r.sumber_rek || '',
+        potongan: potongan,
+        admin: admin,
+        totalBersih: totalBersih,
+        detailInvoices: [{
+          noInvoice: r.no_invoice || r.id_bayar || '-',
+          nominal: nominal,
+          catatan: r.catatan || '-'
+        }]
+      };
+    });
+
+    currentFilteredData = fullPaymentData; 
+    renderTable(currentFilteredData);
+
+  } catch (err) {
+    console.error("Gagal memuat Data_Bayar dari Supabase:", err);
+    tbody.innerHTML = `<tr><td colspan="10" class="p-8 text-center text-rose-400 font-bold uppercase text-[10px]">Gagal Memuat Data: ${err.message || ''}</td></tr>`;
+  }
+}
+
+// --- B. RENDERING UTAMA ---
+function renderTable(data) {
+  const tbody = document.getElementById('pembayaranTableBody');
+  if (!data || data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="10" class="p-8 text-center text-rose-400 font-bold uppercase text-[10px]">Data Tidak Ditemukan</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = data.map(r => generateRowHTML(r)).join('');
+}
+
+// --- C. FILTER & SORT ---
+function applyFilters() {
+  const sText = document.getElementById('paySearch')?.value.toLowerCase().trim() || "";
+  const fBul  = document.getElementById('fBulan')?.value || "";
+  const fSup  = document.getElementById('fSuppCode')?.value.toLowerCase().trim() || "";
+  const fJen  = document.getElementById('fJenis')?.value || "";
+  const fSta  = document.getElementById('fStatus')?.value || "";
+
+  currentFilteredData = fullPaymentData.filter(r => {
+    const idMatch = r.id.toLowerCase().includes(sText) || r.kodeSupp.toLowerCase().includes(sText);
+    const bulMatch = (fBul === "" || (r.tanggal && r.tanggal.split('-')[1] === fBul));
+    const supMatch = (fSup === "" || r.kodeSupp.toLowerCase().includes(fSup));
+    const jenMatch = (fJen === "" || r.jenis === fJen);
+    const staMatch = (fSta === "" || r.status === fSta);
+
+    return idMatch && bulMatch && supMatch && jenMatch && staMatch;
+  });
+
+  renderTable(currentFilteredData);
+}
+
+function sortData(col) {
+  currentSort.asc = (currentSort.col === col) ? !currentSort.asc : true;
+  currentSort.col = col;
+  const sorted = [...currentFilteredData].sort((a,b) => currentSort.asc ? (a[col] > b[col] ? 1 : -1) : (a[col] < b[col] ? 1 : -1));
+  renderTable(sorted);
+}
+
+// --- D. DETAIL INVOICE ---
+function showDetailInvoice(idBayar) {
+  const target = fullPaymentData.find(item => item.id === idBayar);
+  if (!target) return;
+
+  const fmt = (num) => "Rp " + Number(num || 0).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  
+  let detailRows = "";
+  target.detailInvoices.forEach((inv, i) => {
+    detailRows += `
+      <tr class="border-b border-white/5 text-left text-xs hover:bg-white/5">
+        <td class="p-2 text-cyan-500">${i + 1}</td>
+        <td class="p-2 text-white font-bold">${inv.noInvoice || '-'}</td>
+        <td class="p-2 text-slate-300 italic text-[10px]">${target.cabang || '-'}</td>
+        <td class="p-2 text-emerald-400 font-mono font-bold text-right">${fmt(inv.nominal)}</td>
+        <td class="p-2 text-slate-400 italic">${inv.catatan || '-'}</td>
+      </tr>`;
+  });
+
+  const potongan = target.potongan || 0;
+  const admin = target.admin || 0;
+  const totalNet = target.totalBersih;
+
+  Swal.fire({
+    title: `<span class="text-white font-black tracking-wider uppercase text-[15px]">Detail ID: ${target.id}</span>`,
+    background: '#1e293b',
+    color: '#f1f5f9',
+    width: '700px',
+    showCloseButton: true,
+    closeButtonHtml: '<span class="bg-rose-600 hover:bg-rose-500 text-white text-[11px] font-bold px-3 py-1.5 rounded shadow-lg transition-all flex items-center justify-center mt-3 mr-4">X</span>',
+    html: `
+      <div class="text-left text-xs space-y-1 border-b border-white/10 pb-3 mb-3 font-mono mt-2">
+        <div class="flex gap-2">
+          <span class="text-slate-500 w-24">SUPPLIER:</span>
+          <span class="text-white font-bold flex-1">${target.kodeSupp}</span>
+          <span class="text-slate-500 w-24">BANK:</span>
+          <span class="text-white font-bold flex-1">${target.bankRekAn || '-'}</span>
+        </div>
+        <div class="flex gap-2">
+          <span class="text-slate-500 w-24">ESTIMASI:</span>
+          <span class="text-white font-bold flex-1">${target.estimasi || '-'}</span>
+          <span class="text-slate-500 w-24">JENIS:</span>
+          <span class="text-white font-bold flex-1">${target.jenis}</span>
+        </div>
+      </div>
+      
+      <div class="max-h-[250px] overflow-y-auto custom-scrollbar">
+        <table class="w-full border-collapse">
+          <thead>
+            <tr class="bg-slate-900/50 text-slate-400 uppercase text-[9px]">
+              <th class="p-2 text-left">No</th>
+              <th class="p-2 text-left">No. Invoice</th>
+              <th class="p-2 text-left">Cabang</th>
+              <th class="p-2 text-right">Nominal</th>
+              <th class="p-2 text-left">Catatan</th>
+            </tr>
+          </thead>
+          <tbody>${detailRows}</tbody>
+        </table>
+      </div>
+      
+      <div class="text-right pt-3 mt-2 border-t border-white/10 space-y-1">
+        ${potongan > 0 ? `<div><span class="text-slate-400 text-[10px] mr-3">Potongan</span><span class="text-rose-400 font-mono">- ${fmt(potongan)}</span></div>` : ''}
+        ${admin > 0 ? `<div><span class="text-slate-400 text-[10px] mr-3">Admin</span><span class="text-blue-400 font-mono">+ ${fmt(admin)}</span></div>` : ''}
+        <div class="pt-2 border-t border-white/5">
+          <span class="text-slate-200 text-[10px] uppercase font-bold mr-3">Total Bersih (Nett)</span>
+          <span class="text-emerald-400 font-black text-lg font-mono">${fmt(totalNet)}</span>
+        </div>
+      </div>
+    `,
+    confirmButtonText: '<i class="fas fa-print mr-1.5"></i> CETAK NOTA',
+    confirmButtonColor: '#0891b2'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      if (typeof cetakNotaSatuanLangsung === 'function') {
+        cetakNotaSatuanLangsung(target.id);
+      }
+    }
+  });
+}
+
+// --- E. UPDATE STATUS (INSTAN UPDATE PADA BARIS TERSEBUT) ---
+function updateStatus(idPay, action) {
+  const config = {
+    'proses': { title: 'Konfirmasi Proses', text: `Ubah status ID ${idPay} menjadi PROSES?`, color: '#3b82f6', newStatus: 'Proses' },
+    'edar': { title: 'Konfirmasi Edar', text: `Apakah Anda yakin ingin mengubah status ID ${idPay} menjadi BEREDAR?`, color: '#f59e0b', newStatus: 'Beredar' },
+    'lunas': { title: 'Konfirmasi Cair', text: `Apakah dana untuk ID ${idPay} sudah CAIR/LUNAS?`, color: '#10b981', newStatus: 'Lunas' }
+  };
+
+  const cfg = config[action.toLowerCase()];
+  if (!cfg) { showUINotif("Action tidak dikenali", "error"); return; }
+
+  Swal.fire({
+    title: cfg.title, text: cfg.text, icon: 'question', showCancelButton: true,
+    confirmButtonColor: cfg.color, cancelButtonColor: '#374151',
+    confirmButtonText: 'Ya, Update!', cancelButtonText: 'Batal',
+    background: '#1a1a1a', color: '#fff', iconColor: cfg.color, backdrop: `rgba(0,0,0,0.6) blur(4px)`
+  }).then(async (result) => {
+    if (result.isConfirmed) {
+      Swal.fire({ title: 'Updating...', allowOutsideClick: false, showConfirmButton: false, background: '#1a1a1a', color: '#fff', didOpen: () => { Swal.showLoading(); } });
+
+      try {
+        const tglNow = new Date().toISOString().split('T')[0];
+        let updatePayload = { status: cfg.newStatus };
+        if (action === 'proses') updatePayload.tanggal_proses = tglNow;
+        if (action === 'edar')   updatePayload.tanggal_edar = tglNow;
+        if (action === 'lunas')  updatePayload.tanggal_lunas = tglNow;
+
+        const { error } = await dbClient
+          .from('Data_Bayar')
+          .update(updatePayload)
+          .eq('id_bayar', idPay);
+
+        Swal.close();
+        if (error) throw error;
+
+        // --- UPDATE DATA LOKAL ---
+        const masterItem = fullPaymentData.find(x => x.id === idPay);
+        if (masterItem) {
+          masterItem.status = cfg.newStatus;
+          if (action === 'proses') masterItem.tglProses = tglNow;
+          if (action === 'edar')   masterItem.tglEdar = tglNow;
+          if (action === 'lunas')  masterItem.tglLunas = tglNow;
+        }
+
+        Swal.fire({ icon: 'success', title: 'Updated', timer: 800, showConfirmButton: false, background: '#1a1a1a', color: '#fff' });
+        
+        // --- RENDER HANYA BARIS TERSEBUT SECARA INSTAN TANPA RELOAD ---
+        updateSingleRowUI(idPay);
+
+      } catch (err) {
+        Swal.close();
+        console.error("Gagal update status:", err);
+        Swal.fire("Gagal", err.message || 'Terjadi kesalahan sistem', "error");
+      }
+    }
+  });
+}
+
+// --- F. UNDO STATUS (INSTAN UPDATE PADA BARIS TERSEBUT) ---
+function triggerUndo(idPay) {
+  const masterItem = fullPaymentData.find(x => x.id === idPay);
+  if (!masterItem) return;
+
+  let prevStatus = 'Draft';
+  if (masterItem.status === 'Lunas') prevStatus = 'Beredar';
+  else if (masterItem.status === 'Beredar') prevStatus = 'Proses';
+  else if (masterItem.status === 'Proses') prevStatus = 'Draft';
+  else {
+    showUINotif("Status sudah berada di posisi paling awal (Draft)", "info");
+    return;
+  }
+
+  Swal.fire({
+    title: 'Undo Status?',
+    text: `Status akan dimundurkan dari ${masterItem.status} menjadi ${prevStatus}.`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#e11d48',
+    cancelButtonColor: '#374151',
+    confirmButtonText: 'Ya, Undo!',
+    cancelButtonText: 'Batal',
+    background: '#1a1a1a',
+    color: '#fff',
+    backdrop: `rgba(0,0,0,0.6) blur(4px)`
+  }).then(async (result) => {
+    if (result.isConfirmed) {
+      Swal.fire({
+        title: 'Memproses...',
+        allowOutsideClick: false,
+        showConfirmButton: false,
+        background: '#1a1a1a',
+        color: '#fff',
+        didOpen: () => { Swal.showLoading(); }
+      });
+      
+      try {
+        let updatePayload = { status: prevStatus };
+        if (prevStatus === 'Proses') { updatePayload.tanggal_edar = null; updatePayload.tanggal_lunas = null; }
+        if (prevStatus === 'Beredar') { updatePayload.tanggal_lunas = null; }
+        if (prevStatus === 'Draft') { updatePayload.tanggal_proses = null; updatePayload.tanggal_edar = null; updatePayload.tanggal_lunas = null; }
+
+        const { error } = await dbClient
+          .from('Data_Bayar')
+          .update(updatePayload)
+          .eq('id_bayar', idPay);
+
+        Swal.close();
+        if (error) throw error;
+
+        masterItem.status = prevStatus;
+        if (prevStatus === 'Proses') { masterItem.tglEdar = ""; masterItem.tglLunas = ""; }
+        if (prevStatus === 'Beredar') { masterItem.tglLunas = ""; }
+        if (prevStatus === 'Draft') { masterItem.tglProses = ""; masterItem.tglEdar = ""; masterItem.tglLunas = ""; }
+        
+        Swal.fire({ icon: 'success', title: 'Berhasil di-undo', timer: 800, showConfirmButton: false, background: '#1a1a1a', color: '#fff' });
+
+        // --- RENDER HANYA BARIS TERSEBUT SECARA INSTAN ---
+        updateSingleRowUI(idPay);
+
+      } catch (err) {
+        Swal.close();
+        console.error("Gagal Undo status:", err);
+        Swal.fire("Gagal", err.message || 'Terjadi kesalahan sistem', "error");
+      }
+    }
+  });
+}
+
+// --- G. EDIT CATATAN ---
+function makeEditableCatatan(div, id) {
+  if (div.querySelector('input')) return;
+
+  const val = div.innerText.includes('klik isi') ? '' : div.innerText.trim();
+  
+  div.innerHTML = `<input type="text" value="${val}" 
+                    class="bg-black text-white w-full border border-blue-500 p-1 rounded text-[10px]" 
+                    onblur="saveCatatanGiro(this, '${id}')" 
+                    onkeydown="if(event.key==='Enter') this.blur()">`;
+  
+  const input = div.querySelector('input');
+  input.defaultValue = val;
+  input.focus();
+  input.select();
+}
+
+async function saveCatatanGiro(input, id) {
+  const newValue = input.value.trim();
+  const div = input.parentElement;
+
+  div.style.backgroundColor = "rgba(59, 130, 246, 0.1)";
+
+  try {
+    const { error } = await dbClient
+      .from('Data_Bayar')
+      .update({ catatan: newValue })
+      .eq('id_bayar', id);
+
+    div.style.backgroundColor = "transparent";
+
+    if (error) throw error;
+
+    const item = fullPaymentData.find(x => x.id === id);
+    if (item) item.catatan = newValue;
+
+    div.innerHTML = newValue ? 
+      `<div class="text-[8px] text-blue-400 italic leading-tight">${newValue}</div>` : 
+      `<div class="text-[8px] text-slate-500 italic leading-tight">klik isi catatan</div>`;
+    
+    div.setAttribute('onclick', `makeEditableCatatan(this, '${id}')`);
+    showUINotif("Catatan berhasil disimpan", "success");
+
+  } catch (err) {
+    div.style.backgroundColor = "transparent";
+    console.error("Gagal menyimpan catatan:", err);
+    showUINotif("Gagal menyimpan catatan", "error");
+    
+    const fallbackVal = input.defaultValue;
+    div.innerHTML = fallbackVal ? 
+      `<div class="text-[8px] text-blue-400 italic leading-tight">${fallbackVal}</div>` : 
+      `<div class="text-[8px] text-slate-500 italic leading-tight">klik isi catatan</div>`;
+    
+    div.setAttribute('onclick', `makeEditableCatatan(this, '${id}')`);
+  }
+}
+
+// --- H. FUNGSI HELPER UPDATE 1 BARIS HTML SECARA INSTAN ---
+function updateSingleRowUI(idPay) {
+  const item = fullPaymentData.find(x => x.id === idPay);
+  if (!item) return;
+
+  // Cari elemen TR berdasarkan ID baris yang akurat
+  let rowElement = document.getElementById(`row-${idPay}`);
+  
+  if (!rowElement) {
+    const rows = document.querySelectorAll('#pembayaranTableBody tr');
+    rows.forEach(tr => {
+      if (tr.innerHTML.includes(idPay)) {
+        rowElement = tr;
+      }
+    });
+  }
+
+  if (rowElement) {
+    rowElement.outerHTML = generateRowHTML(item);
+  } else {
+    applyFilters();
+  }
+}
+
+// --- I. GENERATOR HTML BARIS ---
+function generateRowHTML(r) {
+  const status = (r.status || 'Draft'); 
+  
+  const aksiBtn = status === 'Draft' ? `<button onclick="updateStatus('${r.id}', 'proses')" class="bg-slate-500/20 text-slate-300 border border-slate-500/40 px-3 py-1 rounded text-[9px] font-black hover:bg-slate-500 transition uppercase">Proses</button>` :
+                  status === 'Proses' ? `<button onclick="updateStatus('${r.id}', 'edar')" class="bg-amber-500/20 text-amber-400 border border-amber-500/40 px-3 py-1 rounded text-[9px] font-black hover:bg-amber-500 transition uppercase">Edar</button>` :
+                  status === 'Beredar' ? `<button onclick="updateStatus('${r.id}', 'lunas')" class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 px-3 py-1 rounded text-[9px] font-black hover:bg-emerald-500 transition uppercase">Lunas</button>` : '';
+
+  const statusStyles = { 'Draft': 'bg-slate-500/10 text-slate-400', 'Proses': 'bg-amber-500/10 text-amber-500', 'Beredar': 'bg-cyan-500/10 text-cyan-400', 'Lunas': 'bg-emerald-500/10 text-emerald-400' };
+
+  let infoTgl = "";
+  if (r.status === 'Lunas' && r.tglLunas) 
+    infoTgl = `<div onclick="editStatusDate('${r.id}', 'Lunas', '${r.tglLunas}')" class="text-[8px] text-emerald-500 mt-1 italic font-bold leading-none cursor-pointer hover:underline" title="Klik untuk edit tanggal">${r.tglLunas}</div>`;
+  else if (r.status === 'Beredar' && r.tglEdar) 
+    infoTgl = `<div onclick="editStatusDate('${r.id}', 'Beredar', '${r.tglEdar}')" class="text-[8px] text-cyan-500 mt-1 italic font-bold leading-none cursor-pointer hover:underline" title="Klik untuk edit tanggal">${r.tglEdar}</div>`;
+  else if (r.status === 'Proses' && r.tglProses) 
+    infoTgl = `<div onclick="editStatusDate('${r.id}', 'Proses', '${r.tglProses}')" class="text-[8px] text-amber-500 mt-1 italic font-bold leading-none cursor-pointer hover:underline" title="Klik untuk edit tanggal">${r.tglProses}</div>`;
+  else if (r.status === 'Draft' && r.tglDraft) 
+    infoTgl = `<div onclick="editStatusDate('${r.id}', 'Draft', '${r.tglDraft}')" class="text-[8px] text-slate-500 mt-1 italic font-bold leading-none cursor-pointer hover:underline" title="Klik untuk edit tanggal">${r.tglDraft}</div>`;
+  
+  return `
+  <tr id="row-${r.id}" class="hover:bg-white/5 transition border-b border-white/5">
+    <td class="p-2.5 text-white/90 text-[10px]">${r.tanggal || '-'}</td>
+    <td class="p-2.5 font-bold text-cyan-400 uppercase text-[10px] cursor-pointer hover:text-white" onclick="showDetailInvoice('${r.id}')">${r.id}</td>
+    <td class="p-2.5 text-white/100 font-medium text-[10px] w-1 whitespace-nowrap">${r.kodeSupp || '-'}</td>
+    <td class="p-2.5 text-white/100 text-[9px]">${r.bankRekAn || '-'}</td>
+    
+    <td class="p-2.5 text-[9px] text-white/100 uppercase">
+      <div>${r.jenis || '-'}</div>
+      <div class="cursor-pointer hover:bg-white/5 transition mt-0.5" ondblclick="makeEditableCatatan(this, '${r.id}')">
+        ${r.catatan ? 
+            `<div class="text-[8px] text-blue-400 italic leading-tight">${r.catatan}</div>` : 
+            `<div class="text-[8px] text-slate-500 italic leading-tight">klik isi catatan</div>`
+        }
+      </div>
+    </td>
+
+    <td class="p-2.5 text-white/100 text-[9px]">${r.sumberRek || '-'}</td>
+    
+    <td class="p-2.5 text-right font-mono text-[11px]">
+      <div class="font-bold text-emerald-400">
+        Rp ${Number(r.totalBersih || 0).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+      </div>
+      ${Number(r.potongan || 0) > 0 ? `<div class="text-[9px] text-red-500 font-medium italic">-Rp ${Number(r.potongan).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>` : ''}
+      ${Number(r.admin || 0) > 0 ? `<div class="text-[9px] text-blue-400 font-medium italic">+Rp ${Number(r.admin).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>` : ''}
+    </td>
+    
+    <td class="p-2.5 text-orange-400/80 italic text-[9px]">${r.estimasi || '-'}</td>
+    
+    <td class="p-2.5 text-center">
+      <span class="px-2 py-0.5 rounded text-[8px] font-black border ${statusStyles[r.status]} uppercase">${r.status}</span>
+      ${infoTgl}
+    </td>
+    
+    <td class="p-2.5 flex gap-1 justify-end items-center">
+      ${aksiBtn} 
+      <button onclick="editPaymentPro('${r.id}')" class="bg-amber-500 hover:bg-amber-600 w-7 h-7 rounded flex items-center justify-center text-white transition-colors" title="Revisi">
+        <i class="fa fa-pen text-[10px]"></i>
+      </button>
+      <button onclick="triggerUndo('${r.id}')" class="bg-emerald-600 hover:bg-emerald-700 w-7 h-7 rounded flex items-center justify-center text-white transition-colors" title="Undo">
+        <i class="fa fa-undo text-[10px]"></i>
+      </button>
+    </td>
+  </tr>`;
+}
   </script>
 </body>
 </html>
