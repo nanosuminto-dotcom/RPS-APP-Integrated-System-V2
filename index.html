@@ -14357,7 +14357,7 @@ async function editStatusDate(id, statusField, currentTanggal) {
         title: `<span class="text-cyan-400 text-xs font-black uppercase">Edit Tanggal ${statusField}</span>`,
         html: `
             <div class="flex flex-col items-center justify-center p-2">
-                <label class="text-[10px] text-gray-400 font-bold mb-2 uppercase tracking-wide">Pilih Tanggal Baru (Jam 07:00:00):</label>
+                <label class="text-[10px] text-gray-400 font-bold mb-2 uppercase tracking-wide">Pilih Tanggal Baru (YYYY-MM-DD):</label>
                 <input type="date" id="swalNewDate" value="${formattedDate}" class="bg-[#14161a] border border-cyan-500/40 rounded-lg px-4 py-2 text-white font-mono text-sm focus:outline-none focus:border-cyan-400 shadow-inner w-full text-center cursor-pointer">
             </div>
         `,
@@ -14382,48 +14382,47 @@ async function editStatusDate(id, statusField, currentTanggal) {
         }
     }).then(async (result) => {
         if (result.isConfirmed) {
-            const updatedDate = result.value; // Format: "YYYY-MM-DD"
-            const fullDateTime = `${updatedDate} 07:00:00`; // Menyertakan jam default 07:00:00
-            const displayDateText = `${updatedDate.replace(/-/g, '/')} 07:00:00`; 
+            const updatedDate = result.value; // Format murni: "YYYY-MM-DD"
+            const displayDateText = updatedDate; // Tampilan di layar format tanggal saja
 
             if (activeElement) activeElement.style.opacity = "0.4";
 
             try {
-                // Tentukan nama kolom database Supabase berdasarkan parameter status
-                // statusField bisa berupa: 'tanggal_edar', 'tanggal_lunas', atau 'tanggal_proses'
+                // Tentukan nama kolom database Supabase
                 let dbColumn = 'tanggal_proses'; // default
                 const stUpper = String(statusField).trim().toUpperCase();
                 
                 if (stUpper.includes('EDAR')) {
                     dbColumn = 'tanggal_edar';
                 } else if (stUpper.includes('LUNAS') || stUpper.includes('CAIR')) {
-                    dbColumn = 'tanggal_lunas'; // Sesuaikan jika nama kolom lunas di DB Anda berbeda (misal: tanggal_lunas / tgl_lunas)
+                    dbColumn = 'tanggal_lunas';
                 } else if (stUpper.includes('PROSES')) {
                     dbColumn = 'tanggal_proses';
                 }
 
-                // Update langsung ke tabel Data_Bayar di Supabase berdasarkan id_bayar / id
+                // Update langsung ke tabel Data_Bayar di Supabase (format date YYYY-MM-DD)
                 const { error } = await dbClient
                     .from('Data_Bayar')
-                    .update({ [dbColumn]: fullDateTime })
-                    .eq('id_bayar', id); // Ubah 'id_bayar' jika primary key tabel Anda bernama lain (misal: 'id')
+                    .update({ [dbColumn]: updatedDate })
+                    .eq('id_bayar', id);
 
                 if (error) throw error;
 
                 if (activeElement) {
                     activeElement.style.opacity = "1";
                     activeElement.innerText = displayDateText;
+                    activeElement.setAttribute('onclick', `editStatusDate('${id}', '${statusField}', '${displayDateText}')`);
                 }
 
                 if (typeof showUINotif === 'function') {
-                    showUINotif("Tanggal berhasil diperbarui ke Supabase", "success");
+                    showUINotif("Tanggal berhasil diperbarui", "success");
                 } else {
                     Swal.fire({ icon: 'success', title: 'Berhasil', timer: 1000, showConfirmButton: false, background: '#1a1d23', color: '#ffffff' });
                 }
 
-                // Refresh data dashboard / tabel otomatis jika fungsi load tersedia
-                if (typeof loadGiroOnly === 'function') loadGiroOnly();
+                // AUTO REFRESH: Langsung panggil fungsi load data agar dashboard & tabel ter-update otomatis
                 if (typeof loadOwnerDashboardData === 'function') loadOwnerDashboardData();
+                if (typeof loadGiroOnly === 'function') loadGiroOnly();
 
             } catch (err) {
                 if (activeElement) {
