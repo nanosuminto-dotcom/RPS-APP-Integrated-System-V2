@@ -13768,6 +13768,575 @@ function generateTemplateHTML(dataList, profil = {}, logoBase64 = "") {
   html += `</body></html>`;
   return html;
 }
+// =========================================================================
+// MODUL DASHBOARD FINANCE & GIRO (NATIVE SUPABASE & MATRIKS MINGGUAN AKURAT)
+// =========================================================================
+
+let cacheGiroData = [];
+let currentSortField = 'estimasiBayar';
+let currentSortOrder = 'terbaru';
+
+// 1. Helper: Tarik Seluruh Data Tanpa Batas (Bypass Limit 1000 Baris Supabase)
+async function fetchAllData(tableName, selectQuery = '*') {
+  let allData = [];
+  let pageSize = 1000;
+  let page = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    const start = page * pageSize;
+    const end = start + pageSize - 1;
+
+    const { data, error } = await dbClient
+      .from(tableName)
+      .select(selectQuery)
+      .range(start, end);
+
+    if (error) {
+      console.error(`Gagal mengambil data dari ${tableName}:`, error);
+      throw error;
+    }
+
+    if (data && data.length > 0) {
+      allData = allData.concat(data);
+      if (data.length < pageSize) {
+        hasMore = false;
+      } else {
+        page++;
+      }
+    } else {
+      hasMore = false;
+    }
+  }
+
+  return allData;
+}
+
+// 2. Helper: Tentukan Rentang 5 Minggu (Estimasi Bayar sebagai Pemisah)
+function getWeeklyDateRanges() {
+  const today = new Date();
+  const dayOfWeek = today.getDay(); // 0 = Minggu, 1 = Senin, dst.
+  
+  const diffToMonday = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+  const currentMonday = new Date(today.setDate(diffToMonday));
+  currentMonday.setHours(0, 0, 0, 0);
+
+  const weeks = [];
+  
+  for (let i = -2; i <= 2; i++) {
+    const start = new Date(currentMonday);
+    start.setDate(currentMonday.getDate() + (i * 7));
+    
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    end.setHours(23, 59, 59, 999);
+
+    const labelNames = ["Minggu -2", "Minggu -1", "Minggu Ini", "Minggu +1", "Minggu +2"];
+    const formatDateStr = (d) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+
+    weeks.push({
+      index: i,
+      title: labelNames[i + 2],
+      rangeTeks: `${formatDateStr(start)} s.d ${formatDateStr(end)}`,
+      start: start,
+      end: end,
+      draftTransfer: 0,
+      draftGiro: 0,
+      transfer: 0,
+      giro_proses: 0,
+      giro_beredar: 0,
+      giro_cair: 0
+    });
+  }
+
+  return weeks;
+}
+
+// 3. Fungsi Utama Memuat Saldo, 5 Card, & Matriks Mingguan dari Supabase
+async function loadOwnerDashboardData() {
+  const container = document.getElementById("bodyMatriksFinance");
+  if (container) {
+    container.innerHTML = `
+      <tr>
+        <td colspan="6" class="p-8 text-center text-gray-400 font-sans animate-pulse">
+          <i class="fas fa-sync fa-spin text-cyan-400"></i> Memuat Seluruh Data Tanpa Batas dari Supabase...
+        </td>
+      </tr>`;
+  }
+
+  try {
+    const [dataBayar, dataMutasi] = await Promise.all([
+      fetchAllData('Data_Bayar'),
+      fetchAllData('Data_Mutasi')
+    ]);
+
+    const kolomDanaMasuk = [
+      'kgd_tunai', 'kgd_db_bca', 'kgd_cr_bca', 'kgd_cicilan_bca', 'kgd_qr_bca', 
+      'cdk_tunai', 'grabmart_kgd', 'grabmart_cdk', 'grabmart_pkp', 'grabmart_cpy', 
+      'transfer_kgd', 'transfer_cdk', 'transfer_pkp', 'transfer_cpy', 'office'
+    ];
+
+    // --- A. KALKULASI SALDO REKENING UTAMA ---
+    function hitungSaldo(namaRekening, tipePembayaran) {
+      let danaMasuk = 0;
+      let danaKeluarOfficeDebit = 0;
+      let danaKeluarBayar = 0;
+
+      dataMutasi.forEach(row => {
+        const rekBank = String(row.rek_bank || "").trim().toUpperCase();
+        if (rekBank === namaRekening.toUpperCase()) {
+          kolomDanaMasuk.forEach(col => {
+            danaMasuk += Number(row[col] || 0);
+          });
+          danaKeluarOfficeDebit += Number(row.office_debit || 0);
+        }
+      });
+
+      dataBayar.forEach(row => {
+        const status = String(row.status || "").trim().toUpperCase();
+        const jenis = String(row.jenis || "").trim().toUpperCase();
+        const sumberRek = String(row.sumber_rek || "").trim().toUpperCase();
+
+        if (sumberRek === namaRekening.toUpperCase() && (status === 'LUNAS' || status.includes('LUNAS'))) {
+          if (tipePembayaran === 'GIRO') {
+            if (jenis.includes('GIRO')) {
+              danaKeluarBayar += Number(row.nominal || 0);
+            }
+          } else {
+            if (!jenis.includes('GIRO')) {
+              danaKeluarBayar += Number(row.nominal || 0);
+            }
+          }
+        }
+      });
+
+      return danaMasuk - danaKeluarOfficeDebit - danaKeluarBayar;
+    }
+
+    const saldoBca2212 = hitungSaldo("BCA 2212", "GIRO");
+    const saldoBca6702 = hitungSaldo("BCA 6702", "TRANSFER");
+    const saldoMandiri = hitungSaldo("MANDIRI", "TRANSFER");
+    const saldoBni = hitungSaldo("BNI", "TRANSFER");
+
+    let kasMasuk = 0, kasOfficeDebit = 0, kasBayar = 0;
+    dataMutasi.forEach(row => {
+      const rek = String(row.rek_bank || "").trim().toUpperCase();
+      if (!rek.includes("BCA") && !rek.includes("MANDIRI") && !rek.includes("BNI")) {
+        kolomDanaMasuk.forEach(col => { kasMasuk += Number(row[col] || 0); });
+        kasOfficeDebit += Number(row.office_debit || 0);
+      }
+    });
+    dataBayar.forEach(row => {
+      const status = String(row.status || "").trim().toUpperCase();
+      const jenis = String(row.jenis || "").trim().toUpperCase();
+      const sumberRek = String(row.sumber_rek || "").trim().toUpperCase();
+      if ((!sumberRek.includes("BCA") && !sumberRek.includes("MANDIRI") && !sumberRek.includes("BNI")) && (status === 'LUNAS' || status.includes('LUNAS')) && !jenis.includes('GIRO')) {
+        kasBayar += Number(row.nominal || 0);
+      }
+    });
+    const kasBesar = kasMasuk - kasOfficeDebit - kasBayar;
+
+    // --- B. KALKULASI 5 CARD RINGKASAN BAWAH ---
+    let totalDraft = 0;
+    let totalGiroProses = 0;
+    let totalGiroBeredar = 0;
+    let totalGiroCair = 0;
+
+    dataBayar.forEach(row => {
+      const nominal = Number(row.nominal || 0);
+      const jenis = String(row.jenis || "").trim().toUpperCase();
+      const status = String(row.status || "").trim().toUpperCase();
+
+      if ((jenis.includes('GIRO') || jenis.includes('TRANSFER')) && status.includes('DRAFT')) {
+        totalDraft += nominal;
+      }
+
+      if (jenis.includes('GIRO')) {
+        if (status.includes('PROSES')) {
+          totalGiroProses += nominal;
+        } else if (status.includes('BEREDAR') || status.includes('EDAR')) {
+          totalGiroBeredar += nominal;
+        } else if (status.includes('CAIR') || status.includes('LUNAS')) {
+          totalGiroCair += nominal;
+        }
+      }
+    });
+
+    const estRealBca = saldoBca2212 - (totalGiroProses + totalGiroBeredar);
+
+    window.DATA_SALDO_GLOBAL = {
+      bca2212: saldoBca2212,
+      bca6702: saldoBca6702,
+      mandiri: saldoMandiri,
+      bni: saldoBni,
+      kasBesar: kasBesar,
+      totalDraft: totalDraft,
+      giroProses: totalGiroProses,
+      giroBeredar: totalGiroBeredar,
+      giroCair: totalGiroCair,
+      estRealBca: estRealBca
+    };
+
+    const fmt = (num) => "Rp " + Number(num || 0).toLocaleString('id-ID');
+
+    // Render Card HTML
+    if (document.getElementById("dashBca2212")) document.getElementById("dashBca2212").innerText = fmt(saldoBca2212);
+    if (document.getElementById("dashBca6702")) document.getElementById("dashBca6702").innerText = fmt(saldoBca6702);
+    if (document.getElementById("dashMandiri")) document.getElementById("dashMandiri").innerText = fmt(saldoMandiri);
+    if (document.getElementById("dashBni")) document.getElementById("dashBni").innerText = fmt(saldoBni);
+    if (document.getElementById("dashKasBesar")) document.getElementById("dashKasBesar").innerText = fmt(kasBesar);
+
+    if (document.getElementById("dashTotalDraft")) document.getElementById("dashTotalDraft").innerText = fmt(totalDraft);
+    if (document.getElementById("dashGiroProses")) document.getElementById("dashGiroProses").innerText = fmt(totalGiroProses);
+    if (document.getElementById("dashGiroBeredar")) document.getElementById("dashGiroBeredar").innerText = fmt(totalGiroBeredar);
+    if (document.getElementById("dashGiroCair")) document.getElementById("dashGiroCair").innerText = fmt(totalGiroCair);
+    if (document.getElementById("dashEstBca")) document.getElementById("dashEstBca").innerText = fmt(estRealBca);
+
+    // --- C. RENDER MATRIKS KEUANGAN MINGGUAN (Estimasi Bayar) ---
+    const matriksMingguan = generateWeeklyMatrix(dataBayar, dataMutasi);
+    const m = matriksMingguan.slice(0, 5);
+
+    m.forEach((mng, idx) => {
+      const elHeader = document.getElementById("hMng" + idx);
+      if (elHeader) {
+        const labelCustom = ["Minggu -2", "Minggu -1", "Minggu Ini", "Minggu +1", "Minggu +2"];
+        elHeader.className = `p-3 text-center border-b border-r border-white/15 bg-[#1c1f26] sticky top-0 z-20 ${idx === 2 ? 'bg-cyan-500/30 text-cyan-300 font-extrabold' : ''}`;
+        elHeader.innerHTML = `
+          <div class="font-black">${labelCustom[idx]}</div>
+          <div class="text-[8px] text-gray-400 font-normal mt-0.5">${mng.rangeTeks}</div>
+        `;
+      }
+    });
+
+    let htmlRows = "";
+    const rowsConfig = [
+      { icon: "fa-file-invoice", label: "DRAFT TRANSFER", val: "draftTransfer", color: "blue" },
+      { icon: "fa-file-contract", label: "DRAFT GIRO", val: "draftGiro", color: "yellow" },
+      { icon: "fa-money-bill-transfer", label: "TOTAL TRANSFER", val: "transfer", color: "cyan" },
+      { icon: "fa-lock", label: "GIRO PROSES", val: "giro_proses", color: "purple" },
+      { icon: "fa-rocket", label: "GIRO BEREDAR", val: "giro_beredar", color: "orange" },
+      { icon: "fa-check-circle", label: "GIRO CAIR / LUNAS", val: "giro_cair", color: "emerald" }
+    ];
+
+    rowsConfig.forEach(r => {
+      const isEmerald = r.val === "giro_cair";
+      htmlRows += `
+        <tr class="border-b border-white/5 ${isEmerald ? 'bg-emerald-950/20' : ''}">
+          <td class="p-3 text-left font-sans font-bold text-${r.color}-400 border-r border-white/5 sticky left-0 z-30 bg-[#131720] shadow-[2px_0_5px_rgba(0,0,0,0.6)] w-[170px] min-w-[170px] whitespace-nowrap">
+            <i class="fas ${r.icon} mr-2"></i> ${r.label}
+          </td>
+          ${m.map((week, idx) => `
+            <td class="p-3 text-center border-r border-white/5 font-bold whitespace-nowrap ${idx === 2 ? 'bg-' + r.color + '-500/10' : ''}">
+              ${fmt(week[r.val] || 0)}
+            </td>
+          `).join('')}
+        </tr>`;
+    });
+
+    if (container) container.innerHTML = htmlRows;
+
+  } catch (err) {
+    console.error("Gagal memuat data dashboard finance:", err);
+    if (container) container.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-rose-400">Gagal memuat data: ${err.message}</td></tr>`;
+  }
+}
+
+// 4. Kalkulasi Data Matriks Mingguan Berdasarkan estimasi_bayar
+function generateWeeklyMatrix(dataBayar, dataMutasi) {
+  const weeks = getWeeklyDateRanges();
+
+  dataBayar.forEach(row => {
+    const nominal = Number(row.nominal || 0);
+    const jenis = String(row.jenis || "").trim().toUpperCase();
+    const status = String(row.status || "").trim().toUpperCase();
+    
+    // Pemisah rentang minggu menggunakan estimasi_bayar
+    const rawTgl = row.estimasi_bayar || row.tanggal || row.tgl_jth_tempo;
+    if (!rawTgl) return;
+    const tglItem = new Date(rawTgl);
+    if (isNaN(tglItem.getTime())) return;
+
+    const targetWeek = weeks.find(w => tglItem >= w.start && tglItem <= w.end);
+    if (!targetWeek) return;
+
+    // A. DRAFT TRANSFER & DRAFT GIRO
+    if (status.includes('DRAFT')) {
+      if (jenis.includes('TRANSFER')) targetWeek.draftTransfer += nominal;
+      if (jenis.includes('GIRO')) targetWeek.draftGiro += nominal;
+    }
+
+    // B. TOTAL TRANSFER (Status Proses, Lunas, atau Cair)
+    if (jenis.includes('TRANSFER')) {
+      if (status.includes('PROSES') || status.includes('LUNAS') || status.includes('CAIR')) {
+        targetWeek.transfer += nominal;
+      }
+    }
+
+    // C. KATEGORI GIRO
+    if (jenis.includes('GIRO')) {
+      if (status.includes('PROSES')) {
+        targetWeek.giro_proses += nominal;
+      } else if (status.includes('BEREDAR') || status.includes('EDAR')) {
+        targetWeek.giro_beredar += nominal;
+      } else if (status.includes('LUNAS') || status.includes('CAIR')) {
+        targetWeek.giro_cair += nominal;
+      }
+    }
+  });
+
+  return weeks;
+}
+
+// =========================================================================
+// 5. LOAD TABEL GIRO KHUSUS (PROSES & BEREDAR, BILYET DARI 'catatan')
+// =========================================================================
+async function loadGiroOnly() {
+  const tbody = document.getElementById('tbodyGiroData');
+  if (!tbody) return;
+
+  tbody.innerHTML = '<tr><td colspan="9" class="p-4 text-center text-gray-400">Memuat data giro dari Supabase...</td></tr>';
+  
+  try {
+    const { data, error } = await dbClient.from('Data_Bayar').select('*').ilike('jenis', '%giro%');
+    if (error) throw error;
+
+    // Filter khusus status Proses atau Beredar
+    const filteredGiro = (data || []).filter(item => {
+      const st = String(item.status || "").trim().toUpperCase();
+      return st.includes('PROSES') || st.includes('BEREDAR') || st.includes('EDAR');
+    });
+
+    const groupedData = filteredGiro.reduce((acc, item) => {
+      const id = item.id_bayar || item.id;
+      const nominal = Number(item.nominal || 0);
+      
+      if (!acc[id]) {
+        acc[id] = { 
+          id: id,
+          supplier: item.kode_supp || '-',
+          rekAn: item.bank_rek_an || '-',
+          bilyet: item.catatan || '-', // Bilyet diambil dari kolom 'catatan'
+          tglProses: item.tanggal_proses || item.tanggal || '-',
+          tglEdar: item.tanggal_edar || '-',
+          estimasiBayar: item.estimasi_bayar || '-',
+          status: item.status || 'Proses',
+          totalNominal: nominal,
+          potongan: Number(item.potongan || 0), 
+          admin: Number(item.admin || 0) 
+        };
+      } else {
+        acc[id].totalNominal += nominal;
+      }
+      return acc;
+    }, {});
+
+    cacheGiroData = Object.values(groupedData);
+    renderGiroTable();
+
+  } catch (err) {
+    console.error("Gagal memuat data giro:", err);
+    tbody.innerHTML = `<tr><td colspan="9" class="p-4 text-center text-rose-400">Gagal memuat giro: ${err.message}</td></tr>`;
+  }
+}
+
+// 6. Fungsi Sorting Lokal Giro
+function sortGiroLocal(sortField) {
+  if (currentSortField === sortField) {
+    currentSortOrder = currentSortOrder === 'terbaru' ? 'terlama' : 'terbaru';
+  } else {
+    currentSortField = sortField;
+    currentSortOrder = 'terbaru';
+  }
+  renderGiroTable();
+}
+
+// 7. Render Tabel Giro ke HTML
+function renderGiroTable() {
+  const tbody = document.getElementById('tbodyGiroData');
+  if (!tbody) return;
+
+  let finalData = [...cacheGiroData];
+
+  finalData.sort((a, b) => {
+    let valA = a[currentSortField] !== undefined ? a[currentSortField] : '';
+    let valB = b[currentSortField] !== undefined ? b[currentSortField] : '';
+
+    if (currentSortField === 'totalNominal') {
+      const numA = Number((a.totalNominal || 0) - (a.potongan || 0) + (a.admin || 0));
+      const numB = Number((b.totalNominal || 0) - (b.potongan || 0) + (b.admin || 0));
+      return currentSortOrder === 'terlama' ? (numA - numB) : (numB - numA);
+    }
+
+    valA = String(valA).toLowerCase();
+    valB = String(valB).toLowerCase();
+
+    return currentSortOrder === 'terlama' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+  });
+
+  tbody.innerHTML = finalData.map(item => {
+    const netGiro = item.totalNominal - item.potongan + item.admin;
+    return `
+      <tr class="hover:bg-white/5 transition-colors border-b border-white/5">
+        <td class="p-3 text-cyan-400 font-bold text-left sticky left-0 z-35 bg-[#131720] shadow-[2px_0_5px_rgba(0,0,0,0.4)] w-[130px] whitespace-nowrap">${item.id || ''}</td>
+        <td class="p-3 text-left whitespace-nowrap">${item.supplier || ''}</td>
+        <td class="p-3 text-left whitespace-nowrap">${item.rekAn || ''}</td>
+        <td class="p-3 text-center cursor-pointer hover:bg-white/5 transition whitespace-nowrap" ondblclick="makeEditableGiro(this, '${item.id}')">
+            ${item.bilyet || '<span class="text-[9px] text-slate-500 italic">klik isi</span>'}
+        </td>
+        <td class="p-3 text-center whitespace-nowrap">${item.tglProses || ''}</td>
+        <td class="p-3 text-center whitespace-nowrap">${item.tglEdar || ''}</td>
+        <td class="p-3 text-center whitespace-nowrap">${item.estimasiBayar || ''}</td>
+        <td class="p-3 text-right font-bold text-white whitespace-nowrap">${Number(netGiro || 0).toLocaleString('id-ID')}</td>
+        <td class="p-3 text-center whitespace-nowrap">
+            <span class="px-2 py-0.5 rounded-full ${item.status === 'Cair' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-orange-500/20 text-orange-400'} text-[9px] uppercase font-bold">
+                ${item.status || ''}
+            </span>
+        </td>
+      </tr>`;
+  }).join('');
+}
+
+// 8. Edit Bilyet Giro Inline Langsung ke Supabase (Update Kolom Catatan / Bilyet)
+function makeEditableGiro(td, id) {
+  if (td.querySelector('input')) return;
+  const val = td.innerText.replace('klik isi', '').trim();
+  td.innerHTML = `<input type="text" value="${val}" class="bg-black text-white w-full border border-cyan-500 p-1 rounded text-[10px]" onblur="saveGiroBilyet(this, '${id}')" onkeydown="if(event.key==='Enter') this.blur()">`;
+  td.querySelector('input').focus();
+}
+
+async function saveGiroBilyet(input, id) {
+  const newValue = input.value.trim();
+  const td = input.parentElement;
+  td.style.backgroundColor = "rgba(6, 182, 212, 0.2)";
+
+  try {
+    const { error } = await dbClient.from('Data_Bayar').update({ catatan: newValue }).eq('id_bayar', id);
+    td.style.backgroundColor = "transparent";
+    if (error) throw error;
+    td.innerHTML = newValue || '<span class="text-[9px] text-slate-500 italic font-normal">klik isi</span>';
+    if (typeof showUINotif === 'function') showUINotif("Bilyet berhasil disimpan ke Supabase", "success");
+  } catch (err) {
+    td.style.backgroundColor = "transparent";
+    td.innerHTML = input.defaultValue || '<span class="text-[9px] text-slate-500 italic font-normal">klik isi</span>';
+    if (typeof showUINotif === 'function') showUINotif("Gagal: " + err.message, "error");
+  }
+}
+
+// Inisialisasi saat Halaman Dimuat
+document.addEventListener('DOMContentLoaded', () => {
+  loadOwnerDashboardData();
+  loadGiroOnly();
+});
+
+function toggleSubmenu(element) {
+  const group = element.parentElement;
+  if (group) group.classList.toggle('collapsed');
+}
+
+// =========================================================================
+// 9. FUNGSI CETAK & PREVIEW LAPORAN (DIPISAH DI BAGIAN BAWAH)
+// =========================================================================
+function bukaPreviewLaporan() {
+  Swal.fire({
+    title: 'Laporan Keuangan',
+    text: 'Konfirmasi untuk mencetak laporan:',
+    showCancelButton: true,
+    confirmButtonText: 'Cetak Laporan',
+    cancelButtonText: 'Batal',
+    background: '#1a1d23',
+    color: '#fff',
+    input: 'text',
+    inputLabel: 'Nama File:',
+    inputValue: 'Laporan_Finance_' + new Date().toISOString().slice(0, 10),
+    inputAttributes: { style: 'background:#1a1d23; color:white; border:1px solid #343b47; padding: 10px; border-radius: 5px;' }
+  }).then((result) => {
+    if (result.isConfirmed) {
+      jalankanProsesCetak(result.value, false);
+    }
+  });
+}
+
+function jalankanProsesCetak(fileName, isPdf) {
+  const title = (typeof fileName === 'string' && fileName.trim() !== '') ? fileName : 'Laporan_Finance';
+
+  Swal.fire({ title: 'Menyiapkan Data...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+
+  getCompanyProfileAndLogo().then(({ logoBase64 }) => {
+    const container = document.getElementById('tab-dashboardFinance');
+    if (!container) {
+      Swal.close();
+      return;
+    }
+    const clone = container.cloneNode(true);
+    
+    const dilarang = ['BCA 6702', 'MANDIRI', 'BNI', 'KAS BESAR'];
+    clone.querySelectorAll('.card').forEach(card => {
+      const text = card.innerText.toUpperCase();
+      if (dilarang.some(item => text.includes(item))) {
+        card.remove(); 
+      }
+    });
+
+    clone.querySelectorAll('button, .no-print').forEach(btn => btn.remove());
+    clone.querySelectorAll('.header-print').forEach(el => el.remove());
+
+    const cardContainer = clone.querySelector('.card-container');
+    if (cardContainer) {
+      cardContainer.style.cssText = "display: flex !important; flex-wrap: nowrap !important; gap: 4px !important; width: 100% !important; justify-content: flex-start !important;";
+      cardContainer.classList.remove('grid', 'grid-cols-1', 'sm:grid-cols-2', 'lg:grid-cols-5');
+
+      const titleDiv = document.createElement('div');
+      titleDiv.innerHTML = '<h3 style="font-size: 10px; font-weight: 800; margin: 4px 0 3px 0;">Saldo Rekening</h3>';
+      cardContainer.parentNode.insertBefore(titleDiv, cardContainer);
+    }
+
+    if(document.getElementById('bodyMatriksFinance')) clone.querySelector('#bodyMatriksFinance').innerHTML = document.getElementById('bodyMatriksFinance').innerHTML;
+    if(document.getElementById('tbodyGiroData')) clone.querySelector('#tbodyGiroData').innerHTML = document.getElementById('tbodyGiroData').innerHTML;
+
+    const namaUser = document.getElementById('navUserName')?.innerText || 'ADMIN';
+    const now = new Date().toLocaleString('id-ID', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+    const printWindow = window.open('', '_blank', 'width=1200,height=800');
+    printWindow.document.title = title;
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${title}</title>
+          <style>
+            @page { size: landscape; margin: 6mm; }
+            body { font-family: Arial, sans-serif; color: #000; font-size: 10px; margin: 2px; padding: 2px; }
+            .header-print-wrapper { display: flex; align-items: center; border-bottom: 4px solid #000; padding-bottom: 6px; margin-bottom: 8px; }
+            .header-logo { width: 46px; margin-right: 14px; flex-shrink: 0; }
+            .header-text { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+            .pt-name { margin: 0 0 2px 0; font-size: 15px; font-weight: 900; text-transform: uppercase; line-height: 1.1; }
+            .report-title { margin: 0 0 3px 0; font-size: 11px; font-weight: bold; text-transform: uppercase; line-height: 1.1; color: #333; }
+            .meta-info { margin: 0; font-size: 12px; font-weight: normal; }
+            .card { flex: 1 !important; border: 1px solid #000 !important; padding: 2px 4px !important; font-size: 7px !important; text-align: center; white-space: nowrap !important; }
+            table { width: 100%; border-collapse: collapse; font-size: 9px; margin-bottom: 5px; }
+            thead { display: table-header-group !important; background: #eee !important; }
+            th, td { border: 1px solid #000 !important; padding: 2px 4px !important; white-space: nowrap !important; }
+          </style>
+        </head>
+        <body>
+          <div class="header-print-wrapper">
+            <div class="header-logo"><img src="${logoBase64}" style="width:100%;"></div>
+            <div class="header-text">
+              <h1 class="pt-name">PT. RITEL PERKAKAS SOLUSINDO</h1>
+              <div class="report-title">${title}</div>
+              <div class="meta-info">User: ${namaUser} | Dicetak: ${now}</div>
+            </div>
+          </div>
+          <div style="padding: 0 5px;">${clone.innerHTML}</div>
+        </body>
+      </html>
+    `);
+    
+    printWindow.document.close();
+    setTimeout(() => { Swal.close(); printWindow.focus(); printWindow.print(); }, 1500);
+  });
+}
   </script>
 </body>
 </html>
