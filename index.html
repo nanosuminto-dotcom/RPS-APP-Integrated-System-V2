@@ -13875,12 +13875,13 @@ async function fetchAllData(tableName, selectQuery = '*') {
   return allData;
 }
 
-// 2. Helper: Tentukan Rentang 5 Minggu (Murni Berbasis Tanggal Lokal Tanpa Jam)
+// 2. Helper: Tentukan Rentang 5 Minggu (Senin s.d. Minggu Murni Tanpa Jam)
 function getWeeklyDateRanges() {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const dayOfWeek = today.getDay(); // 0 = Minggu, 1 = Senin, dst.
   
+  // Hitung selisih hari menuju hari Senin terdekat (jika Minggu (0), geser -6 hari ke belakang)
   const diffToMonday = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
   const currentMonday = new Date(today.getFullYear(), today.getMonth(), diffToMonday);
   currentMonday.setHours(0, 0, 0, 0);
@@ -13892,6 +13893,7 @@ function getWeeklyDateRanges() {
     start.setDate(currentMonday.getDate() + (i * 7));
     start.setHours(0, 0, 0, 0);
     
+    // Berakhir pada hari Minggu (+6 hari dari Senin)
     const end = new Date(start);
     end.setDate(start.getDate() + 6);
     end.setHours(0, 0, 0, 0);
@@ -14106,20 +14108,20 @@ async function loadOwnerDashboardData() {
   }
 }
 
-// 4. Kalkulasi Data Matriks Mingguan Berdasarkan estimasi_bayar, status, dan jenis
+// 4. Kalkulasi Data Matriks Mingguan Sesuai Kriteria Spesifik Anda
 function generateWeeklyMatrix(dataBayar, dataMutasi) {
   const weeks = getWeeklyDateRanges();
 
   dataBayar.forEach(row => {
     const nominal = Number(row.nominal || 0);
-    const jenis = String(row.jenis || "").trim().toUpperCase();
-    const status = String(row.status || "").trim().toUpperCase();
+    const jenis = String(row.jenis || "").trim().toLowerCase();
+    const status = String(row.status || "").trim().toLowerCase();
     
-    // 1. ACUAN KOLOM MINGGUAN: Wajib murni menggunakan kolom "estimasi_bayar"
+    // Acuan pemisah mingguan murni menggunakan kolom "estimasi_bayar"
     const rawTgl = row.estimasi_bayar;
     if (!rawTgl) return;
 
-    // Normalisasi string tanggal murni mengambil bagian YYYY-MM-DD-nya saja
+    // Normalisasi string tanggal mengambil bagian YYYY-MM-DD
     const cleanDateStr = String(rawTgl).substring(0, 10);
     const parts = cleanDateStr.split(/[\/\-\s]/);
     if (parts.length < 3) return;
@@ -14135,40 +14137,46 @@ function generateWeeklyMatrix(dataBayar, dataMutasi) {
       year = parseInt(parts[2], 10);
     }
 
-    // Buat objek Date lokal dengan jam di-nol-kan secara presisi (Tanpa Jam)
+    // Buat objek Date lokal murni (tanpa jam)
     const tglItem = new Date(year, month, day);
     tglItem.setHours(0, 0, 0, 0);
 
     if (isNaN(tglItem.getTime())) return;
 
-    // Cari rentang minggu (start s.d end) yang mencakup tanggal estimasi_bayar tersebut
+    // Cari rentang minggu (Senin s.d. Minggu) yang mencakup tgl item ini
     const targetWeek = weeks.find(w => tglItem >= w.start && tglItem <= w.end);
     if (!targetWeek) return;
 
-    // 2. FILTER STATUS & JENIS UNTUK MASING-MASING BARIS MATRIKS
-    
-    // A. DRAFT TRANSFER & DRAFT GIRO
-    if (status.includes('DRAFT')) {
-      if (jenis.includes('TRANSFER')) targetWeek.draftTransfer += nominal;
-      if (jenis.includes('GIRO')) targetWeek.draftGiro += nominal;
+    // --- KETENTUAN FILTER BARIS MATRIKS ---
+
+    // 1. DRAFT TRANSFER: jenis = transfer, status = draft
+    if (jenis.includes('transfer') && status === 'draft') {
+      targetWeek.draftTransfer += nominal;
     }
 
-    // B. TOTAL TRANSFER (Status Proses, Lunas, atau Cair)
-    if (jenis.includes('TRANSFER')) {
-      if (status.includes('PROSES') || status.includes('LUNAS') || status.includes('CAIR')) {
-        targetWeek.transfer += nominal;
-      }
+    // 2. DRAFT GIRO: jenis = giro, status = draft
+    if (jenis.includes('giro') && status === 'draft') {
+      targetWeek.draftGiro += nominal;
     }
 
-    // C. KATEGORI GIRO (Berdasarkan Status & Jenis Giro)
-    if (jenis.includes('GIRO')) {
-      if (status.includes('PROSES')) {
-        targetWeek.giro_proses += nominal;
-      } else if (status.includes('BEREDAR') || status.includes('EDAR')) {
-        targetWeek.giro_beredar += nominal;
-      } else if (status.includes('LUNAS') || status.includes('CAIR')) {
-        targetWeek.giro_cair += nominal;
-      }
+    // 3. TOTAL TRANSFER: jenis = transfer, status = proses atau lunas
+    if (jenis.includes('transfer') && (status === 'proses' || status === 'lunas')) {
+      targetWeek.transfer += nominal;
+    }
+
+    // 4. GIRO PROSES: jenis = giro, status = proses
+    if (jenis.includes('giro') && status === 'proses') {
+      targetWeek.giro_proses += nominal;
+    }
+
+    // 5. GIRO BEREDAR: jenis = giro, status = beredar (atau edar)
+    if (jenis.includes('giro') && (status === 'beredar' || status === 'edar')) {
+      targetWeek.giro_beredar += nominal;
+    }
+
+    // 6. GIRO CAIR / LUNAS: jenis = giro, status = lunas (atau cair)
+    if (jenis.includes('giro') && (status === 'lunas' || status === 'cair')) {
+      targetWeek.giro_cair += nominal;
     }
   });
 
