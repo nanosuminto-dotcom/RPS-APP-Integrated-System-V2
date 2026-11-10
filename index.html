@@ -14337,6 +14337,109 @@ function jalankanProsesCetak(fileName, isPdf) {
     setTimeout(() => { Swal.close(); printWindow.focus(); printWindow.print(); }, 1500);
   });
 }
+async function editStatusDate(id, statusField, currentTanggal) {
+    let formattedDate = "";
+    if (currentTanggal && currentTanggal !== "-") {
+        const cleanDateStr = currentTanggal.substring(0, 10);
+        const parts = cleanDateStr.split(/[\/\-\s]/);
+        if (parts.length >= 3) {
+            if (parts[0].length === 4) {
+                formattedDate = `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+            } else {
+                formattedDate = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+            }
+        }
+    }
+
+    const activeElement = event ? event.currentTarget : null;
+
+    Swal.fire({
+        title: `<span class="text-cyan-400 text-xs font-black uppercase">Edit Tanggal ${statusField}</span>`,
+        html: `
+            <div class="flex flex-col items-center justify-center p-2">
+                <label class="text-[10px] text-gray-400 font-bold mb-2 uppercase tracking-wide">Pilih Tanggal Baru (Jam 07:00:00):</label>
+                <input type="date" id="swalNewDate" value="${formattedDate}" class="bg-[#14161a] border border-cyan-500/40 rounded-lg px-4 py-2 text-white font-mono text-sm focus:outline-none focus:border-cyan-400 shadow-inner w-full text-center cursor-pointer">
+            </div>
+        `,
+        background: '#1a1d23',
+        color: '#ffffff',
+        showCancelButton: true,
+        confirmButtonText: 'Simpan',
+        cancelButtonText: 'Batal',
+        confirmButtonColor: '#06b6d4',
+        cancelButtonColor: '#334155',
+        customClass: {
+            popup: 'rounded-xl border border-white/10 shadow-2xl',
+            confirmButton: 'text-[10px] font-black uppercase tracking-wider px-4 py-2 rounded-lg',
+            cancelButton: 'text-[10px] font-bold uppercase tracking-wider px-4 py-2 rounded-lg'
+        },
+        preConfirm: () => {
+            const newDate = document.getElementById('swalNewDate').value;
+            if (!newDate) {
+                Swal.showValidationMessage('Tanggal wajib dipilih!');
+            }
+            return newDate;
+        }
+    }).then(async (result) => {
+        if (result.isConfirmed) {
+            const updatedDate = result.value; // Format: "YYYY-MM-DD"
+            const fullDateTime = `${updatedDate} 07:00:00`; // Menyertakan jam default 07:00:00
+            const displayDateText = `${updatedDate.replace(/-/g, '/')} 07:00:00`; 
+
+            if (activeElement) activeElement.style.opacity = "0.4";
+
+            try {
+                // Tentukan nama kolom database Supabase berdasarkan parameter status
+                // statusField bisa berupa: 'tanggal_edar', 'tanggal_lunas', atau 'tanggal_proses'
+                let dbColumn = 'tanggal_proses'; // default
+                const stUpper = String(statusField).trim().toUpperCase();
+                
+                if (stUpper.includes('EDAR')) {
+                    dbColumn = 'tanggal_edar';
+                } else if (stUpper.includes('LUNAS') || stUpper.includes('CAIR')) {
+                    dbColumn = 'tanggal_lunas'; // Sesuaikan jika nama kolom lunas di DB Anda berbeda (misal: tanggal_lunas / tgl_lunas)
+                } else if (stUpper.includes('PROSES')) {
+                    dbColumn = 'tanggal_proses';
+                }
+
+                // Update langsung ke tabel Data_Bayar di Supabase berdasarkan id_bayar / id
+                const { error } = await dbClient
+                    .from('Data_Bayar')
+                    .update({ [dbColumn]: fullDateTime })
+                    .eq('id_bayar', id); // Ubah 'id_bayar' jika primary key tabel Anda bernama lain (misal: 'id')
+
+                if (error) throw error;
+
+                if (activeElement) {
+                    activeElement.style.opacity = "1";
+                    activeElement.innerText = displayDateText;
+                }
+
+                if (typeof showUINotif === 'function') {
+                    showUINotif("Tanggal berhasil diperbarui ke Supabase", "success");
+                } else {
+                    Swal.fire({ icon: 'success', title: 'Berhasil', timer: 1000, showConfirmButton: false, background: '#1a1d23', color: '#ffffff' });
+                }
+
+                // Refresh data dashboard / tabel otomatis jika fungsi load tersedia
+                if (typeof loadGiroOnly === 'function') loadGiroOnly();
+                if (typeof loadOwnerDashboardData === 'function') loadOwnerDashboardData();
+
+            } catch (err) {
+                if (activeElement) {
+                    activeElement.style.opacity = "1";
+                    activeElement.innerText = currentTanggal;
+                }
+                console.error("Gagal update tanggal:", err);
+                if (typeof showUINotif === 'function') {
+                    showUINotif("Gagal: " + err.message, "error");
+                } else {
+                    Swal.fire({ icon: 'error', title: 'Gagal', text: err.message, background: '#1a1d23', color: '#ffffff' });
+                }
+            }
+        }
+    });
+}
   </script>
 </body>
 </html>
