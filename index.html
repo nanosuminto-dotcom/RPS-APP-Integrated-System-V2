@@ -11667,7 +11667,7 @@ let fullPaymentData = [];
 let currentFilteredData = [];
 let currentSort = { col: 'id', asc: false };
 
-// --- A. INISIALISASI & LOAD DARI SUPABASE (DENGAN GROUPING ID_BAYAR) ---
+// --- A. INISIALISASI & LOAD DARI SUPABASE (DENGAN GROUPING ID_BAYAR YANG PRESISI) ---
 document.addEventListener('DOMContentLoaded', function() {
   loadDaftarPembayaran();
 });
@@ -11716,11 +11716,20 @@ async function loadDaftarPembayaran() {
           cabang: r.cabang || '',
           catatan: r.catatan || '',
           sumberRek: r.sumber_rek || '',
-          potongan: Number(r.potongan || 0), // Hanya dicatat 1 kali per id_bayar
-          admin: Number(r.admin || 0),       // Hanya dicatat 1 kali per id_bayar
+          // Ambil nilai potongan & admin murni 1 kali per id_bayar (ambil dari baris pertama atau max > 0)
+          potongan: Number(r.potongan || 0), 
+          admin: Number(r.admin || 0),       
           subtotalBruto: 0,
           detailInvoices: []
         };
+      } else {
+        // Jika baris berikutnya memiliki nilai potongan/admin yang tercatat, pastikan tidak tertimpa 0 jika baris pertama kosong
+        if (Number(r.potongan || 0) > groupedMap[payId].potongan) {
+          groupedMap[payId].potongan = Number(r.potongan || 0);
+        }
+        if (Number(r.admin || 0) > groupedMap[payId].admin) {
+          groupedMap[payId].admin = Number(r.admin || 0);
+        }
       }
 
       // Akumulasikan subtotal bruto dari setiap baris invoice
@@ -11735,7 +11744,7 @@ async function loadDaftarPembayaran() {
       });
     });
 
-    // Ubah map menjadi array, lalu hitung total bersih (Subtotal - Potongan + Admin)
+    // Ubah map menjadi array, lalu hitung total bersih murni: (Total Bruto - Potongan + Admin)
     fullPaymentData = Object.values(groupedMap).map(item => {
       item.nominal = item.subtotalBruto;
       item.totalBersih = item.subtotalBruto - item.potongan + item.admin;
@@ -11751,7 +11760,45 @@ async function loadDaftarPembayaran() {
   }
 }
 
-// --- B. RENDERING UTAMA ---
+// --- B. RENDERING BARIS TABEL TUNGGAL (1 ID = 1 BARIS) ---
+function generateRowHTML(r) {
+  const fmt = (num) => "Rp " + Number(num || 0).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  
+  // Warna badge status
+  let statusColor = 'bg-gray-500/20 text-gray-400';
+  const st = String(r.status || '').toUpperCase();
+  if (st.includes('DRAFT')) statusColor = 'bg-amber-500/20 text-amber-400';
+  else if (st.includes('PROSES')) statusColor = 'bg-purple-500/20 text-purple-400';
+  else if (st.includes('BEREDAR') || st.includes('EDAR')) statusColor = 'bg-orange-500/20 text-orange-400';
+  else if (st.includes('CAIR') || st.includes('LUNAS')) statusColor = 'bg-emerald-500/20 text-emerald-400';
+
+  return `
+    <tr class="hover:bg-white/5 transition-colors border-b border-white/5 text-xs">
+      <td class="p-3 text-slate-300 whitespace-nowrap">${r.tanggal || '-'}</td>
+      <td class="p-3 text-cyan-400 font-bold whitespace-nowrap cursor-pointer hover:underline" onclick="showDetailInvoice('${r.id}')">${r.id}</td>
+      <td class="p-3 text-white font-bold whitespace-nowrap">${r.kodeSupp || '-'}</td>
+      <td class="p-3 text-slate-300 max-w-[200px] truncate" title="${r.bankRekAn || '-'}">${r.bankRekAn || '-'}</td>
+      <td class="p-3 text-slate-300 whitespace-nowrap">${r.jenis || '-'}</td>
+      <td class="p-3 text-slate-300 whitespace-nowrap">${r.sumberRek || '-'}</td>
+      <td class="p-3 text-right font-mono font-bold text-emerald-400 whitespace-nowrap">${fmt(r.totalBersih)}</td>
+      <td class="p-3 text-slate-300 whitespace-nowrap text-center">${r.estimasi || '-'}</td>
+      <td class="p-3 text-center whitespace-nowrap">
+        <span class="px-2.5 py-1 rounded-full text-[9px] font-black uppercase ${statusColor}">
+          ${r.status || 'Draft'}
+        </span>
+      </td>
+      <td class="p-3 text-center whitespace-nowrap space-x-1">
+        <button onclick="showDetailInvoice('${r.id}')" class="bg-cyan-600 hover:bg-cyan-500 text-white p-1.5 rounded text-[10px]" title="Detail Nota">
+          <i class="fas fa-eye"></i>
+        </button>
+        <button onclick="editPaymentPro('${r.id}')" class="bg-amber-600 hover:bg-amber-500 text-white p-1.5 rounded text-[10px]" title="Edit / Revisi">
+          <i class="fas fa-edit"></i>
+        </button>
+      </td>
+    </tr>
+  `;
+}
+
 function renderTable(data) {
   const tbody = document.getElementById('pembayaranTableBody');
   if (!tbody) return;
@@ -13828,13 +13875,14 @@ async function fetchAllData(tableName, selectQuery = '*') {
   return allData;
 }
 
-// 2. Helper: Tentukan Rentang 5 Minggu (Estimasi Bayar Murni Berbasis Tanggal YYYY-MM-DD)
+// 2. Helper: Tentukan Rentang 5 Minggu (Murni Berbasis Tanggal Lokal Tanpa Jam)
 function getWeeklyDateRanges() {
-  const today = new Date();
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const dayOfWeek = today.getDay(); // 0 = Minggu, 1 = Senin, dst.
   
   const diffToMonday = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
-  const currentMonday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1));
+  const currentMonday = new Date(today.getFullYear(), today.getMonth(), diffToMonday);
   currentMonday.setHours(0, 0, 0, 0);
 
   const weeks = [];
@@ -13846,7 +13894,7 @@ function getWeeklyDateRanges() {
     
     const end = new Date(start);
     end.setDate(start.getDate() + 6);
-    end.setHours(0, 0, 0, 0); // Di-set 0 agar murni perbandingan tanggal (YYYY-MM-DD)
+    end.setHours(0, 0, 0, 0);
 
     const labelNames = ["Minggu -2", "Minggu -1", "Minggu Ini", "Minggu +1", "Minggu +2"];
     const formatDateStr = (d) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -14009,7 +14057,7 @@ async function loadOwnerDashboardData() {
     if (document.getElementById("dashGiroCair")) document.getElementById("dashGiroCair").innerText = fmt(totalGiroCair);
     if (document.getElementById("dashEstBca")) document.getElementById("dashEstBca").innerText = fmt(estRealBca);
 
-    // --- C. RENDER MATRIKS KEUANGAN MINGGUAN (Estimasi Bayar) ---
+    // --- C. RENDER MATRIKS KEUANGAN MINGGUAN (Murni Berdasarkan Kolom "estimasi_bayar") ---
     const matriksMingguan = generateWeeklyMatrix(dataBayar, dataMutasi);
     const m = matriksMingguan.slice(0, 5);
 
@@ -14058,7 +14106,7 @@ async function loadOwnerDashboardData() {
   }
 }
 
-// 4. Kalkulasi Data Matriks Mingguan (Murni Bandingkan Tanggal YYYY-MM-DD, Abaikan Jam)
+// 4. Kalkulasi Data Matriks Mingguan Berdasarkan estimasi_bayar, status, dan jenis
 function generateWeeklyMatrix(dataBayar, dataMutasi) {
   const weeks = getWeeklyDateRanges();
 
@@ -14067,8 +14115,8 @@ function generateWeeklyMatrix(dataBayar, dataMutasi) {
     const jenis = String(row.jenis || "").trim().toUpperCase();
     const status = String(row.status || "").trim().toUpperCase();
     
-    // Ambil tanggal mentah dari estimasi_bayar, tanggal, atau tgl_jth_tempo
-    const rawTgl = row.estimasi_bayar || row.tanggal || row.tgl_jth_tempo;
+    // 1. ACUAN KOLOM MINGGUAN: Wajib murni menggunakan kolom "estimasi_bayar"
+    const rawTgl = row.estimasi_bayar;
     if (!rawTgl) return;
 
     // Normalisasi string tanggal murni mengambil bagian YYYY-MM-DD-nya saja
@@ -14087,16 +14135,18 @@ function generateWeeklyMatrix(dataBayar, dataMutasi) {
       year = parseInt(parts[2], 10);
     }
 
-    // Buat objek Date dengan jam di-nol-kan secara presisi
+    // Buat objek Date lokal dengan jam di-nol-kan secara presisi (Tanpa Jam)
     const tglItem = new Date(year, month, day);
     tglItem.setHours(0, 0, 0, 0);
 
     if (isNaN(tglItem.getTime())) return;
 
-    // Cari minggu yang mencakup tanggal tersebut (inklusif start s.d end)
+    // Cari rentang minggu (start s.d end) yang mencakup tanggal estimasi_bayar tersebut
     const targetWeek = weeks.find(w => tglItem >= w.start && tglItem <= w.end);
     if (!targetWeek) return;
 
+    // 2. FILTER STATUS & JENIS UNTUK MASING-MASING BARIS MATRIKS
+    
     // A. DRAFT TRANSFER & DRAFT GIRO
     if (status.includes('DRAFT')) {
       if (jenis.includes('TRANSFER')) targetWeek.draftTransfer += nominal;
@@ -14110,7 +14160,7 @@ function generateWeeklyMatrix(dataBayar, dataMutasi) {
       }
     }
 
-    // C. KATEGORI GIRO
+    // C. KATEGORI GIRO (Berdasarkan Status & Jenis Giro)
     if (jenis.includes('GIRO')) {
       if (status.includes('PROSES')) {
         targetWeek.giro_proses += nominal;
@@ -14153,7 +14203,7 @@ async function loadGiroOnly() {
           id: id,
           supplier: item.kode_supp || '-',
           rekAn: item.bank_rek_an || '-',
-          bilyet: item.catatan || '-', // Bilyet diambil dari kolom 'catatan'
+          bilyet: item.catatan || '-', 
           tglProses: item.tanggal_proses || item.tanggal || '-',
           tglEdar: item.tanggal_edar || '-',
           estimasiBayar: item.estimasi_bayar || '-',
