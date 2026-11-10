@@ -1,0 +1,239 @@
+diff --git a/index.html b/index.html
+index eaa062d..bad06da 100644
+--- a/index.html
++++ b/index.html
+@@ -9,7 +9,7 @@
+   <!-- Mencegah Error 404 Favicon -->
+   <link rel="icon" href="data:,">
+ 
+-  <!-- Library Eksternal -->
++  <!-- Library Eksternal (Tanpa Duplikasi) -->
+   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+   <script src="https://cdn.tailwindcss.com"></script>
+@@ -18,15 +18,14 @@
+   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+-  <script src='https://cdn.jsdelivr.net/npm/jsbarcode@3.11.0/dist/JsBarcode.all.min.js'></script>
+-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
++  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.0/dist/JsBarcode.all.min.js"></script>
+   
+   <!-- Pustaka Resmi Supabase JS -->
+   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+ 
+   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+-
++</head>
+   <style>
+     /* ==========================================
+        1. BASE & GLOBAL STYLES
+@@ -13289,6 +13288,7 @@ function closeModalCetak() {
+ }
+ 
+ // --- 3. FUNGSI PROSES CETAK UTAMA (SUPABASE NATIVE) ---
++// --- FUNGSI PROSES CETAK UTAMA (SESUAI DENGAN TEMPLATE BARU) ---
+ async function prosesCetak(mode) {
+   const checkboxes = document.querySelectorAll('.chk-print-item:checked');
+   let listID = [];
+@@ -13308,13 +13308,17 @@ async function prosesCetak(mode) {
+   }
+ 
+   Swal.fire({ 
+-    title: 'Memproses Data...', 
++    title: 'Memproses Data & Profil...', 
+     allowOutsideClick: false, 
+     didOpen: () => { Swal.showLoading(); } 
+   });
+ 
+   try {
+-    const dataListFinal = await fetchCetakDataFromSupabase(filterParams);
++    // Mengambil data pembayaran, profil, dan logo secara paralel agar cepat
++    const [dataListFinal, companyInfo] = await Promise.all([
++      fetchCetakDataFromSupabase(filterParams),
++      getCompanyProfileAndLogo()
++    ]);
+ 
+     if (!dataListFinal || dataListFinal.length === 0) {
+       return Swal.fire('Tidak Ditemukan', 'Tidak ada data yang sesuai dengan kriteria Anda.', 'info');
+@@ -13328,7 +13332,8 @@ async function prosesCetak(mode) {
+       showConfirmButton: false
+     });
+ 
+-    const contentHtml = generateTemplateHTML(dataListFinal);
++    // Mengirim 3 parameter lengkap ke template HTML
++    const contentHtml = generateTemplateHTML(dataListFinal, companyInfo.profil, companyInfo.logoBase64);
+ 
+     if (mode === 'preview') {
+       bukaJendelaPreview(contentHtml);
+@@ -13528,7 +13533,168 @@ function resetModalCetak() {
+     Toast.fire({ icon: 'info', title: 'Tampilan telah dikosongkan' });
+   }
+ }
++// --- 8. FUNGSI AMBIL PROFIL & LOGO DARI SUPABASE STORAGE & TABEL ---
++// --- AMBIL PROFIL & PUBLIC URL LOGO DARI SUPABASE (DENGAN PENGAMAN) ---
++async function getCompanyProfileAndLogo() {
++  let profil = {
++    namaprofil: "PT. RITEL PERKAKAS SOLUSINDO",
++    alamat: "JL. BOULEVARD RAYA BLOK WD2 NO. 21-22, KELAPA GADING TIMUR",
++    alamat2: "JAKUT",
++    kontak: "0852 8783 1833",
++    kontak2: "0813 9981 1042"
++  };
++
++  // 1. Ambil data profil perusahaan
++  try {
++    const { data: profData, error: profErr } = await dbClient.from('profil').select('*').limit(1);
++    if (!profErr && profData && profData.length > 0) {
++      profil = { ...profil, ...profData[0] };
++    }
++  } catch (e) {
++    console.warn("Gagal mengambil profil perusahaan:", e);
++  }
++
++  // 2. Ambil Public URL logo dengan validasi aman
++  let logoUrl = "";
++  try {
++    const storageRef = dbClient.storage.from('logo').getPublicUrl('logo.jpg');
++    if (storageRef && storageRef.data && storageRef.data.publicUrl) {
++      logoUrl = storageRef.data.publicUrl;
++      
++      // Tes cepat apakah URL valid / bisa diakses
++      const checkImg = await fetch(logoUrl, { method: 'HEAD' }).catch(() => null);
++      if (!checkImg || !checkImg.ok) {
++        console.warn("File logo.jpg tidak ditemukan atau bucket belum public.");
++        logoUrl = ""; // Kosongkan agar tidak memicu error abort pada img src
++      }
++    }
++  } catch (e) {
++    console.warn("Gagal memproses logo URL:", e);
++    logoUrl = "";
++  }
++
++  return { profil, logoUrl };
++}
+ 
++// --- 9. GENERATE TEMPLATE HTML (DENGAN PROFIL & LOGO DINAMIS) ---
++function generateTemplateHTML(dataList, profil = {}, logoUrl = "") {
++  let html = "<html><head><style>";
++  html += "body { font-family: Arial, sans-serif; margin: 0; padding: 0; color: #000; line-height: 1.1; background-color: #fff; }";
++  
++  // CSS HEMAT KERTAS
++  html += ".payment-block { page-break-inside: avoid !important; break-inside: avoid; padding: 8px 12px 15px 12px; border-bottom: 2px dashed #000; margin-bottom: 5px; background: #fff; }";
++  
++  // CSS HEADER
++  html += ".header-wrapper { display: flex; align-items: center; border-bottom: 1.5px solid #000; padding-bottom: 4px; margin-bottom: 5px; }";
++  html += ".header-logo { width: 48px; margin-right: 12px; flex-shrink: 0; }"; 
++  html += ".header-kantor { flex: 1; display: flex; flex-direction: column; justify-content: center; }";
++  html += ".header-kantor h2 { margin: 0; font-size: 14px; font-weight: 900; text-transform: uppercase; line-height: 1.2; }";
++  html += ".header-kantor p { margin: 2px 0; font-size: 7.5px; line-height: 1.3; }";
++  html += ".header-barcode { font-family: monospace; font-weight: bold; font-size: 10px; padding: 3px 6px; background: #f3f4f6; border: 1px solid #000; margin-left: auto; text-align: right; }";
++
++  // Judul Form
++  html += ".judul-form { text-align: center; margin: 5px 0; }";
++  html += ".judul-form h3 { margin: 4px; font-size: 11px; text-decoration: underline; font-weight: bold; }";
++  html += ".judul-form p { margin: 4px; font-size: 9px; font-weight: bold; }";
++  
++  // Tabel
++  html += "table { width: 100%; border-collapse: collapse; margin-top: 2px; }";
++  html += "th { border-bottom: 1px solid #000; padding: 3px; font-size: 8px; text-align: left; background-color: #eee; text-transform: uppercase; }";
++  html += "td { padding: 3px; font-size: 8px; border-bottom: 0.5px solid #ddd; }";
++  html += ".text-cabang { font-weight: bold; color: #d32f2f; text-transform: uppercase; }";
++  
++  // Summary & Footer
++  html += ".summary-wrapper { display: flex; flex-direction: column; align-items: flex-end; margin-top: 6px; font-size: 8px; }";
++  html += ".summary-row { display: flex; justify-content: space-between; width: 180px; padding: 1px 0; }";
++  html += ".nett-row { border-top: 1px double #000; padding-top: 2px; margin-top: 2px; font-size: 9px; font-weight: bold; }";
++  
++  // Estimasi & Footer Tanda Tangan
++  html += ".estimasi-block { display: inline-block; background-color: #ffff00; font-weight: bold; padding: 2px 5px; font-size: 8px; margin-top: 5px; border: 1px solid #ccc; -webkit-print-color-adjust: exact; print-color-adjust: exact; }";
++  html += ".footer-sign { display: flex; justify-content: space-between; margin-top: 5px; text-align: center; font-size: 8px; }"; 
++  html += ".sign-line { border-top: 1px solid #000; margin-top: 50px; padding-top: 5px; font-size: 8px; font-weight: bold; }"; 
++  
++  html += "</style></head><body>";
++
++  if (!dataList || dataList.length === 0) return "<html><body><p>Tidak ada data untuk dicetak.</p></body></html>";
++
++  const namaPt = profil.namaprofil || "PT. RITEL PERKAKAS SOLUSINDO";
++  const alamat1 = profil.alamat || "JL. BOULEVARD RAYA BLOK WD2 NO. 21-22, KELAPA GADING TIMUR";
++  const alamat2 = profil.alamat2 || "JAKUT";
++  const kontak1 = profil.kontak || "0852 8783 1833";
++  const kontak2 = profil.kontak2 || "0813 9981 1042";
++
++  for (let i = 0; i < dataList.length; i++) {
++    const d = dataList[i];
++    
++    const estimasiFormatted = formatTglIndo(d.estimasi);
++    const rawTglBuat = d.tglBuat || d.tanggal;
++    const tglJakartaFormatted = formatTglIndo(rawTglBuat);
++
++    html += "<div class='payment-block'>";
++    
++    // HEADER DENGAN PUBLIC URL LOGO
++    html += "<div class='header-wrapper'>";
++    if (logoUrl) {
++      html += "<div class='header-logo'><img src='" + logoUrl + "' style='width:100%;' crossorigin='anonymous'></div>";
++    }
++    html += "<div class='header-kantor'>";
++    html += "<h2>" + namaPt + "</h2>";
++    html += "<p>" + alamat1 + (alamat2 ? ", " + alamat2 : "") + "</p>";
++    html += "<p>WA: " + kontak1 + (kontak2 ? " / " + kontak2 : "") + "</p>";
++    html += "</div>";
++    
++    html += "<div class='header-barcode'>" + (d.id || "-") + "</div>";
++    html += "</div>";
++
++    html += "<div class='judul-form'><h3>FORM PEMBAYARAN</h3><p>ID: " + d.id + "</p></div>";
++    html += "<div style='font-size: 10px; margin-bottom: 5px;'><b>Supplier:</b> " + d.supplier + " | <b>Metode:</b> " + d.jenis + " | <b>Rek:</b> " + d.bank + "</div>";
++
++    html += "<table><thead><tr><th>No. Invoice</th><th>Cabang</th><th>Tgl Inv</th><th>Jatuh Tempo</th><th style='text-align:right;'>Nominal</th></tr></thead><tbody>";
++    
++    let akumulasiTotalInvoice = 0;
++    if (d.invoices && Array.isArray(d.invoices)) {
++      for (let j = 0; j < d.invoices.length; j++) {
++        const inv = d.invoices[j];
++        const nominal = Number(inv.val || 0);
++        akumulasiTotalInvoice += nominal;
++        html += "<tr><td>" + inv.no + "</td><td class='text-cabang'>" + (inv.cabang || "-") + "</td><td>" + inv.tgl + "</td><td>" + (inv.jthTempo || "-") + "</td><td style='text-align:right; font-weight:bold;'>" + nominal.toLocaleString('id-ID') + "</td></tr>";
++      }
++    }
++    html += "</tbody></table>";
++
++    html += "<div style='margin-top: 4px; border-top: 1px dashed #ccc; padding-top: 2px;'>";
++    if (d.catatan) html += "<p style='font-size: 8px; margin: 0;'><strong>Catatan:</strong> " + d.catatan + "</p>";
++    if (d.rekSumber) html += "<p style='font-size: 8px; margin: 0;'><strong>Sumber Rek:</strong> " + d.rekSumber + "</p>";
++
++    const nominalPotongan = Number(d.potongan || 0);
++    const nominalAdmin = Number(d.admin || 0);
++    const nettPayment = Math.max(0, akumulasiTotalInvoice - nominalPotongan + nominalAdmin);
++    
++    const rawTerbilang = terbilang(nettPayment);
++    const teksFinal = rawTerbilang ? (rawTerbilang.charAt(0).toUpperCase() + rawTerbilang.slice(1) + " rupiah") : "Nol rupiah";
++    
++    html += "<p style='font-size: 8px; margin: 0;'><strong>Terbilang:</strong> " + teksFinal + "</p>";
++    html += "</div>";
++
++    html += "<div class='summary-wrapper'>";
++    html += "<div class='summary-row'><span>TOTAL:</span><span>Rp " + akumulasiTotalInvoice.toLocaleString('id-ID') + "</span></div>";
++    if (nominalPotongan > 0) html += "<div class='summary-row' style='color: #d32f2f;'><span>POT:</span><span>- Rp " + nominalPotongan.toLocaleString('id-ID') + "</span></div>";
++    if (nominalAdmin > 0) html += "<div class='summary-row' style='color: #1976d2;'><span>ADM:</span><span>+ Rp " + nominalAdmin.toLocaleString('id-ID') + "</span></div>";
++    html += "<div class='summary-row nett-row' style='color: #2e7d32;'><span>NETT:</span><span>Rp " + nettPayment.toLocaleString('id-ID') + "</span></div>";
++    html += "</div>";
++
++    html += "<div class='estimasi-block'>Estimasi Pembayaran: " + estimasiFormatted + "</div>";
++    html += "<div style='font-size: 8px; margin-top: 4px;'>Jakarta, " + tglJakartaFormatted + "</div>";
++
++    html += "<div class='footer-sign'>";
++    html += "<div style='width:60px;'><p style='font-size: 8px;'>Dibuat Oleh,</p><div class='sign-line'>" + (d.admin_name || "ADMIN") + "</div></div>";
++    html += "<div style='width:60px;'><p style='font-size: 8px;'>Penerima,</p><div class='sign-line'>" + (d.supplier ? d.supplier.substring(0,10) : "-") + "</div></div>";
++    html += "</div>";
++
++    html += "</div>";
++  }
++  return html + "</body></html>";
++}
+   </script>
+ </body>
+ </html>
+\ No newline at end of file

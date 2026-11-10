@@ -9,7 +9,7 @@
   <!-- Mencegah Error 404 Favicon -->
   <link rel="icon" href="data:,">
 
-  <!-- Library Eksternal -->
+  <!-- Library Eksternal (Tanpa Duplikasi) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
@@ -18,15 +18,14 @@
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
-  <script src='https://cdn.jsdelivr.net/npm/jsbarcode@3.11.0/dist/JsBarcode.all.min.js'></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.0/dist/JsBarcode.all.min.js"></script>
   
   <!-- Pustaka Resmi Supabase JS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
-
+</head>
   <style>
     /* ==========================================
        1. BASE & GLOBAL STYLES
@@ -13177,21 +13176,92 @@ function pindahKeSebelumnya(currentIndex, formInputs) {
     }
   }
 }
-// --- 1. FUNGSI PENDUKUNG CETAK DARI SUPABASE (AGAR PROSES CETAK UTAMA TIDAK ERROR) ---
+// ==========================================
+// MODUL CETAK & PREVIEW NATIVE SUPABASE (TANPA BARCODE EKSTERNAL)
+// ==========================================
+
+// 1. Fungsi Terbilang Aman
+function terbilang(nilai) {
+  let angka = Math.floor(Math.abs(Number(nilai) || 0));
+  if (angka === 0) return "Nol";
+  
+  const bilangan = [
+    "", "Satu", "Dua", "Tiga", "Empat", "Lima", "Enam", 
+    "Tujuh", "Delapan", "Sembilan", "Sepuluh", "Sebelas"
+  ];
+
+  if (angka < 12) return bilangan[angka];
+  if (angka < 20) return terbilang(angka - 10) + " Belas";
+  if (angka < 100) return terbilang(Math.floor(angka / 10)) + " Puluh " + terbilang(angka % 10);
+  if (angka < 200) return "Seratus " + terbilang(angka - 100);
+  if (angka < 1000) return terbilang(Math.floor(angka / 100)) + " Ratus " + terbilang(angka % 100);
+  if (angka < 2000) return "Seribu " + terbilang(angka - 1000);
+  if (angka < 1000000) return terbilang(Math.floor(angka / 1000)) + " Ribu " + terbilang(angka % 1000);
+  if (angka < 1000000000) return terbilang(Math.floor(angka / 1000000)) + " Juta " + terbilang(angka % 1000000);
+  if (angka < 1000000000000) return terbilang(Math.floor(angka / 1000000000)) + " Milyar " + terbilang(angka % 1000000000);
+  return "";
+}
+
+// 2. Format Tanggal
+function formatTglIndo(tglStr) {
+  if (!tglStr) return "-";
+  const d = new Date(tglStr);
+  if (isNaN(d.getTime())) return String(tglStr).split(' ')[0] || "-";
+  return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function formatTglSingkat(tglStr) {
+  if (!tglStr) return "-";
+  const d = new Date(tglStr);
+  if (isNaN(d.getTime())) return String(tglStr).split(' ')[0] || "-";
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = String(d.getFullYear()).slice(-2);
+  return `${day}/${month}/${year}`;
+}
+
+// 3. Ambil Profil & Logo dari Supabase Storage
+async function getCompanyProfileAndLogo() {
+  let profil = {
+    namaprofil: "PT. RITEL PERKAKAS SOLUSINDO",
+    alamat: "JL. BOULEVARD RAYA BLOK WD2 NO. 21-22, KELAPA GADING TIMUR",
+    alamat2: "JAKUT",
+    kontak: "0852 8783 1833",
+    kontak2: "0813 9981 1042"
+  };
+
+  try {
+    const { data: profData, error: profErr } = await dbClient.from('profil').select('*').limit(1);
+    if (!profErr && profData && profData.length > 0) {
+      profil = { ...profil, ...profData[0] };
+    }
+  } catch (e) {
+    console.warn("Gagal mengambil profil perusahaan:", e);
+  }
+
+  let logoUrl = "";
+  try {
+    const storageRef = dbClient.storage.from('logo').getPublicUrl('logo.jpg');
+    if (storageRef && storageRef.data && storageRef.data.publicUrl) {
+      logoUrl = storageRef.data.publicUrl;
+    }
+  } catch (e) {
+    console.warn("Gagal mendapatkan public URL logo:", e);
+  }
+
+  return { profil, logoUrl };
+}
+
+// 4. Ambil Data Cetak dari Supabase
 async function fetchCetakDataFromSupabase(f) {
   try {
     let query = dbClient.from('Data_Bayar').select('*');
 
-    // Filter berdasarkan list ID yang dicentang atau kriteria pencarian
     if (f.id_list && f.id_list.length > 0) {
       query = query.in('id_bayar', f.id_list);
     } else {
-      if (f.id_payment) {
-        query = query.ilike('id_bayar', `%${f.id_payment.trim()}%`);
-      }
-      if (f.kode_supplier) {
-        query = query.ilike('kode_supp', `%${f.kode_supplier.trim()}%`);
-      }
+      if (f.id_payment) query = query.ilike('id_bayar', `%${f.id_payment.trim()}%`);
+      if (f.kode_supplier) query = query.ilike('kode_supp', `%${f.kode_supplier.trim()}%`);
       if (f.tgl_mulai && f.tgl_selesai) {
         query = query.gte('tanggal', f.tgl_mulai).lte('tanggal', f.tgl_selesai);
       }
@@ -13199,10 +13269,8 @@ async function fetchCetakDataFromSupabase(f) {
 
     const { data: records, error } = await query.order('id', { ascending: false });
     if (error) throw error;
-
     if (!records || records.length === 0) return [];
 
-    // Grouping data baris invoice per id_bayar untuk format template cetak
     const resultMap = {};
 
     records.forEach(row => {
@@ -13211,7 +13279,7 @@ async function fetchCetakDataFromSupabase(f) {
 
       const invData = {
         no: row.no_invoice || "-",
-        tgl: row.tgl_invoice || row.tanggal || "-",
+        tgl: formatTglSingkat(row.tgl_invoice || row.tanggal),
         val: Number(row.nominal || 0),
         cabang: row.cabang || "-",
         jthTempo: row.tgl_jth_tempo || (row.estimasi_bayar ? row.estimasi_bayar.split(' ')[0] : "-")
@@ -13219,7 +13287,6 @@ async function fetchCetakDataFromSupabase(f) {
 
       if (resultMap[id]) {
         resultMap[id].invoices.push(invData);
-        // Total bruto sementara, nanti di template dikurangi potongan & admin
         resultMap[id].total += invData.val;
       } else {
         resultMap[id] = {
@@ -13240,19 +13307,18 @@ async function fetchCetakDataFromSupabase(f) {
       }
     });
 
-    // Kalkulasi nilai Netto akhir per ID (Total Bruto - Potongan + Admin)
     return Object.values(resultMap).map(item => {
-      item.total = item.total - item.potongan + item.admin;
+      item.nett = Math.max(0, item.total - item.potongan + item.admin);
       return item;
     });
 
   } catch (err) {
-    console.error("Gagal mengambil data cetak dari Supabase:", err);
+    console.error("Gagal mengambil data cetak:", err);
     throw err;
   }
 }
 
-// --- 2. KONTROL MODAL CETAK ---
+// 5. Kontrol Modal
 function openModalCetak() {
   const modal = document.getElementById('modalCetakAdvanced');
   if (modal) {
@@ -13267,13 +13333,11 @@ function closeModalCetak() {
     modal.classList.add('hidden');
     modal.classList.remove('flex');
   }
-  // Reset Input agar bersih saat dibuka lagi
   ['printID', 'printSupplier', 'printDateStart', 'printDateEnd'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
 
-  // Reset tabel checklist & uncheck master checkbox
   const chkMaster = document.getElementById('checkAllInvoice');
   if (chkMaster) chkMaster.checked = false;
 
@@ -13288,7 +13352,7 @@ function closeModalCetak() {
   }
 }
 
-// --- 3. FUNGSI PROSES CETAK UTAMA (SUPABASE NATIVE) ---
+// 6. Proses Cetak Utama
 async function prosesCetak(mode) {
   const checkboxes = document.querySelectorAll('.chk-print-item:checked');
   let listID = [];
@@ -13308,13 +13372,16 @@ async function prosesCetak(mode) {
   }
 
   Swal.fire({ 
-    title: 'Memproses Data...', 
+    title: 'Memproses Data & Profil...', 
     allowOutsideClick: false, 
     didOpen: () => { Swal.showLoading(); } 
   });
 
   try {
-    const dataListFinal = await fetchCetakDataFromSupabase(filterParams);
+    const [dataListFinal, companyInfo] = await Promise.all([
+      fetchCetakDataFromSupabase(filterParams),
+      getCompanyProfileAndLogo()
+    ]);
 
     if (!dataListFinal || dataListFinal.length === 0) {
       return Swal.fire('Tidak Ditemukan', 'Tidak ada data yang sesuai dengan kriteria Anda.', 'info');
@@ -13328,7 +13395,7 @@ async function prosesCetak(mode) {
       showConfirmButton: false
     });
 
-    const contentHtml = generateTemplateHTML(dataListFinal);
+    const contentHtml = generateTemplateHTML(dataListFinal, companyInfo.profil, companyInfo.logoUrl);
 
     if (mode === 'preview') {
       bukaJendelaPreview(contentHtml);
@@ -13342,7 +13409,6 @@ async function prosesCetak(mode) {
   }
 }
 
-// --- 4. FUNGSI PREVIEW / PRINT FISIK ---
 function bukaJendelaPreview(contentHtml) {
   const printWindow = window.open('', '_blank');
   if (!printWindow) {
@@ -13357,7 +13423,6 @@ function bukaJendelaPreview(contentHtml) {
   };
 }
 
-// --- 5. FUNGSI EXPORT PDF LANGSUNG ---
 async function downloadPDFLangsung(contentHtml, totalNota) {
   Swal.fire({ 
     title: `Mengekspor ${totalNota} Nota ke PDF...`, 
@@ -13388,7 +13453,7 @@ async function downloadPDFLangsung(contentHtml, totalNota) {
   }
 }
 
-// --- 6. FUNGSI CARI DATA UNTUK CHECKLIST (SUPABASE NATIVE) ---
+// 7. Pencarian Checklist
 async function cariDataUntukChecklist() {
   const printIDVal = document.getElementById('printID')?.value.trim() || '';
   const printSupplierVal = document.getElementById('printSupplier')?.value.trim() || '';
@@ -13409,12 +13474,8 @@ async function cariDataUntukChecklist() {
   try {
     let query = dbClient.from('Data_Bayar').select('*');
 
-    if (printIDVal) {
-      query = query.ilike('id_bayar', `%${printIDVal}%`);
-    }
-    if (printSupplierVal) {
-      query = query.ilike('kode_supp', `%${printSupplierVal}%`);
-    }
+    if (printIDVal) query = query.ilike('id_bayar', `%${printIDVal}%`);
+    if (printSupplierVal) query = query.ilike('kode_supp', `%${printSupplierVal}%`);
     if (printDateStartVal && printDateEndVal) {
       query = query.gte('tanggal', printDateStartVal).lte('tanggal', printDateEndVal);
     }
@@ -13457,7 +13518,6 @@ async function cariDataUntukChecklist() {
       return item;
     });
 
-    // Secara default, saat hasil pencarian muncul, master checkbox dicentang dan semua baris ikut tercentang
     const chkMaster = document.getElementById('checkAllInvoice');
     if (chkMaster) chkMaster.checked = true;
 
@@ -13487,31 +13547,28 @@ async function cariDataUntukChecklist() {
     tBody.innerHTML = html;
 
   } catch (err) {
-    console.error("Gagal memuat data checklist cetak:", err);
+    console.error("Gagal memuat data checklist:", err);
     tBody.innerHTML = `<tr><td colspan="6" class="text-center p-10 text-rose-500 text-[9px]">Error: ${err.message}</td></tr>`;
   }
 }
 
-// --- 7. FUNGSI SELECT ALL / MASTER CHECKBOX (FIXED UNTUK CHECK & UNCHECK) ---
+// 8. Utility Checkbox & Reset
 function toggleSelectAllInvoice(masterCheckbox) {
   const checkboxes = document.querySelectorAll('.chk-print-item');
   checkboxes.forEach(chk => {
     chk.checked = masterCheckbox.checked;
   });
 }
-// --- FUNGSI RESET & KOSONGKAN TAMPILAN TANPA MEMUAT ULANG DATA ---
+
 function resetModalCetak() {
-  // 1. Kosongkan semua inputan teks & date
   ['printID', 'printSupplier', 'printDateStart', 'printDateEnd'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
 
-  // 2. Uncheck master checkbox jika ada
   const chkMaster = document.getElementById('checkAllInvoice');
   if (chkMaster) chkMaster.checked = false;
 
-  // 3. Kembalikan tampilan tabel ke kondisi kosong awal
   const tBody = document.getElementById('bodyChecklistPrint');
   if (tBody) {
     tBody.innerHTML = `
@@ -13522,13 +13579,130 @@ function resetModalCetak() {
       </tr>`;
   }
   
-  // 4. Notifikasi toast kecil
   if (typeof Swal !== 'undefined') {
     const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });
     Toast.fire({ icon: 'info', title: 'Tampilan telah dikosongkan' });
   }
 }
 
+// 9. Generate Template HTML (Tanpa Barcode Eksternal, Menggunakan Kotak ID Teks Bersih)
+function generateTemplateHTML(dataList, profil = {}, logoUrl = "") {
+  let html = "<html><head><style>";
+  html += "body { font-family: Arial, sans-serif; margin: 0; padding: 0; color: #000; line-height: 1.1; background-color: #fff; }";
+  
+  // CSS HEMAT KERTAS
+  html += ".payment-block { page-break-inside: avoid !important; break-inside: avoid; padding: 8px 12px 15px 12px; border-bottom: 2px dashed #000; margin-bottom: 5px; background: #fff; }";
+  
+  // CSS HEADER & KOTAK ID (PENGGANTI BARCODE)
+  html += ".header-wrapper { display: flex; align-items: center; border-bottom: 1.5px solid #000; padding-bottom: 4px; margin-bottom: 5px; }";
+  html += ".header-logo { width: 48px; margin-right: 12px; flex-shrink: 0; }"; 
+  html += ".header-kantor { flex: 1; display: flex; flex-direction: column; justify-content: center; }";
+  html += ".header-kantor h2 { margin: 0; font-size: 14px; font-weight: 900; text-transform: uppercase; line-height: 1.2; }";
+  html += ".header-kantor p { margin: 2px 0; font-size: 7.5px; line-height: 1.3; }";
+  html += ".header-barcode { font-family: monospace; font-weight: bold; font-size: 10px; padding: 4px 8px; background: #f3f4f6; border: 1px solid #000; margin-left: auto; text-align: right; letter-spacing: 1px; }";
+
+  // Judul Form
+  html += ".judul-form { text-align: center; margin: 5px 0; }";
+  html += ".judul-form h3 { margin: 4px; font-size: 11px; text-decoration: underline; font-weight: bold; }";
+  html += ".judul-form p { margin: 4px; font-size: 9px; font-weight: bold; }";
+  
+  // Tabel
+  html += "table { width: 100%; border-collapse: collapse; margin-top: 2px; }";
+  html += "th { border-bottom: 1px solid #000; padding: 3px; font-size: 8px; text-align: left; background-color: #eee; text-transform: uppercase; }";
+  html += "td { padding: 3px; font-size: 8px; border-bottom: 0.5px solid #ddd; }";
+  html += ".text-cabang { font-weight: bold; color: #d32f2f; text-transform: uppercase; }";
+  
+  // Summary & Footer
+  html += ".summary-wrapper { display: flex; flex-direction: column; align-items: flex-end; margin-top: 6px; font-size: 8px; }";
+  html += ".summary-row { display: flex; justify-content: space-between; width: 180px; padding: 1px 0; }";
+  html += ".nett-row { border-top: 1px double #000; padding-top: 2px; margin-top: 2px; font-size: 9px; font-weight: bold; }";
+  
+  // Estimasi & Footer Tanda Tangan
+  html += ".estimasi-block { display: inline-block; background-color: #ffff00; font-weight: bold; padding: 2px 5px; font-size: 8px; margin-top: 5px; border: 1px solid #ccc; -webkit-print-color-adjust: exact; print-color-adjust: exact; }";
+  html += ".footer-sign { display: flex; justify-content: space-between; margin-top: 5px; text-align: center; font-size: 8px; }"; 
+  html += ".sign-line { border-top: 1px solid #000; margin-top: 50px; padding-top: 5px; font-size: 8px; font-weight: bold; }"; 
+  
+  html += "</style></head><body>";
+
+  if (!dataList || dataList.length === 0) return "<html><body><p>Tidak ada data untuk dicetak.</p></body></html>";
+
+  const namaPt = profil.namaprofil || "PT. RITEL PERKAKAS SOLUSINDO";
+  const alamat1 = profil.alamat || "JL. BOULEVARD RAYA BLOK WD2 NO. 21-22, KELAPA GADING TIMUR";
+  const alamat2 = profil.alamat2 || "JAKUT";
+  const kontak1 = profil.kontak || "0852 8783 1833";
+  const kontak2 = profil.kontak2 || "0813 9981 1042";
+
+  for (let i = 0; i < dataList.length; i++) {
+    const d = dataList[i];
+    const estimasiFormatted = formatTglIndo(d.estimasi);
+    const rawTglBuat = d.tglBuat || d.tanggal;
+    const tglJakartaFormatted = formatTglIndo(rawTglBuat);
+
+    html += "<div class='payment-block'>";
+    
+    // HEADER DENGAN LOGO & KOTAK ID TEKS BERSIH
+    html += "<div class='header-wrapper'>";
+    if (logoUrl) {
+      html += "<div class='header-logo'><img src='" + logoUrl + "' style='width:100%;' crossorigin='anonymous'></div>";
+    }
+    html += "<div class='header-kantor'>";
+    html += "<h2>" + namaPt + "</h2>";
+    html += "<p>" + alamat1 + (alamat2 ? ", " + alamat2 : "") + "</p>";
+    html += "<p>WA: " + kontak1 + (kontak2 ? " / " + kontak2 : "") + "</p>";
+    html += "</div>";
+    
+    html += "<div class='header-barcode'>" + (d.id || "-") + "</div>";
+    html += "</div>";
+
+    html += "<div class='judul-form'><h3>FORM PEMBAYARAN</h3><p>ID: " + d.id + "</p></div>";
+    html += "<div style='font-size: 10px; margin-bottom: 5px;'><b>Supplier:</b> " + d.supplier + " | <b>Metode:</b> " + d.jenis + " | <b>Rek:</b> " + d.bank + "</div>";
+
+    html += "<table><thead><tr><th>No. Invoice</th><th>Cabang</th><th>Tgl Inv</th><th>Jatuh Tempo</th><th style='text-align:right;'>Nominal</th></tr></thead><tbody>";
+    
+    let akumulasiTotalInvoice = 0;
+    if (d.invoices && Array.isArray(d.invoices)) {
+      for (let j = 0; j < d.invoices.length; j++) {
+        const inv = d.invoices[j];
+        const nominal = Number(inv.val || 0);
+        akumulasiTotalInvoice += nominal;
+        html += "<tr><td>" + inv.no + "</td><td class='text-cabang'>" + (inv.cabang || "-") + "</td><td>" + inv.tgl + "</td><td>" + (inv.jthTempo || "-") + "</td><td style='text-align:right; font-weight:bold;'>" + nominal.toLocaleString('id-ID') + "</td></tr>";
+      }
+    }
+    html += "</tbody></table>";
+
+    html += "<div style='margin-top: 4px; border-top: 1px dashed #ccc; padding-top: 2px;'>";
+    if (d.catatan) html += "<p style='font-size: 8px; margin: 0;'><strong>Catatan:</strong> " + d.catatan + "</p>";
+    if (d.rekSumber) html += "<p style='font-size: 8px; margin: 0;'><strong>Sumber Rek:</strong> " + d.rekSumber + "</p>";
+
+    const nominalPotongan = Number(d.potongan || 0);
+    const nominalAdmin = Number(d.admin || 0);
+    const nettPayment = Math.max(0, akumulasiTotalInvoice - nominalPotongan + nominalAdmin);
+    
+    const rawTerbilang = terbilang(nettPayment);
+    const teksFinal = rawTerbilang ? (rawTerbilang.charAt(0).toUpperCase() + rawTerbilang.slice(1) + " rupiah") : "Nol rupiah";
+    
+    html += "<p style='font-size: 8px; margin: 0;'><strong>Terbilang:</strong> " + teksFinal + "</p>";
+    html += "</div>";
+
+    html += "<div class='summary-wrapper'>";
+    html += "<div class='summary-row'><span>TOTAL:</span><span>Rp " + akumulasiTotalInvoice.toLocaleString('id-ID') + "</span></div>";
+    if (nominalPotongan > 0) html += "<div class='summary-row' style='color: #d32f2f;'><span>POT:</span><span>- Rp " + nominalPotongan.toLocaleString('id-ID') + "</span></div>";
+    if (nominalAdmin > 0) html += "<div class='summary-row' style='color: #1976d2;'><span>ADM:</span><span>+ Rp " + nominalAdmin.toLocaleString('id-ID') + "</span></div>";
+    html += "<div class='summary-row nett-row' style='color: #2e7d32;'><span>NETT:</span><span>Rp " + nettPayment.toLocaleString('id-ID') + "</span></div>";
+    html += "</div>";
+
+    html += "<div class='estimasi-block'>Estimasi Pembayaran: " + estimasiFormatted + "</div>";
+    html += "<div style='font-size: 8px; margin-top: 4px;'>Jakarta, " + tglJakartaFormatted + "</div>";
+
+    html += "<div class='footer-sign'>";
+    html += "<div style='width:60px;'><p style='font-size: 8px;'>Dibuat Oleh,</p><div class='sign-line'>" + (d.admin_name || "ADMIN") + "</div></div>";
+    html += "<div style='width:60px;'><p style='font-size: 8px;'>Penerima,</p><div class='sign-line'>" + (d.supplier ? d.supplier.substring(0,10) : "-") + "</div></div>";
+    html += "</div>";
+
+    html += "</div>";
+  }
+  return html + "</body></html>";
+}
   </script>
 </body>
 </html>
