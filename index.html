@@ -12148,6 +12148,11 @@ function generateRowHTML(r) {
 }
 // --- C. FUNGSI MODAL & FORM (SUPABASE NATIVE) ---
 // --- 1. MODAL & INISIALISASI ---
+// =========================================================================
+// MODUL PEMBAYARAN (MODAL BAYAR) - SUPABASE ARCHITECTURE
+// =========================================================================
+
+// --- 1. BUKA MODAL BAYAR ---
 function openModalBayar() {
   const id = "PAY-NEW-" + new Date().getTime().toString().slice(-6);
   const mDisplay = document.getElementById('m_id_display');
@@ -12166,6 +12171,14 @@ function openModalBayar() {
   
   loadInitialDataPro();
   renderHistory(); // Otomatis muat 10 riwayat terakhir saat modal dibuka
+}
+
+function closeModalBayar() {
+  const modal = document.getElementById('modalBayar');
+  if (modal) {
+    modal.classList.add('hidden');
+    modal.style.display = 'none';
+  }
 }
 
 // --- FUNGSI GENERATE ID OTOMATIS: PAY-kodesuppYYMMDDXXXX ---
@@ -12194,7 +12207,6 @@ async function loadInitialDataPro() {
 
     const el = document.getElementById('f_sup_select');
     if (el && suppliers) {
-      // Tampilkan hanya kode supplier (misal: PSE)
       el.innerHTML = '<option value="">-- PILIH KODE SUPPLIER --</option>' + 
         suppliers.map(s => `
           <option value="${s.kodesupp}" 
@@ -12259,7 +12271,7 @@ function filterSupplierDropdown(keyword) {
   let count = 0;
 
   for (let i = 1; i < selectEl.options.length; i++) {
-    const optText = selectEl.options[i].text.trim(); // Hanya kode supplier (misal: PSE)
+    const optText = selectEl.options[i].text.trim();
     const optVal = selectEl.options[i].value;
 
     if (optText.toLowerCase().includes(term)) {
@@ -12269,10 +12281,10 @@ function filterSupplierDropdown(keyword) {
       item.innerText = optText;
       
       item.onclick = function() {
-        document.getElementById('f_sup_search').value = optText; // Masukkan kode ke input pencarian
+        document.getElementById('f_sup_search').value = optText;
         selectEl.value = optVal;
         dropdown.classList.add('hidden');
-        handleSupplierChangePro(); // Otomatis isi bank, generate ID, & tarik data hutang
+        handleSupplierChangePro();
       };
       
       dropdown.appendChild(item);
@@ -12301,7 +12313,6 @@ function handleSupplierChangePro() {
 
   const kodeSupp = sel.value;
 
-  // Generate ID baru sesuai format: PAY-kodesuppYYMMDDXXXX
   const newPayId = generatePayId(kodeSupp);
   const fNoBayar = document.getElementById('f_no_bayar');
   const mDisplay = document.getElementById('m_id_display');
@@ -12314,18 +12325,16 @@ function handleSupplierChangePro() {
   const rek = opt.dataset.rek || "";
   const an = opt.dataset.an || "";
 
-  // Mengisi otomatis informasi bank rek a.n dengan format newline
   if (bank && rek) {
-    rekDropdown.innerHTML = `<option value="${bank} | ${rek} | ${an}">${bank}\n${rek} (a/n ${an})</option>`;
+    rekDropdown.innerHTML = `<option value="${bank} | ${rek} | ${an}">${bank} | ${rek} (a/n ${an})</option>`;
   } else {
     rekDropdown.innerHTML = '<option value="-">Tanpa Rekening Terdaftar</option>';
   }
   
-  // Ambil data hutang dari Data_Beli berdasarkan kodesupp yang dipilih
   fetchHutangDetailsPro(kodeSupp);
 }
 
-// --- 4. CARI HUTANG DI "Data_Beli" BERDASARKAN KODESUPP & STATUS 'SIMPAN'/'Simpan' ---
+// --- 4. CARI HUTANG DI "Data_Beli" BERDASARKAN KODESUPP & STATUS ---
 async function fetchHutangDetailsPro(supId) {
   const tbody = document.getElementById('invTableBodyPro');
   if (!tbody) return;
@@ -12341,7 +12350,7 @@ async function fetchHutangDetailsPro(supId) {
 
     if (error) throw error;
 
-    if (!invs || invs.length === 0) {
+    if (!invs || !Array.isArray(invs) || invs.length === 0) {
       tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-rose-500 uppercase text-[9px]">Tidak ada hutang aktif dengan status Simpan</td></tr>`;
       return;
     }
@@ -12351,7 +12360,17 @@ async function fetchHutangDetailsPro(supId) {
       const invNo = i.invbeli || '-';
       const cabangVal = i.ID_Cabang || '-';
       const tglInvVal = i.tglinvbeli || '-';
-      const tempoVal = i.tempo || '0';
+      
+      // Ambil tanggal jatuh tempo (tgljt) dari Data_Beli
+      const tglJtVal = i.tgljt || '-'; 
+
+      // Hitung sisa hari dari hari ini ke tgljt (opsional untuk tampilan teks)
+      let sisaHariText = "-";
+      if (tglJtVal && tglJtVal !== '-') {
+        const diffTime = new Date(tglJtVal) - new Date();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        sisaHariText = diffDays >= 0 ? `${diffDays} hari` : `Lewat ${Math.abs(diffDays)} hr`;
+      }
 
       return `
       <tr class="border-b border-white/5">
@@ -12359,14 +12378,17 @@ async function fetchHutangDetailsPro(supId) {
           <input type="checkbox" class="inv-chk-pro" 
             data-id="${invNo}" 
             data-tglinv="${tglInvVal}" 
-            data-tempo="${tempoVal}" 
+            data-tempo="${tglJtVal}" 
             data-cabang="${cabangVal}" 
             onchange="calcNettoPro(); hitungJadwalOtomatis();">
         </td>
         <td class="p-3 text-white font-bold">${invNo}</td>
         <td class="p-3 text-white/60">${cabangVal}</td>
         <td class="p-3 text-white/40">${tglInvVal}</td>
-        <td class="p-3 text-orange-400">${tempoVal} hari</td>
+        <td class="p-3 text-orange-400 font-mono text-[11px]">
+          <div>${tglJtVal}</div>
+          <div class="text-[9px] text-white/50">${sisaHariText}</div>
+        </td>
         <td class="p-3 text-right text-white/60">Rp ${nom.toLocaleString('id-ID')}</td>
         <td class="p-3 text-right">
           <input type="text" 
@@ -12384,49 +12406,40 @@ async function fetchHutangDetailsPro(supId) {
 }
 
 // --- D. FUNGSI KALKULASI & JADWAL ---
-// --- FORMAT PEMISAH TITIK RIBUAN OTOMATIS SAAT KETIK ---
 function formatRupiahInput(input) {
-  let val = input.value.replace(/[^0-9,]/g, ""); // Hanya izinkan angka dan koma
+  let val = input.value.replace(/[^0-9,]/g, "");
   let parts = val.split(",");
-  let integerPart = parts[0].replace(/\./g, ""); // Hapus titik lama
+  let integerPart = parts[0].replace(/\./g, "");
   
   if (integerPart) {
     integerPart = Number(integerPart).toLocaleString('id-ID');
   }
   
-  // Gabungkan kembali dengan bagian desimal jika ada
   input.value = parts.length > 1 ? integerPart + "," + parts[1] : integerPart;
   
-  // Panggil ulang kalkulasi netto setiap kali nilai berubah
   if (typeof calcNettoPro === "function") {
     calcNettoPro();
   }
 }
 
-// --- FUNGSI KALKULASI NETTO YANG AKURAT ---
 function calcNettoPro() {
   let subTotal = 0;
   
-  // 1. Jumlahkan semua nota yang dicentang
   document.querySelectorAll('.inv-chk-pro:checked').forEach(chk => {
      const row = chk.closest('tr');
      const inputEl = row.querySelector('.pay-input-pro');
      if (!inputEl) return;
      
-     // Bersihkan titik ribuan dan ubah koma desimal jadi titik standar JS
      let cleanVal = inputEl.value.replace(/\./g, "").replace(",", ".");
      subTotal += parseFloat(cleanVal) || 0;
   });
   
-  // 2. Ambil Potongan (hanya 1 kali)
   const rawPotongan = document.getElementById('f_disc_pro')?.value || "0";
   const potongan = parseFloat(rawPotongan.replace(/\./g, "").replace(",", ".")) || 0;
   
-  // 3. Ambil Biaya Admin (hanya 1 kali)
   const rawAdmin = document.getElementById('f_admin_pro')?.value || "0";
   const admin = parseFloat(rawAdmin.replace(/\./g, "").replace(",", ".")) || 0;
   
-  // 4. Rumus Netto: Total Bayar (Subtotal) - Potongan + Admin
   const netto = subTotal - potongan + admin;
   
   const txtTotal = document.getElementById('txt_total_pro');
@@ -12435,7 +12448,8 @@ function calcNettoPro() {
   if (txtTotal) txtTotal.innerText = "Rp " + subTotal.toLocaleString('id-ID', {minimumFractionDigits: 2});
   if (txtNetto) txtNetto.innerText = "Rp " + Math.max(0, netto).toLocaleString('id-ID', {minimumFractionDigits: 2});
 }
-// --- RENDER 10 RIWAYAT TERAKHIR (AMBIL LANGSUNG DARI SUPABASE) ---
+
+// --- RENDER 10 RIWAYAT TERAKHIR (DARI SUPABASE Data_Bayar) ---
 async function renderHistory() {
   const container = document.getElementById('historyListPro');
   if (!container) return;
@@ -12443,11 +12457,10 @@ async function renderHistory() {
   container.innerHTML = '<div class="text-white/20 p-2 text-center text-[9px]">Memuat riwayat...</div>';
 
   try {
-    // Ambil 10 data terakhir dari tabel Data_Bayar di Supabase
     const { data: historyData, error } = await dbClient
       .from('Data_Bayar')
       .select('id_bayar, nominal, tanggal')
-      .order('id', { ascending: false })
+      .order('id_bayar', { ascending: false })
       .limit(10);
 
     if (error) throw error;
@@ -12460,7 +12473,7 @@ async function renderHistory() {
     container.innerHTML = historyData.map(item => `
       <div class="flex justify-between border-b border-white/5 pb-1 text-[9px]">
         <span class="font-mono text-white/50">${item.id_bayar}</span>
-        <span class="text-emerald-400 font-bold">Rp ${Number(item.nominal || 0).toLocaleString('id-ID')}</span>
+        <span class="emerald-400 font-bold">Rp ${Number(item.nominal || 0).toLocaleString('id-ID')}</span>
       </div>
     `).join('');
 
@@ -12470,26 +12483,42 @@ async function renderHistory() {
   }
 }
 
+// --- HITUNG JADWAL OTOMATIS ---
 function hitungJadwalOtomatis() {
   const cbs = document.querySelectorAll('.inv-chk-pro:checked');
   const info = document.getElementById('info_jadwal');
   if (!info) return;
-  if (cbs.length === 0) { info.innerText = ""; info.dataset.iso = ""; return; }
+  
+  if (cbs.length === 0) { 
+    info.innerText = ""; 
+    info.dataset.iso = ""; 
+    return; 
+  }
 
+  // 1. Ambil tanggal jatuh tempo terjauh (tgljt) dari checkbox yang dicentang
   let tglMax = new Date(Math.max(...Array.from(cbs).map(c => new Date(c.dataset.tempo))));
-  const jenis = document.getElementById('f_jenis_bayar').value;
+  if (isNaN(tglMax.getTime())) {
+    tglMax = new Date();
+  }
+
+  const jenis = document.getElementById('f_jenis_bayar')?.value || "Transfer";
+  // Transfer = Senin (1), Giro = Selasa (2)
   const targetDay = (jenis === "Transfer") ? 1 : 2; 
   
   let tglBayar = new Date(tglMax);
-  let hariJatuhTempo = tglMax.getDay(); 
+  let hariJatuhTempo = tglMax.getDay(); // 0:Minggu, 1:Senin, 2:Selasa, 3:Rabu, 4:Kamis, 5:Jumat, 6:Sabtu
 
+  // 2. Logika Penentuan Minggu Pembayaran
+  // Jika jatuh tempo di hari Rabu(3) s.d. Sabtu(6), geser ke minggu berikutnya (+7 hari)
   if (hariJatuhTempo >= 3 && hariJatuhTempo <= 6) {
     tglBayar.setDate(tglBayar.getDate() + 7);
   }
 
+  // 3. Set ke hari Senin/Selasa yang sesuai di minggu tersebut
   let selisih = targetDay - tglBayar.getDay();
   tglBayar.setDate(tglBayar.getDate() + selisih);
 
+  // 4. Proteksi Anti-Backdate (Jika hasil perhitungan jatuh di masa lalu)
   const hariIni = new Date();
   hariIni.setHours(0, 0, 0, 0);
 
@@ -12502,6 +12531,7 @@ function hitungJadwalOtomatis() {
     tglBayar = tglMaju;
   }
 
+  // 5. Format ISO untuk disimpan ke database & Teks UI
   let yyyy = tglBayar.getFullYear();
   let mm = String(tglBayar.getMonth() + 1).padStart(2, '0');
   let dd = String(tglBayar.getDate()).padStart(2, '0');
@@ -12510,12 +12540,12 @@ function hitungJadwalOtomatis() {
   info.innerText = "Estimasi Bayar: " + tglBayar.toLocaleDateString('id-ID', { 
     weekday: 'long', 
     day: 'numeric', 
-    month: 'long' 
+    month: 'long',
+    year: 'numeric'
   });
 }
 
 // --- E. FUNGSI AKSI (SIMPAN DATA KE SUPABASE) ---
-// --- E. FUNGSI AKSI (SIMPAN 1 BARIS PER INVOICE KE SUPABASE) ---
 async function saveOnly() {
   const btn = document.getElementById('btnSimpan');
   const selectedInvs = Array.from(document.querySelectorAll('.inv-chk-pro:checked'));
@@ -12525,7 +12555,6 @@ async function saveOnly() {
     return; 
   }
 
-  // --- PROTEKSI NO INVOICE GANDA ---
   const checkDuplicate = selectedInvs.map(chk => chk.dataset.id);
   const isDuplicate = checkDuplicate.some((item, index) => checkDuplicate.indexOf(item) !== index);
   
@@ -12548,7 +12577,6 @@ async function saveOnly() {
   const bankRekAnVal = document.getElementById('f_rek_tujuan_sup')?.value || "";
   const catatanVal = document.getElementById('f_note_bayar')?.value || "";
   
-  // Ambil tanggal estimasi untuk kolom tgl_jth_tempo
   const estimasiIso = document.getElementById('info_jadwal').dataset.iso || null;
   const tglEstimasiSaja = estimasiIso ? estimasiIso.split(' ')[0] : null;
   
@@ -12559,7 +12587,6 @@ async function saveOnly() {
   }
 
   try {
-    // 1. Petakan setiap item yang dicentang menjadi satu objek baris tersendiri
     const rowsToInsert = selectedInvs.map(chk => {
       const row = chk.closest('tr');
       const inputEl = row.querySelector('.pay-input-pro');
@@ -12570,32 +12597,27 @@ async function saveOnly() {
       const tglInv = chk.dataset.tglinv || null;
       const cabangVal = chk.dataset.cabang || "-";
 
-      // Jika ada beberapa item, potongan & admin bisa didistribusikan atau dicatat proporsional / pada baris pertama. 
-      // Sesuai permintaan, kita catat nominal bersih per baris (atau nilai bayar bersih nota tersebut).
-      const itemNetto = cleanAmt; 
-
       return {
         id_bayar: idBayarVal,
         tanggal: tglBayarVal,
         tgl_invoice: tglInv,
         kode_supp: kodeSuppVal,
         jenis: jenisVal,
-        sumber_rek: sumberRekVal,        // Tercatat dengan benar
+        sumber_rek: sumberRekVal,
         bank_rek_an: bankRekAnVal,
-        catatan: catatanVal,             // Tercatat dengan benar
-        cabang: cabangVal,               // Tercatat per baris invoice
+        catatan: catatanVal,
+        cabang: cabangVal,
         potongan: potonganClean,
         admin: adminClean,
         username: userName,
         estimasi_bayar: estimasiIso,
         tgl_jth_tempo: tglEstimasiSaja,
         status: 'Draft',
-        nominal: itemNetto,              // Nominal per 1 baris invoice
-        no_invoice: invNo                // 1 baris 1 nomor invoice
+        nominal: cleanAmt,
+        no_invoice: invNo
       };
     });
 
-    // 2. Eksekusi insert banyak baris sekaligus ke Supabase (Data_Bayar)
     const { error: insertError } = await dbClient
       .from('Data_Bayar')
       .insert(rowsToInsert);
@@ -12604,20 +12626,14 @@ async function saveOnly() {
 
     showUINotif("Data pembayaran berhasil disimpan (per baris invoice)!", "success");
     
-    // 3. Refresh Data Tabel Utama & History secara real-time
-    if (typeof loadDaftarPembayaran === "function") {
-      await loadDaftarPembayaran();
-    }
     renderHistory();
 
-    // 4. UPDATE UI TOMBOL MENJADI TERSIMPAN
     if (btn) {
       btn.disabled = true;
       btn.innerHTML = '<i class="fas fa-check-circle mr-2"></i>DATA TERSIMPAN';
       btn.className = "p-4 bg-gray-600 text-white rounded-lg text-[10px] font-black w-full cursor-not-allowed";
     }
 
-    // 5. KUNCI ROW DI TABEL MODAL
     document.querySelectorAll('#invTableBodyPro tr').forEach(row => {
       const chk = row.querySelector('.inv-chk-pro');
       if (chk && chk.checked) {
@@ -12630,7 +12646,6 @@ async function saveOnly() {
       }
     });
 
-    // 6. RESET INPUT PENDUKUNG
     if(document.getElementById('f_note_bayar')) document.getElementById('f_note_bayar').value = "";
     if(document.getElementById('f_disc_pro')) document.getElementById('f_disc_pro').value = "0";
     if(document.getElementById('f_admin_pro')) document.getElementById('f_admin_pro').value = "0";
@@ -12658,7 +12673,6 @@ function toggleAllCheckboxes(source) {
   calcNettoPro();
   hitungJadwalOtomatis();
 }
-
 function resetFormBaru() {
   const fNoBayar = document.getElementById('f_no_bayar');
   const mIdDisp = document.getElementById('m_id_display');
@@ -14439,6 +14453,271 @@ async function editStatusDate(id, statusField, currentTanggal) {
         }
     });
 }
+// =========================================================================
+// 1. HELPER: FORMAT PEMISAH RIBUAN & ATTACH EVENT
+// =========================================================================
+function formatInputRibuan(el) {
+    let cursorPosition = el.selectionStart;
+    let oldLength = el.value.length;
+    let val = el.value.replace(/\D/g, "");
+    el.value = val ? parseInt(val, 10).toLocaleString('id-ID') : "";
+    let newLength = el.value.length;
+    cursorPosition = cursorPosition + (newLength - oldLength);
+    try { el.setSelectionRange(cursorPosition, cursorPosition); } catch (e) {}
+}
+
+function attachCalculationEvents() {
+    const ids = ['cKgdTunai', 'cKgdDbBca', 'cKgdCrBca', 'cKgdCic', 'cKgdQr', 'cCdkTunai', 
+                 'gKgd', 'gCdk', 'gPkp', 'gCpy', 'tKgd', 'tCdk', 'tPkp', 'tCpy', 
+                 'cOffice', 'dOffice'];
+
+    ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            // Hapus event lama agar tidak menumpuk, lalu pasang yang baru
+            el.removeEventListener('input', handleInputRibuan);
+            el.addEventListener('input', handleInputRibuan);
+        }
+    });
+}
+
+function handleInputRibuan() {
+    formatInputRibuan(this);
+    hitungTotalFinanceDebitCredit();
+}
+
+function getValue(id) {
+    const el = document.getElementById(id);
+    return el ? parseFloat(el.value.replace(/\./g, "").replace(/,/g, "")) || 0 : 0;
+}
+
+function hitungTotalFinanceDebitCredit() {
+    const creditIds = ['cKgdTunai', 'cKgdDbBca', 'cKgdCrBca', 'cKgdCic', 'cKgdQr', 'cCdkTunai', 
+                       'gKgd', 'gCdk', 'gPkp', 'gCpy', 'tKgd', 'tCdk', 'tPkp', 'tCpy', 'cOffice'];
+    
+    let creditTotal = creditIds.reduce((sum, id) => sum + getValue(id), 0);
+    let debitTotal = getValue('dOffice');
+
+    const elTotCredit = document.getElementById("totFinCredit");
+    const elTotDebit = document.getElementById("totFinDebit");
+    
+    if (elTotCredit) elTotCredit.innerText = "Rp " + creditTotal.toLocaleString('id-ID');
+    if (elTotDebit) elTotDebit.innerText = "Rp " + debitTotal.toLocaleString('id-ID');
+}
+
+
+// =========================================================================
+// 2. LOAD DROPDOWN REKENING DARI REF_REK
+// =========================================================================
+async function loadRefRekeningDropdown() {
+    const selectRek = document.getElementById('finMainRekening');
+    if (!selectRek) return;
+
+    selectRek.innerHTML = '<option value="">Memuat Rekening...</option>';
+
+    try {
+        const { data, error } = await dbClient.from('Ref_Rek').select('*');
+        if (error) throw error;
+
+        selectRek.innerHTML = '<option value="">-- Pilih Rekening --</option>';
+        
+        if (data && data.length > 0) {
+            data.forEach(row => {
+                const namaRek = row.rekbank || row.nama_rekening || row.rekening;
+                if (namaRek) {
+                    let opt = document.createElement('option');
+                    opt.value = namaRek; 
+                    opt.textContent = namaRek;
+                    selectRek.appendChild(opt);
+                }
+            });
+        } else {
+            const fallbackRek = ["BCA 2212", "BCA 6702", "Kas Besar", "Mandiri", "BNI"];
+            fallbackRek.forEach(rek => {
+                let opt = document.createElement('option');
+                opt.value = rek; opt.textContent = rek;
+                selectRek.appendChild(opt);
+            });
+        }
+    } catch (err) {
+        console.error("Gagal memuat Ref_Rek, menggunakan default:", err);
+        const fallbackRek = ["BCA 2212", "BCA 6702", "Kas Besar", "Mandiri", "BNI"];
+        selectRek.innerHTML = '<option value="">-- Pilih Rekening --</option>';
+        fallbackRek.forEach(rek => {
+            let opt = document.createElement('option');
+            opt.value = rek; opt.textContent = rek;
+            selectRek.appendChild(opt);
+        });
+    }
+}
+
+
+// =========================================================================
+// 3. FUNGSI RESET FORM & PASANG KEMBALI EVENT LISTENER
+// =========================================================================
+function resetFinanceForm() {
+    const idInputEl = document.getElementById("currentIdInput");
+    const tglEl = document.getElementById("finMainTanggal");
+    const rekEl = document.getElementById("finMainRekening");
+    const cKetEl = document.getElementById('cKet');
+    const dKetEl = document.getElementById('dKet');
+
+    if (idInputEl) idInputEl.value = "";
+    if (tglEl) tglEl.value = "";
+    if (rekEl) rekEl.value = "";
+    if (cKetEl) cKetEl.value = "";
+    if (dKetEl) dKetEl.value = "";
+    
+    // Kembalikan tombol ke mode SIMPAN normal
+    const btn = document.getElementById("btnSimpanFinance");
+    const btnText = document.getElementById("btnSimpanText");
+    
+    if (btnText) btnText.innerText = "SIMPAN";
+    if (btn) {
+        btn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+        btn.classList.add('bg-amber-600', 'hover:bg-amber-700');
+    }
+    
+    // Kosongkan seluruh input nominal angka
+    const resetIds = ['cKgdTunai', 'cKgdDbBca', 'cKgdCrBca', 'cKgdCic', 'cKgdQr', 'cCdkTunai', 
+                       'gKgd', 'gCdk', 'gPkp', 'gCpy', 'tKgd', 'tCdk', 'tPkp', 'tCpy', 
+                       'cOffice', 'dOffice'];
+                       
+    resetIds.forEach(id => { 
+        const el = document.getElementById(id);
+        if(el) el.value = ""; 
+    });
+
+    hitungTotalFinanceDebitCredit();
+    
+    // Muat ulang dropdown rekening agar tetap siap dipilih setelah reset
+    loadRefRekeningDropdown();
+    // Pasang kembali event listener pemisah ribuan
+    attachCalculationEvents();
+}
+
+
+// =========================================================================
+// 4. MODUL SIMPAN & UPDATE FINANCE KE SUPABASE (TABEL: Data_Mutasi)
+// =========================================================================
+async function simpanBatchFinance() {
+    const idInputan = document.getElementById("currentIdInput").value.trim();
+    const isUpdate = idInputan !== "";
+    const tgl = document.getElementById("finMainTanggal").value;
+    const rek = document.getElementById("finMainRekening").value;
+    
+    if (!tgl || !rek) {
+        Swal.fire({ icon: 'warning', title: 'Data Belum Lengkap', text: 'Tanggal & Rekening wajib diisi!', background: '#1a1d23', color: '#fff' });
+        return;
+    }
+
+    const creditIds = ['cKgdTunai', 'cKgdDbBca', 'cKgdCrBca', 'cKgdCic', 'cKgdQr', 'cCdkTunai', 
+                       'gKgd', 'gCdk', 'gPkp', 'gCpy', 'tKgd', 'tCdk', 'tPkp', 'tCpy', 'cOffice'];
+    let totalCreditCheck = creditIds.reduce((sum, id) => sum + getValue(id), 0);
+    let totalDebitCheck = getValue('dOffice');
+
+    let finalIdRef = idInputan;
+    if (!isUpdate) {
+        let dateObj = new Date(tgl);
+        if (isNaN(dateObj.getTime())) dateObj = new Date();
+        
+        let yy = String(dateObj.getFullYear()).slice(-2);
+        let mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+        let random4Digits = Math.floor(1000 + Math.random() * 9000);
+        
+        let prefix = (totalDebitCheck > 0 && totalCreditCheck === 0) ? "DB" : "CR";
+        finalIdRef = `${prefix}${yy}${mm}${random4Digits}`;
+    }
+
+    const payloadSupabase = {
+        id_mutasi: finalIdRef,
+        tanggal: tgl,
+        rek_bank: rek,
+        kgd_tunai: getValue('cKgdTunai'),
+        kgd_db_bca: getValue('cKgdDbBca'),
+        kgd_cr_bca: getValue('cKgdCrBca'),
+        kgd_cicilan_bca: getValue('cKgdCic'),
+        kgd_qr_bca: getValue('cKgdQr'),
+        cdk_tunai: getValue('cCdkTunai'),
+        grabmart_kgd: getValue('gKgd'),
+        grabmart_cdk: getValue('gCdk'),
+        grabmart_pkp: getValue('gPkp'),
+        grabmart_cpy: getValue('gCpy'),
+        transfer_kgd: getValue('tKgd'),
+        transfer_cdk: getValue('tCdk'),
+        transfer_pkp: getValue('tPkp'),
+        transfer_cpy: getValue('tCpy'),
+        office: getValue('cOffice'),
+        keterangan: document.getElementById('cKet').value,
+        office_debit: getValue('dOffice'),
+        keterangan_debit: document.getElementById('dKet').value
+    };
+
+    Swal.fire({ 
+        title: isUpdate ? 'Update Data?' : 'Simpan Data?', 
+        text: `Menyimpan ke Data_Mutasi (${finalIdRef})`,
+        icon: 'question', 
+        showCancelButton: true,
+        confirmButtonText: 'Ya, Simpan',
+        cancelButtonText: 'Batal',
+        background: '#1a1d23',
+        color: '#ffffff'
+    }).then(async (result) => {
+        if (result.isConfirmed) {
+            Swal.fire({ title: 'Menyimpan ke Supabase...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+            try {
+                let error;
+                if (isUpdate) {
+                    const { err } = await dbClient
+                        .from('Data_Mutasi')
+                        .update(payloadSupabase)
+                        .eq('id_mutasi', finalIdRef);
+                    error = err;
+                } else {
+                    const { err } = await dbClient
+                        .from('Data_Mutasi')
+                        .insert([payloadSupabase]);
+                    error = err;
+                }
+
+                if (error) throw error;
+
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Berhasil',
+                    text: isUpdate ? 'Data mutasi berhasil diperbarui' : 'Data mutasi berhasil disimpan ke Supabase',
+                    timer: 1500,
+                    showConfirmButton: false,
+                    background: '#1a1d23',
+                    color: '#ffffff'
+                });
+
+                // RESET HALAMAN BERSIH KEMBALI OTOMATIS
+                resetFinanceForm();
+                
+                if (typeof loadFinanceHistoryTable === 'function') loadFinanceHistoryTable();
+                if (typeof loadOwnerDashboardData === 'function') loadOwnerDashboardData();
+
+            } catch (err) {
+                console.error("Gagal menyimpan ke Supabase:", err);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Gagal Menyimpan',
+                    text: err.message || 'Terjadi kesalahan pada database Supabase.',
+                    background: '#1a1d23',
+                    color: '#ffffff'
+                });
+            }
+        }
+    });
+}
+
+// Inisialisasi saat DOM Pertama Kali Dimuat
+document.addEventListener('DOMContentLoaded', () => {
+    loadRefRekeningDropdown();
+    attachCalculationEvents();
+});
   </script>
 </body>
 </html>
