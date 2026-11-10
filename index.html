@@ -12894,9 +12894,13 @@ async function editPaymentPro(payId) {
       selectSumber.value = ""; 
     }
 
-    // 2. Tampilkan Tanggal Estimasi / Jatuh Tempo
-    if (firstRow.tgl_jth_tempo || firstRow.estimasi_bayar) {
-      let tglVal = firstRow.tgl_jth_tempo || firstRow.estimasi_bayar.split(' ')[0];
+    // 2. Tampilkan Tanggal Estimasi Murni dari Kolom "estimasi_bayar"
+    if (firstRow.estimasi_bayar) {
+      // Ambil bagian tanggal saja (YYYY-MM-DD) dari string timestamp Supabase
+      let tglVal = String(firstRow.estimasi_bayar).split('T')[0].split(' ')[0];
+      document.getElementById('f_rev_tgl_est').value = tglVal;
+    } else if (firstRow.tgl_jth_tempo) {
+      let tglVal = String(firstRow.tgl_jth_tempo).split('T')[0].split(' ')[0];
       document.getElementById('f_rev_tgl_est').value = tglVal;
     } else {
       document.getElementById('f_rev_tgl_est').value = new Date().toISOString().split('T')[0];
@@ -12907,7 +12911,7 @@ async function editPaymentPro(payId) {
     document.getElementById('f_rev_potongan').value = (firstRow.potongan && firstRow.potongan > 0) ? Number(firstRow.potongan).toLocaleString('id-ID') : '';
     document.getElementById('f_rev_admin').value = (firstRow.admin && firstRow.admin > 0) ? Number(firstRow.admin).toLocaleString('id-ID') : '';
 
-    // 4. Tampilkan Detail Invoice (karena 1 baris per invoice)
+    // 4. Tampilkan Detail Invoice
     const tbody = document.getElementById('rev_table_body');
     tbody.innerHTML = rows.map(r => `
       <tr class="border-b border-white/5">
@@ -12916,11 +12920,9 @@ async function editPaymentPro(payId) {
       </tr>
     `).join('');
 
-    // 5. Hitung Total Keseluruhan (Jumlah nominal baris + admin - potongan)
+    // 5. Hitung Total Keseluruhan
     let totalBruto = rows.reduce((acc, curr) => acc + Number(curr.nominal || 0), 0);
-    const potonganVal = Number(firstRow.potongan || 0);
-    const adminVal = Number(firstRow.admin || 0);
-    let totalAkhir = totalBruto; // Sesuai struktur penyimpanan netto per baris
+    let totalAkhir = totalBruto;
 
     const tfoot = document.getElementById('rev_table_foot');
     tfoot.innerHTML = `
@@ -13826,13 +13828,13 @@ async function fetchAllData(tableName, selectQuery = '*') {
   return allData;
 }
 
-// 2. Helper: Tentukan Rentang 5 Minggu (Estimasi Bayar sebagai Pemisah)
+// 2. Helper: Tentukan Rentang 5 Minggu (Estimasi Bayar Murni Berbasis Tanggal YYYY-MM-DD)
 function getWeeklyDateRanges() {
   const today = new Date();
   const dayOfWeek = today.getDay(); // 0 = Minggu, 1 = Senin, dst.
   
   const diffToMonday = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
-  const currentMonday = new Date(today.setDate(diffToMonday));
+  const currentMonday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1));
   currentMonday.setHours(0, 0, 0, 0);
 
   const weeks = [];
@@ -13840,10 +13842,11 @@ function getWeeklyDateRanges() {
   for (let i = -2; i <= 2; i++) {
     const start = new Date(currentMonday);
     start.setDate(currentMonday.getDate() + (i * 7));
+    start.setHours(0, 0, 0, 0);
     
     const end = new Date(start);
     end.setDate(start.getDate() + 6);
-    end.setHours(23, 59, 59, 999);
+    end.setHours(0, 0, 0, 0); // Di-set 0 agar murni perbandingan tanggal (YYYY-MM-DD)
 
     const labelNames = ["Minggu -2", "Minggu -1", "Minggu Ini", "Minggu +1", "Minggu +2"];
     const formatDateStr = (d) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -14055,7 +14058,7 @@ async function loadOwnerDashboardData() {
   }
 }
 
-// 4. Kalkulasi Data Matriks Mingguan Berdasarkan estimasi_bayar
+// 4. Kalkulasi Data Matriks Mingguan (Murni Bandingkan Tanggal YYYY-MM-DD, Abaikan Jam)
 function generateWeeklyMatrix(dataBayar, dataMutasi) {
   const weeks = getWeeklyDateRanges();
 
@@ -14064,12 +14067,33 @@ function generateWeeklyMatrix(dataBayar, dataMutasi) {
     const jenis = String(row.jenis || "").trim().toUpperCase();
     const status = String(row.status || "").trim().toUpperCase();
     
-    // Pemisah rentang minggu menggunakan estimasi_bayar
+    // Ambil tanggal mentah dari estimasi_bayar, tanggal, atau tgl_jth_tempo
     const rawTgl = row.estimasi_bayar || row.tanggal || row.tgl_jth_tempo;
     if (!rawTgl) return;
-    const tglItem = new Date(rawTgl);
+
+    // Normalisasi string tanggal murni mengambil bagian YYYY-MM-DD-nya saja
+    const cleanDateStr = String(rawTgl).substring(0, 10);
+    const parts = cleanDateStr.split(/[\/\-\s]/);
+    if (parts.length < 3) return;
+
+    let year, month, day;
+    if (parts[0].length === 4) {
+      year = parseInt(parts[0], 10);
+      month = parseInt(parts[1], 10) - 1;
+      day = parseInt(parts[2], 10);
+    } else {
+      day = parseInt(parts[0], 10);
+      month = parseInt(parts[1], 10) - 1;
+      year = parseInt(parts[2], 10);
+    }
+
+    // Buat objek Date dengan jam di-nol-kan secara presisi
+    const tglItem = new Date(year, month, day);
+    tglItem.setHours(0, 0, 0, 0);
+
     if (isNaN(tglItem.getTime())) return;
 
+    // Cari minggu yang mencakup tanggal tersebut (inklusif start s.d end)
     const targetWeek = weeks.find(w => tglItem >= w.start && tglItem <= w.end);
     if (!targetWeek) return;
 
