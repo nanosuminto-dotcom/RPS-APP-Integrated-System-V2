@@ -10965,27 +10965,62 @@ async function prosesImportBeli() {
         throw new Error("File kosong atau tidak ada data ditemukan.");
       }
 
-      // 1. Ambil data yang sudah ada untuk cek eksistensi invbeli & statusbeli aslinya di database
-      const checkRes = await fetch(`${DB_URL}/rest/v1/Data_Beli?select=invbeli,statusbeli`, {
+      // 1. Ambil referensi namalog dari tabel 'supp' berdasarkan kodesupp
+      const suppRes = await fetch(`${DB_URL}/rest/v1/supp?select=kodesupp,namalog`, {
         headers: {
           "apikey": DB_KEY,
           "Authorization": `Bearer ${DB_KEY}`,
           "Content-Type": "application/json"
         }
       });
-      const existingData = checkRes.ok ? await checkRes.json() : [];
-      const existingMap = {};
-      existingData.forEach(item => {
-        if (item.invbeli) {
-          // Simpan status asli yang ada di database agar tidak tertimpa saat update
-          existingMap[item.invbeli.trim().toUpperCase()] = item.statusbeli || 'SIMPAN';
+      const suppData = suppRes.ok ? await suppRes.json() : [];
+      const suppLogMap = {};
+      suppData.forEach(s => {
+        if (s.kodesupp) {
+          suppLogMap[s.kodesupp.trim().toUpperCase()] = s.namalog || '';
         }
       });
 
-      let insertedCount = 0;
-      let updatedCount = 0;
+      // 2. Ambil SELURUH data eksisting dari Data_Beli menggunakan pagination
+      const fetchAllExistingRows = async (baseUrl) => {
+        let allRows = [];
+        let limit = 1000;
+        let offset = 0;
+        let hasMore = true;
 
-      // 2. Loop dan eksekusi POST (Insert) atau PATCH (Update)
+        while (hasMore) {
+          const sep = baseUrl.includes('?') ? '&' : '?';
+          const url = `${baseUrl}${sep}select=invbeli,statusbeli&limit=${limit}&offset=${offset}`;
+          const res = await fetch(url, {
+            headers: { "apikey": DB_KEY, "Authorization": `Bearer ${DB_KEY}` }
+          });
+          const data = await res.json();
+
+          if (Array.isArray(data) && data.length > 0) {
+            allRows = allRows.concat(data);
+            if (data.length < limit) hasMore = false;
+            else offset += limit;
+          } else {
+            hasMore = false;
+          }
+        }
+        return allRows;
+      };
+
+      const existingData = await fetchAllExistingRows(`${DB_URL}/rest/v1/Data_Beli`);
+      const existingStatusMap = {};
+      existingData.forEach(item => {
+        if (item.invbeli) {
+          existingStatusMap[String(item.invbeli).trim().toUpperCase()] = item.statusbeli || 'SIMPAN';
+        }
+      });
+
+      const insertPayloads = []; 
+      const updatePayloads = []; 
+      let newCount = 0;
+      let updateCount = 0;
+
+      // 3. Mapping baris dari Excel secara presisi
       for (let row of rows) {
         const normalizedRow = {};
         Object.keys(row).forEach(k => {
@@ -11007,90 +11042,120 @@ async function prosesImportBeli() {
 
         const kodesupp = String(getVal(['kodesupp', 'kode_supp', 'kode'])).trim();
         const namasupp = String(getVal(['namasupp', 'nama_supp', 'nama'])).trim();
-        const ID_Cabang = String(getVal(['id_cabang', 'ID_Cabang', 'cabang'])).trim().toUpperCase();
+        const ID_Cabang = String(getVal(['id_cabang', 'id_cabang', 'cabang'])).trim().toUpperCase();
         
         const tglInvRaw = getVal(['tglinvbeli', 'tglinv', 'tgl_inv', 'tanggal', 'tgl']);
         const formattedDate = parseExcelDateCustom(tglInvRaw);
 
+        // Menangkap dan memformat Tanggal Jatuh Tempo (tgljt) dari Excel
         const tglJTRaw = getVal(['tgljt', 'tgl_jt', 'jatuh_tempo']);
         const formattedJT = parseExcelDateCustom(tglJTRaw);
 
+        // Membersihkan format angka
         let nomBeliVal = getVal(['nombeli', 'nom_beli', 'nilai', 'nominal']) || 0;
         if (typeof nomBeliVal === 'string') {
-          nomBeliVal = parseFloat(nomBeliVal.replace(/[^0-9.]/g, '')) || 0;
+          nomBeliVal = parseFloat(nomBeliVal.replace(/\./g, '').replace(',', '.')) || 0;
+        } else {
+          nomBeliVal = Number(nomBeliVal) || 0;
         }
 
+        const kodeKey = kodesupp.toUpperCase();
+        const matchedNamaLog = suppLogMap[kodeKey] || '';
+
         const invKey = invbeli.toUpperCase();
-        const isExist = existingMap.hasOwnProperty(invKey);
+        const isExist = existingStatusMap.hasOwnProperty(invKey);
 
         if (isExist) {
-          // KONDISI JIKA INVBELI SUDAH ADA: Update semua kolom baru dari Excel, KECUALI statusbeli
-          const savedStatus = existingMap[invKey]; // Pertahankan status yang sudah tersimpan di database
-          const updatePayload = {
-            kodesupp: kodesupp,
-            namasupp: namasupp,
-            ID_Cabang: ID_Cabang,
-            nombeli: isNaN(nomBeliVal) ? 0 : nomBeliVal,
-            tglinvbeli: formattedDate || null,
-            tgljt: formattedJT || null,
-            statusbeli: savedStatus // Nilai status tetap dikunci menggunakan data yang sudah tersimpan
-          };
-
-          const updateRes = await fetch(`${DB_URL}/rest/v1/Data_Beli?invbeli=eq.${encodeURIComponent(invbeli)}`, {
-            method: 'PATCH',
-            headers: {
-              "apikey": DB_KEY,
-              "Authorization": `Bearer ${DB_KEY}`,
-              "Content-Type": "application/json",
-              "Prefer": "return=minimal"
-            },
-            body: JSON.stringify(updatePayload)
-          });
-
-          if (updateRes.ok) updatedCount++;
-        } else {
-          // KONDISI JIKA INVBELI BELUM ADA: Insert data baru dengan status default 'SIMPAN'
-          const insertPayload = {
+          // JIKA SUDAH ADA: Update kolom utama termasuk tgljt, status tetap aman/di-skip
+          updateCount++;
+          updatePayloads.push({
             invbeli: invbeli,
+            ID_Cabang: ID_Cabang,
             kodesupp: kodesupp,
             namasupp: namasupp,
-            ID_Cabang: ID_Cabang,
-            nombeli: isNaN(nomBeliVal) ? 0 : nomBeliVal,
+            nombeli: nomBeliVal,
             tglinvbeli: formattedDate || null,
-            tgljt: formattedJT || null,
-            statusbeli: 'SIMPAN'
-          };
-
-          const insertRes = await fetch(`${DB_URL}/rest/v1/Data_Beli`, {
-            method: 'POST',
-            headers: {
-              "apikey": DB_KEY,
-              "Authorization": `Bearer ${DB_KEY}`,
-              "Content-Type": "application/json",
-              "Prefer": "return=minimal"
-            },
-            body: JSON.stringify(insertPayload)
+            tgljt: formattedJT || null, // Jatuh tempo ikut diperbarui
+            namalog: matchedNamaLog,
+            statusbeli: existingStatusMap[invKey]
           });
+        } else {
+          // JIKA BELUM ADA: Masukkan data baru lengkap dengan tgljt dan status 'SIMPAN'
+          newCount++;
+          insertPayloads.push({
+            invbeli: invbeli,
+            ID_Cabang: ID_Cabang,
+            kodesupp: kodesupp,
+            namasupp: namasupp,
+            nombeli: nomBeliVal,
+            tglinvbeli: formattedDate || null,
+            tgljt: formattedJT || null, // Jatuh tempo data baru tersimpan
+            namalog: matchedNamaLog,
+            statusbeli: 'SIMPAN'
+          });
+        }
+      }
 
-          if (insertRes.ok) {
-            insertedCount++;
-            existingMap[invKey] = 'SIMPAN';
-          }
+      if (insertPayloads.length === 0 && updatePayloads.length === 0) {
+        throw new Error("Tidak ada data valid yang dapat diproses dari file Excel.");
+      }
+
+      // 4. Eksekusi Kirim ke Supabase
+      if (insertPayloads.length > 0) {
+        const insertRes = await fetch(`${DB_URL}/rest/v1/Data_Beli`, {
+          method: 'POST',
+          headers: {
+            "apikey": DB_KEY,
+            "Authorization": `Bearer ${DB_KEY}`,
+            "Content-Type": "application/json",
+            "Prefer": "return=minimal"
+          },
+          body: JSON.stringify(insertPayloads)
+        });
+        if (!insertRes.ok) {
+          const errText = await insertRes.text();
+          throw new Error(`Gagal Insert Data Baru: ${errText}`);
+        }
+      }
+
+      for (let item of updatePayloads) {
+        const updateRes = await fetch(`${DB_URL}/rest/v1/Data_Beli?invbeli=eq.${encodeURIComponent(item.invbeli)}`, {
+          method: 'PATCH',
+          headers: {
+            "apikey": DB_KEY,
+            "Authorization": `Bearer ${DB_KEY}`,
+            "Content-Type": "application/json",
+            "Prefer": "return=minimal"
+          },
+          body: JSON.stringify({
+            ID_Cabang: item.ID_Cabang,
+            kodesupp: item.kodesupp,
+            namasupp: item.namasupp,
+            nombeli: item.nombeli,
+            tglinvbeli: item.tglinvbeli,
+            tgljt: item.tgljt, // Disertakan dalam proses update
+            namalog: item.namalog,
+            statusbeli: item.statusbeli
+          })
+        });
+
+        if (!updateRes.ok) {
+          console.warn(`Gagal memperbarui invbeli: ${item.invbeli}`);
         }
       }
 
       closeImportBeli();
       Swal.fire({
         icon: 'success',
-        title: 'Import Berhasil!',
-        html: `<div class="text-left text-sm">
-                 Berhasil menambah: <b>${insertedCount}</b> data baru<br>
-                 Berhasil memperbarui: <b>${updatedCount}</b> data lama (Status aman/dipertahankan)
+        title: 'Import & Sinkronisasi Berhasil!',
+        html: `<div class="text-left text-xs space-y-1">
+                 <div>• Total Data Diproses: <b>${newCount + updateCount}</b> baris</div>
+                 <div class="text-emerald-400">• Data Baru Ditambahkan: <b>${newCount}</b> baris</div>
+                 <div class="text-cyan-400">• Data Lama Diperbarui: <b>${updateCount}</b> baris</div>
                </div>`,
         background: '#1e252e',
         color: '#fff',
         confirmButtonColor: '#10b981',
-        timer: 3000,
         customClass: { container: 'z-[99999]' }
       });
 
@@ -11099,6 +11164,7 @@ async function prosesImportBeli() {
       }
 
     } catch (err) {
+      console.error(err);
       Swal.fire({
         icon: 'error',
         title: 'Gagal Import',
