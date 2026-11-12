@@ -2763,10 +2763,10 @@
     </div>
   </div>
 </div>
-<div id="tab-payment" class="tab-content hidden flex flex-col space-y-2 h-[calc(100vh-80px)] px-2.5 py-3 w-full">
+<div id="tab-payment" class="tab-content hidden flex flex-col h-full px-2.5 py-1.5 w-full">
   
   <!-- BARIS KONTROL HEADER (Compact & Sebaris) -->
-  <div class="glass px-3 py-2 border border-white/5 flex-shrink-0 w-full">
+  <div class="glass px-3 py-2 border border-white/5 flex-shrink-0 w-full mb-1">
     <div class="flex flex-wrap items-center justify-between gap-2 w-full">
       
       <!-- Sisi Kiri: Kolom Pencarian & Dropdown Filter -->
@@ -2821,8 +2821,10 @@
     </div>
   </div>
 
-  <!-- KONTAINER TABEL UTAMA (Full Lebar & Kolom Tabel Diregangkan) -->
-  <div class="glass flex flex-col flex-grow overflow-hidden rounded-xl border border-white/10 relative w-full">
+  <!-- KONTAINER UTAMA (TABEL & FOOTER MENJADI SATU KOTAK PENUH HINGGA BAWAH) -->
+  <div class="glass flex flex-col flex-grow overflow-hidden rounded-xl border border-white/10 relative w-full mb-0">
+    
+    <!-- Area Tabel yang bisa di-scroll secara fleksibel -->
     <div class="overflow-x-auto overflow-y-auto flex-grow custom-scrollbar w-full">
       <table class="w-full text-[10px] text-left border-collapse table-auto">
         <thead class="sticky top-0 z-10 bg-[#121212] text-cyan-400 uppercase font-black tracking-wider border-b border-white/10 shadow-xl">
@@ -2842,6 +2844,23 @@
         <tbody id="pembayaranTableBody" class="divide-y divide-white/5 bg-black/10"></tbody>
       </table>
     </div>
+
+    <!-- FOOTER PAGINATION MENYATU DI DASAR KOTAK TABEL (GAP 0) -->
+    <div class="px-3 py-2 bg-[#121212] border-t border-white/10 flex-shrink-0 w-full flex items-center justify-between text-[10px] text-gray-400">
+      <div>
+        Menampilkan <span id="paymentRange" class="text-white font-bold">0-0</span> dari <span id="paymentTotal" class="text-cyan-400 font-bold">0</span> data
+      </div>
+      <div class="flex items-center gap-1.5">
+        <button id="btnPaymentPrev" onclick="prevPaymentPage()" class="bg-white/5 hover:bg-white/10 disabled:opacity-35 disabled:cursor-not-allowed text-white px-2.5 h-6 rounded border border-white/10 font-bold transition-all">
+          <i class="fas fa-chevron-left text-[8px]"></i> Prev
+        </button>
+        <span class="px-2 text-white font-mono" id="paymentPageInfo">1 / 1</span>
+        <button id="btnPaymentNext" onclick="nextPaymentPage()" class="bg-white/5 hover:bg-white/10 disabled:opacity-35 disabled:cursor-not-allowed text-white px-2.5 h-6 rounded border border-white/10 font-bold transition-all">
+          Next <i class="fas fa-chevron-right text-[8px]"></i>
+        </button>
+      </div>
+    </div>
+
   </div>
 
 </div>
@@ -11730,9 +11749,16 @@ function renderPurchaseResult(res) {
 document.addEventListener("DOMContentLoaded", () => {
   loadPurBranchDropdown();
 });
+// ==========================================
+// PENGATURAN GLOBAL PAYMENT (PAGINATION & FILTER)
+// ==========================================
 let fullPaymentData = []; 
 let currentFilteredData = [];
 let currentSort = { col: 'id', asc: false };
+
+// Variabel Pagination
+let paymentCurrentPage = 1;
+let paymentPageSize = 25; // Batasan 25 ID_Payment per halaman
 
 // --- A. INISIALISASI & LOAD DARI SUPABASE (DENGAN GROUPING ID_BAYAR YANG PRESISI) ---
 document.addEventListener('DOMContentLoaded', function() {
@@ -11785,7 +11811,7 @@ async function loadDaftarPembayaran() {
           sumberRek: r.sumber_rek || '',
           // Ambil nilai potongan & admin murni 1 kali per id_bayar (ambil dari baris pertama atau max > 0)
           potongan: Number(r.potongan || 0), 
-          admin: Number(r.admin || 0),       
+          admin: Number(r.admin || 0),      
           subtotalBruto: 0,
           detailInvoices: []
         };
@@ -11819,6 +11845,7 @@ async function loadDaftarPembayaran() {
     });
 
     currentFilteredData = fullPaymentData; 
+    paymentCurrentPage = 1;
     renderTable(currentFilteredData);
 
   } catch (err) {
@@ -11827,7 +11854,7 @@ async function loadDaftarPembayaran() {
   }
 }
 
-// --- B. RENDERING BARIS TABEL TUNGGAL (1 ID = 1 BARIS) ---
+// --- B. RENDERING BARIS TABEL & PAGINATION ---
 function generateRowHTML(r) {
   const fmt = (num) => "Rp " + Number(num || 0).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   
@@ -11870,15 +11897,53 @@ function renderTable(data) {
   const tbody = document.getElementById('pembayaranTableBody');
   if (!tbody) return;
 
-  if (!data || data.length === 0) {
+  const total = data.length;
+  const start = (paymentCurrentPage - 1) * paymentPageSize;
+  const end = Math.min(start + paymentPageSize, total);
+  const dataToDisplay = data.slice(start, end);
+
+  // Update elemen informasi range & total pada footer
+  const elRange = document.getElementById('paymentRange');
+  const elTotal = document.getElementById('paymentTotal');
+  const elPageInfo = document.getElementById('paymentPageInfo');
+  
+  if (elRange) elRange.innerText = `${total > 0 ? start + 1 : 0}-${end}`;
+  if (elTotal) elTotal.innerText = total;
+  
+  const totalPages = Math.ceil(total / paymentPageSize) || 1;
+  if (elPageInfo) elPageInfo.innerText = `${paymentCurrentPage} / ${totalPages}`;
+
+  // Update status tombol navigasi pagination
+  const btnPrev = document.getElementById('btnPaymentPrev');
+  const btnNext = document.getElementById('btnPaymentNext');
+  if (btnPrev) btnPrev.disabled = (paymentCurrentPage === 1);
+  if (btnNext) btnNext.disabled = (end >= total || total === 0);
+
+  if (!dataToDisplay || dataToDisplay.length === 0) {
     tbody.innerHTML = '<tr><td colspan="10" class="p-8 text-center text-rose-400 font-bold uppercase text-[10px]">Data Tidak Ditemukan</td></tr>';
     return;
   }
 
-  tbody.innerHTML = data.map(r => generateRowHTML(r)).join('');
+  tbody.innerHTML = dataToDisplay.map(r => generateRowHTML(r)).join('');
 }
 
-// --- C. FILTER & SORT ---
+// Fungsi Navigasi Halaman Pagination
+function prevPaymentPage() {
+  if (paymentCurrentPage > 1) {
+    paymentCurrentPage--;
+    renderTable(currentFilteredData);
+  }
+}
+
+function nextPaymentPage() {
+  const totalPages = Math.ceil(currentFilteredData.length / paymentPageSize);
+  if (paymentCurrentPage < totalPages) {
+    paymentCurrentPage++;
+    renderTable(currentFilteredData);
+  }
+}
+
+// --- C. FILTER, PENCARIAN & SORTING ---
 function applyFilters() {
   const sText = document.getElementById('paySearch')?.value.toLowerCase().trim() || "";
   const fBul  = document.getElementById('fBulan')?.value || "";
@@ -11896,14 +11961,34 @@ function applyFilters() {
     return idMatch && bulMatch && supMatch && jenMatch && staMatch;
   });
 
+  // Reset kembali ke halaman 1 setiap kali filter atau pencarian diterapkan
+  paymentCurrentPage = 1;
   renderTable(currentFilteredData);
+}
+
+function resetAllFilters() {
+  ['paySearch', 'fBulan', 'fSuppCode', 'fJenis', 'fStatus'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.value = "";
+  });
+  applyFilters();
 }
 
 function sortData(col) {
   currentSort.asc = (currentSort.col === col) ? !currentSort.asc : true;
   currentSort.col = col;
-  const sorted = [...currentFilteredData].sort((a,b) => currentSort.asc ? (a[col] > b[col] ? 1 : -1) : (a[col] < b[col] ? 1 : -1));
-  renderTable(sorted);
+  
+  currentFilteredData.sort((a, b) => {
+    let valA = a[col] || '';
+    let valB = b[col] || '';
+    if (typeof valA === 'string') valA = valA.toLowerCase();
+    if (typeof valB === 'string') valB = valB.toLowerCase();
+
+    return currentSort.asc ? (valA > valB ? 1 : -1) : (valA < valB ? 1 : -1);
+  });
+
+  paymentCurrentPage = 1;
+  renderTable(currentFilteredData);
 }
 
 // --- D. DETAIL INVOICE ---
