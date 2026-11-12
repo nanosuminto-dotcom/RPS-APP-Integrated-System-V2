@@ -16251,65 +16251,110 @@ function downloadMutationExcel() {
 }
 
 /**
- * 7. EXPORT PDF PROFESIONAL BER-LOGO (DETAIL LENGKAP)
+ * 7. EXPORT PDF DENGAN FOOTER SALDO SEBARIS (RAPI DARI KIRI KE KANAN)
  */
-function downloadMutationPdf() {
+async function downloadMutationPdf() {
   if (!rawMutationDataResult || rawMutationDataResult.length === 0) return;
   
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF('l'); // Landscape orientation
+
   const sDate = document.getElementById("mutSDate").value || "-";
   const eDate = document.getElementById("mutEDate").value || "-";
-  const saldoFinal = window.DATA_SALDO_GLOBAL || {};
-  let saldoText = Object.keys(saldoFinal).map(k => `${k.toUpperCase()}: Rp ${Number(saldoFinal[k] || 0).toLocaleString('id-ID')}`).join(' | ');
+  const namaUser = document.getElementById('navUserName')?.innerText || "Owner";
+  const now = new Date().toLocaleString('id-ID', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
+  // 1. Ambil nama PT dinamis dari tabel profil Supabase
+  let namaPtDinamis = "PT. RITEL PERKAKAS SOLUSINDO";
+  try {
+    const profRes = await fetch(`${DB_URL}/rest/v1/profil?select=namaprofil`, {
+      headers: {
+        "apikey": DB_KEY,
+        "Authorization": `Bearer ${DB_KEY}`,
+        "Content-Type": "application/json"
+      }
+    });
+    if (profRes.ok) {
+      const dataProfil = await profRes.json();
+      if (dataProfil && dataProfil.length > 0 && dataProfil[0].namaprofil) {
+        namaPtDinamis = dataProfil[0].namaprofil.toString().trim();
+      }
+    }
+  } catch (err) {
+    console.warn("Gagal mengambil profil perusahaan:", err);
+  }
+
+  // 2. Ambil logo dari Supabase Storage
+  let logoBase64 = null;
+  try {
+    const { data, error } = await dbClient.storage.from('logo').download('logo.jpg');
+    if (!error && data) {
+      logoBase64 = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(data);
+      });
+    }
+  } catch (e) {
+    console.warn("Gagal memuat logo:", e);
+  }
+
+  // 3. Hitung total filter masuk & keluar
   let tMasuk = 0, tKeluar = 0;
   rawMutationDataResult.forEach(i => { 
-    if(i.tipe === "MASUK") tMasuk += i.nominal; 
-    if(i.tipe === "KELUAR") tKeluar += i.nominal; 
+    if (i.tipe === "MASUK") tMasuk += Number(i.nominal || 0); 
+    if (i.tipe === "KELUAR") tKeluar += Number(i.nominal || 0); 
   });
 
-  const doc = new jspdf.jsPDF('l', 'mm', 'a4');
+  // 4. Susun string Saldo Terkini agar tersusun sebaris dari kiri ke kanan
+  const saldoFinal = window.DATA_SALDO_GLOBAL || {};
+  let saldoText = Object.keys(saldoFinal)
+    .map(k => `${k.toUpperCase()}: Rp ${Number(saldoFinal[k] || 0).toLocaleString('id-ID')}`)
+    .join('  |  nbsp; '); // Menggunakan spasi pemisah agar rapi menyamping
 
-  // --- KOP LAPORAN & LOGO ---
-  doc.setFillColor(6, 182, 212); // Warna Cyan Logo
-  doc.rect(14, 12, 10, 10, 'F');
-  doc.setTextColor(255, 255, 255);
+  // 5. Render Header & Logo PDF
+  if (logoBase64) {
+    doc.addImage(logoBase64, 'JPEG', 14, 8, 14, 16);
+  }
+
+  doc.setFontSize(14);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(30, 41, 59);
+  doc.text(namaPtDinamis, 32, 12);
+
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
-  doc.text("NS", 16.5, 18.5);
+  doc.text("LAPORAN MUTASI KEUANGAN & PEMBAYARAN", 32, 17);
 
-  doc.setTextColor(30, 41, 59);
-  doc.setFontSize(14);
-  doc.text("LAPORAN MUTASI KEUANGAN & PEMBAYARAN", 28, 16);
-  
-  doc.setFontSize(9);
+  doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(100, 116, 139);
-  doc.text(`Periode Laporan: ${sDate} s/d ${eDate}`, 28, 21);
-  doc.text(`Dicetak pada: ${new Date().toLocaleDateString('id-ID')} ${new Date().toLocaleTimeString('id-ID')}`, 250, 16, { align: 'right' });
+  doc.text(`Periode Laporan: ${sDate} s/d ${eDate} | User: ${namaUser} | Dicetak: ${now}`, 32, 22);
 
-  doc.setDrawColor(226, 232, 240);
   doc.setLineWidth(0.5);
-  doc.line(14, 26, 283, 26);
+  doc.setDrawColor(226, 232, 240);
+  doc.line(14, 25, 283, 25);
 
-  // --- TABEL ---
+  // 6. Cetak Tabel dengan Footer Sebaris
   doc.autoTable({
-    startY: 30,
+    startY: 28,
     head: [['Tanggal', 'ID Referensi', 'Rekening', 'Jenis', 'Deskripsi Transaksi', 'Masuk (+)', 'Keluar (-)']],
     body: rawMutationDataResult.map(i => [
-      i.tanggal, 
-      i.idRef, 
-      i.bankSumber, 
-      i.jenis, 
+      i.tanggal || '-', 
+      i.idRef || '-', 
+      i.bankSumber || '-', 
+      i.jenis || '-', 
       (i.keterangan || "").replace(/<[^>]*>/g, ""), 
-      i.tipe === 'MASUK' ? i.nominal.toLocaleString('id-ID') : '-', 
-      i.tipe === 'KELUAR' ? i.nominal.toLocaleString('id-ID') : '-'
+      i.tipe === 'MASUK' ? Number(i.nominal || 0).toLocaleString('id-ID') : '-', 
+      i.tipe === 'KELUAR' ? Number(i.nominal || 0).toLocaleString('id-ID') : '-'
     ]),
     foot: [
       ['', '', '', '', 'TOTAL FILTER', tMasuk.toLocaleString('id-ID'), tKeluar.toLocaleString('id-ID')],
-      ['', '', '', '', 'SALDO REK TERKINI', '', saldoText]
+      // Menggunakan colSpan agar baris saldo membentang penuh ke samping dan teks tersusun sebaris
+      [{ content: `SALDO REK TERKINI:  ${saldoText}`, colSpan: 7, styles: { halign: 'left', fontStyle: 'bold', fontSize: 7.5 } }]
     ],
     theme: 'grid',
-    headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
+    headStyles: { fillColor: [26, 29, 35], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
     bodyStyles: { fontSize: 8, textColor: [51, 65, 85] },
     footStyles: { fillColor: [241, 245, 249], textColor: [15, 23, 42], fontStyle: 'bold', fontSize: 8 },
     columnStyles: {
@@ -16326,6 +16371,7 @@ function downloadMutationPdf() {
 
   doc.save(`Mutasi_Keuangan_${sDate}_${eDate}.pdf`);
 }
+
   </script>
 </body>
 </html>
