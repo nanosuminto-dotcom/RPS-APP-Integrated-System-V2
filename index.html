@@ -14033,7 +14033,6 @@ function getWeeklyDateRanges() {
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const dayOfWeek = today.getDay(); // 0 = Minggu, 1 = Senin, dst.
   
-  // Hitung selisih hari menuju hari Senin terdekat (jika Minggu (0), geser -6 hari ke belakang)
   const diffToMonday = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
   const currentMonday = new Date(today.getFullYear(), today.getMonth(), diffToMonday);
   currentMonday.setHours(0, 0, 0, 0);
@@ -14045,7 +14044,6 @@ function getWeeklyDateRanges() {
     start.setDate(currentMonday.getDate() + (i * 7));
     start.setHours(0, 0, 0, 0);
     
-    // Berakhir pada hari Minggu (+6 hari dari Senin)
     const end = new Date(start);
     end.setDate(start.getDate() + 6);
     end.setHours(0, 0, 0, 0);
@@ -14095,6 +14093,36 @@ async function loadOwnerDashboardData() {
       'transfer_kgd', 'transfer_cdk', 'transfer_pkp', 'transfer_cpy', 'office'
     ];
 
+    // --- PROSES KONSOLIDASI NOMINAL PER ID_BAYAR (Mencegah Dobel Potongan/Admin) ---
+    // Mengelompokkan Data_Bayar berdasarkan id_bayar agar subtotal bruto dijumlahkan,
+    // sementara admin dan potongan diambil nilai maksimumnya (atau unik per bundle).
+    const mapBundleBayar = {};
+    dataBayar.forEach(row => {
+      const id = row.id_bayar || row.id || 'UNKNOWN';
+      const nominal = Number(row.nominal || 0);
+      const potongan = Number(row.potongan || 0);
+      const admin = Number(row.admin || 0);
+
+      if (!mapBundleBayar[id]) {
+        mapBundleBayar[id] = {
+          ...row,
+          subtotalBruto: nominal,
+          potongan: potongan,
+          admin: admin
+        };
+      } else {
+        mapBundleBayar[id].subtotalBruto += nominal;
+        // Ambil nilai potongan/admin terbesar yang mewakili bundle tersebut
+        if (potongan > mapBundleBayar[id].potongan) mapBundleBayar[id].potongan = potongan;
+        if (admin > mapBundleBayar[id].admin) mapBundleBayar[id].admin = admin;
+      }
+    });
+
+    const consolidatedDataBayar = Object.values(mapBundleBayar).map(item => {
+      item.totalBersih = item.subtotalBruto + item.admin - item.potongan;
+      return item;
+    });
+
     // --- A. KALKULASI SALDO REKENING UTAMA ---
     function hitungSaldo(namaRekening, tipePembayaran) {
       let danaMasuk = 0;
@@ -14111,19 +14139,19 @@ async function loadOwnerDashboardData() {
         }
       });
 
-      dataBayar.forEach(row => {
+      consolidatedDataBayar.forEach(row => {
         const status = String(row.status || "").trim().toUpperCase();
         const jenis = String(row.jenis || "").trim().toUpperCase();
-        const sumberRek = String(row.sumber_rek || "").trim().toUpperCase();
+        const sumberRek = String(row.sumber_rek || row.bank_rek_an || "").trim().toUpperCase();
 
         if (sumberRek === namaRekening.toUpperCase() && (status === 'LUNAS' || status.includes('LUNAS'))) {
           if (tipePembayaran === 'GIRO') {
             if (jenis.includes('GIRO')) {
-              danaKeluarBayar += Number(row.nominal || 0);
+              danaKeluarBayar += Number(row.totalBersih || 0);
             }
           } else {
             if (!jenis.includes('GIRO')) {
-              danaKeluarBayar += Number(row.nominal || 0);
+              danaKeluarBayar += Number(row.totalBersih || 0);
             }
           }
         }
@@ -14145,12 +14173,12 @@ async function loadOwnerDashboardData() {
         kasOfficeDebit += Number(row.office_debit || 0);
       }
     });
-    dataBayar.forEach(row => {
+    consolidatedDataBayar.forEach(row => {
       const status = String(row.status || "").trim().toUpperCase();
       const jenis = String(row.jenis || "").trim().toUpperCase();
-      const sumberRek = String(row.sumber_rek || "").trim().toUpperCase();
+      const sumberRek = String(row.sumber_rek || row.bank_rek_an || "").trim().toUpperCase();
       if ((!sumberRek.includes("BCA") && !sumberRek.includes("MANDIRI") && !sumberRek.includes("BNI")) && (status === 'LUNAS' || status.includes('LUNAS')) && !jenis.includes('GIRO')) {
-        kasBayar += Number(row.nominal || 0);
+        kasBayar += Number(row.totalBersih || 0);
       }
     });
     const kasBesar = kasMasuk - kasOfficeDebit - kasBayar;
@@ -14161,22 +14189,22 @@ async function loadOwnerDashboardData() {
     let totalGiroBeredar = 0;
     let totalGiroCair = 0;
 
-    dataBayar.forEach(row => {
-      const nominal = Number(row.nominal || 0);
+    consolidatedDataBayar.forEach(row => {
+      const nominalBersih = Number(row.totalBersih || 0);
       const jenis = String(row.jenis || "").trim().toUpperCase();
       const status = String(row.status || "").trim().toUpperCase();
 
       if ((jenis.includes('GIRO') || jenis.includes('TRANSFER')) && status.includes('DRAFT')) {
-        totalDraft += nominal;
+        totalDraft += nominalBersih;
       }
 
       if (jenis.includes('GIRO')) {
         if (status.includes('PROSES')) {
-          totalGiroProses += nominal;
+          totalGiroProses += nominalBersih;
         } else if (status.includes('BEREDAR') || status.includes('EDAR')) {
-          totalGiroBeredar += nominal;
+          totalGiroBeredar += nominalBersih;
         } else if (status.includes('CAIR') || status.includes('LUNAS')) {
-          totalGiroCair += nominal;
+          totalGiroCair += nominalBersih;
         }
       }
     });
@@ -14211,8 +14239,8 @@ async function loadOwnerDashboardData() {
     if (document.getElementById("dashGiroCair")) document.getElementById("dashGiroCair").innerText = fmt(totalGiroCair);
     if (document.getElementById("dashEstBca")) document.getElementById("dashEstBca").innerText = fmt(estRealBca);
 
-    // --- C. RENDER MATRIKS KEUANGAN MINGGUAN (Murni Berdasarkan Kolom "estimasi_bayar") ---
-    const matriksMingguan = generateWeeklyMatrix(dataBayar, dataMutasi);
+    // --- C. RENDER MATRIKS KEUANGAN MINGGUAN ---
+    const matriksMingguan = generateWeeklyMatrix(consolidatedDataBayar);
     const m = matriksMingguan.slice(0, 5);
 
     m.forEach((mng, idx) => {
@@ -14260,20 +14288,18 @@ async function loadOwnerDashboardData() {
   }
 }
 
-// 4. Kalkulasi Data Matriks Mingguan Sesuai Kriteria Spesifik Anda
-function generateWeeklyMatrix(dataBayar, dataMutasi) {
+// 4. Kalkulasi Data Matriks Mingguan Menggunakan Data yang Sudah Bersih (Consolidated)
+function generateWeeklyMatrix(consolidatedDataBayar) {
   const weeks = getWeeklyDateRanges();
 
-  dataBayar.forEach(row => {
-    const nominal = Number(row.nominal || 0);
+  consolidatedDataBayar.forEach(row => {
+    const nominalBersih = Number(row.totalBersih || 0);
     const jenis = String(row.jenis || "").trim().toLowerCase();
     const status = String(row.status || "").trim().toLowerCase();
     
-    // Acuan pemisah mingguan murni menggunakan kolom "estimasi_bayar"
     const rawTgl = row.estimasi_bayar;
     if (!rawTgl) return;
 
-    // Normalisasi string tanggal mengambil bagian YYYY-MM-DD
     const cleanDateStr = String(rawTgl).substring(0, 10);
     const parts = cleanDateStr.split(/[\/\-\s]/);
     if (parts.length < 3) return;
@@ -14289,46 +14315,37 @@ function generateWeeklyMatrix(dataBayar, dataMutasi) {
       year = parseInt(parts[2], 10);
     }
 
-    // Buat objek Date lokal murni (tanpa jam)
     const tglItem = new Date(year, month, day);
     tglItem.setHours(0, 0, 0, 0);
 
     if (isNaN(tglItem.getTime())) return;
 
-    // Cari rentang minggu (Senin s.d. Minggu) yang mencakup tgl item ini
     const targetWeek = weeks.find(w => tglItem >= w.start && tglItem <= w.end);
     if (!targetWeek) return;
 
-    // --- KETENTUAN FILTER BARIS MATRIKS ---
-
-    // 1. DRAFT TRANSFER: jenis = transfer, status = draft
+    // Filter Matriks berdasarkan nominal bersih (nominal + admin - potongan)
     if (jenis.includes('transfer') && status === 'draft') {
-      targetWeek.draftTransfer += nominal;
+      targetWeek.draftTransfer += nominalBersih;
     }
 
-    // 2. DRAFT GIRO: jenis = giro, status = draft
     if (jenis.includes('giro') && status === 'draft') {
-      targetWeek.draftGiro += nominal;
+      targetWeek.draftGiro += nominalBersih;
     }
 
-    // 3. TOTAL TRANSFER: jenis = transfer, status = proses atau lunas
     if (jenis.includes('transfer') && (status === 'proses' || status === 'lunas')) {
-      targetWeek.transfer += nominal;
+      targetWeek.transfer += nominalBersih;
     }
 
-    // 4. GIRO PROSES: jenis = giro, status = proses
     if (jenis.includes('giro') && status === 'proses') {
-      targetWeek.giro_proses += nominal;
+      targetWeek.giro_proses += nominalBersih;
     }
 
-    // 5. GIRO BEREDAR: jenis = giro, status = beredar (atau edar)
     if (jenis.includes('giro') && (status === 'beredar' || status === 'edar')) {
-      targetWeek.giro_beredar += nominal;
+      targetWeek.giro_beredar += nominalBersih;
     }
 
-    // 6. GIRO CAIR / LUNAS: jenis = giro, status = lunas (atau cair)
     if (jenis.includes('giro') && (status === 'lunas' || status === 'cair')) {
-      targetWeek.giro_cair += nominal;
+      targetWeek.giro_cair += nominalBersih;
     }
   });
 
@@ -14336,7 +14353,7 @@ function generateWeeklyMatrix(dataBayar, dataMutasi) {
 }
 
 // =========================================================================
-// 5. LOAD TABEL GIRO KHUSUS (PROSES & BEREDAR, BILYET DARI 'catatan')
+// 5. LOAD TABEL GIRO KHUSUS (PROSES & BEREDAR)
 // =========================================================================
 async function loadGiroOnly() {
   const tbody = document.getElementById('tbodyGiroData');
@@ -14348,15 +14365,17 @@ async function loadGiroOnly() {
     const { data, error } = await dbClient.from('Data_Bayar').select('*').ilike('jenis', '%giro%');
     if (error) throw error;
 
-    // Filter khusus status Proses atau Beredar
     const filteredGiro = (data || []).filter(item => {
       const st = String(item.status || "").trim().toUpperCase();
       return st.includes('PROSES') || st.includes('BEREDAR') || st.includes('EDAR');
     });
 
+    // Grouping per id_bayar agar perhitungan (nominal + admin - potongan) pas untuk 1 baris bundel
     const groupedData = filteredGiro.reduce((acc, item) => {
       const id = item.id_bayar || item.id;
       const nominal = Number(item.nominal || 0);
+      const potongan = Number(item.potongan || 0);
+      const admin = Number(item.admin || 0);
       
       if (!acc[id]) {
         acc[id] = { 
@@ -14368,17 +14387,23 @@ async function loadGiroOnly() {
           tglEdar: item.tanggal_edar || '-',
           estimasiBayar: item.estimasi_bayar || '-',
           status: item.status || 'Proses',
-          totalNominal: nominal,
-          potongan: Number(item.potongan || 0), 
-          admin: Number(item.admin || 0) 
+          subtotalBruto: nominal,
+          potongan: potongan, 
+          admin: admin 
         };
       } else {
-        acc[id].totalNominal += nominal;
+        acc[id].subtotalBruto += nominal;
+        if (potongan > acc[id].potongan) acc[id].potongan = potongan;
+        if (admin > acc[id].admin) acc[id].admin = admin;
       }
       return acc;
     }, {});
 
-    cacheGiroData = Object.values(groupedData);
+    cacheGiroData = Object.values(groupedData).map(item => {
+      item.totalNominal = item.subtotalBruto + item.admin - item.potongan;
+      return item;
+    });
+
     renderGiroTable();
 
   } catch (err) {
@@ -14410,8 +14435,8 @@ function renderGiroTable() {
     let valB = b[currentSortField] !== undefined ? b[currentSortField] : '';
 
     if (currentSortField === 'totalNominal') {
-      const numA = Number((a.totalNominal || 0) - (a.potongan || 0) + (a.admin || 0));
-      const numB = Number((b.totalNominal || 0) - (b.potongan || 0) + (b.admin || 0));
+      const numA = Number(a.totalNominal || 0);
+      const numB = Number(b.totalNominal || 0);
       return currentSortOrder === 'terlama' ? (numA - numB) : (numB - numA);
     }
 
@@ -14422,7 +14447,7 @@ function renderGiroTable() {
   });
 
   tbody.innerHTML = finalData.map(item => {
-    const netGiro = item.totalNominal - item.potongan + item.admin;
+    const netGiro = Number(item.totalNominal || 0);
     return `
       <tr class="hover:bg-white/5 transition-colors border-b border-white/5">
         <td class="p-3 text-cyan-400 font-bold text-left sticky left-0 z-35 bg-[#131720] shadow-[2px_0_5px_rgba(0,0,0,0.4)] w-[130px] whitespace-nowrap">${item.id || ''}</td>
@@ -14434,7 +14459,7 @@ function renderGiroTable() {
         <td class="p-3 text-center whitespace-nowrap">${item.tglProses || ''}</td>
         <td class="p-3 text-center whitespace-nowrap">${item.tglEdar || ''}</td>
         <td class="p-3 text-center whitespace-nowrap">${item.estimasiBayar || ''}</td>
-        <td class="p-3 text-right font-bold text-white whitespace-nowrap">${Number(netGiro || 0).toLocaleString('id-ID')}</td>
+        <td class="p-3 text-right font-bold text-white whitespace-nowrap">${netGiro.toLocaleString('id-ID')}</td>
         <td class="p-3 text-center whitespace-nowrap">
             <span class="px-2 py-0.5 rounded-full ${item.status === 'Cair' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-orange-500/20 text-orange-400'} text-[9px] uppercase font-bold">
                 ${item.status || ''}
@@ -15200,11 +15225,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 // ==========================================
-// 1. FUNGSI UTAMA: MENARIK SEMUA DATA DARI SUPABASE (Tabel: Data_Bayar)
+// 1. FUNGSI UTAMA: MENARIK SEMUA DATA DARI SUPABASE (FORMAT TGL: YYYY-MM-DD)
 // ==========================================
 async function runPaymentSearch() {
-  const sDate = document.getElementById("paySDate").value;
-  const eDate = document.getElementById("payEDate").value;
+  const sDate = document.getElementById("paySDate").value; // Format: YYYY-MM-DD
+  const eDate = document.getElementById("payEDate").value; // Format: YYYY-MM-DD
   const status = document.getElementById("payStatus").value;
 
   if (!sDate || !eDate) {
@@ -15212,7 +15237,6 @@ async function runPaymentSearch() {
     return;
   }
 
-  // Tampilan Loading Animator saat data ditarik
   const tbody = document.getElementById("paymentSearchResult");
   if (tbody) {
     tbody.innerHTML = `
@@ -15229,14 +15253,12 @@ async function runPaymentSearch() {
     const pageSize = 1000;
     let fetchMore = true;
 
-    // Perulangan otomatis untuk menarik data berdasarkan rentang tanggal estimasi/tempo atau tanggal pengajuan
     while (fetchMore) {
       let query = dbClient
         .from('Data_Bayar')
         .select('*')
         .range(page * pageSize, (page + 1) * pageSize - 1);
 
-      // Jika status bukan 'all' atau 'SEMUA', filter langsung di kueri Supabase
       if (status && status !== 'all' && status !== 'SEMUA') {
         query = query.eq('status', status);
       }
@@ -15258,16 +15280,19 @@ async function runPaymentSearch() {
 
     console.log("Total keseluruhan baris Data_Bayar berhasil ditarik:", allData.length);
 
-    // --- FILTER RENTANG TANGGAL & GROUPING BERDASARKAN id_bayar ---
     const groupedMap = {};
 
     allData.forEach(r => {
-      // Ambil acuan tanggal (bisa dari estimasi_bayar, tgl_jth_tempo, atau tanggal pengajuan)
-      const tglAcuan = r.estimasi_bayar || r.tgl_jth_tempo || r.tanggal;
+      // Potong string tanggal agar murni YYYY-MM-DD (menghilangkan format jam jika ada)
+      const cleanDate = (dStr) => dStr ? dStr.substring(0, 10) : '';
       
-      // Jika ingin memfilter berdasarkan rentang tanggal di form:
+      const tglPengajuan = cleanDate(r.tanggal);
+      const tglEstBayar = cleanDate(r.estimasi_bayar || r.tgl_jth_tempo);
+      const tglAcuan = tglEstBayar || tglPengajuan;
+      
+      // Filter rentang tanggal berdasarkan format YYYY-MM-DD
       if (tglAcuan && (tglAcuan < sDate || tglAcuan > eDate)) {
-        return; // Lewati jika di luar rentang tanggal yang dipilih di form
+        return; 
       }
 
       const payId = r.id_bayar || 'UNKNOWN';
@@ -15276,10 +15301,10 @@ async function runPaymentSearch() {
       if (!groupedMap[payId]) {
         groupedMap[payId] = {
           idBayar: payId,
-          tglPengajuan: r.tanggal || '',
-          tglEstBayar: r.estimasi_bayar || r.tgl_jth_tempo || '',
-          tglEdar: r.tanggal_edar || '',
-          tglLunas: r.tanggal_lunas || '',
+          tglPengajuan: tglPengajuan,
+          tglEstBayar: tglEstBayar,
+          tglEdar: cleanDate(r.tanggal_edar),
+          tglLunas: cleanDate(r.tanggal_lunas),
           supplier: r.namalog || r.kode_supp || '-',
           kodeSupplier: r.kode_supp || '',
           jenisBayar: r.jenis || '',
@@ -15309,7 +15334,6 @@ async function runPaymentSearch() {
       });
     });
 
-    // Hitung total bersih (Bruto - Potongan + Admin)
     rawPaymentDataResult = Object.values(groupedMap).map(item => {
       item.totalNominal = item.subtotalBruto - item.potongan + item.admin;
       return item;
@@ -15324,6 +15348,76 @@ async function runPaymentSearch() {
     }
     Swal.fire({ icon: 'error', title: 'Database Error', text: err.message, background: '#1a1d23', color: '#fff' });
   }
+}
+
+// ==========================================
+// 2. FUNGSI EDIT TANGGAL STATUS (MURNI YYYY-MM-DD)
+// ==========================================
+function editStatusDate(id, status, currentTanggal) {
+    let formattedDate = "";
+    if (currentTanggal && currentTanggal !== "-") {
+        formattedDate = currentTanggal.substring(0, 10); // Ambil 10 karakter pertama (YYYY-MM-DD)
+    }
+
+    const activeElement = event ? event.currentTarget : null;
+
+    Swal.fire({
+        title: `<span class="text-cyan-400 text-xs font-black uppercase">Edit Tanggal ${status}</span>`,
+        html: `
+            <div class="flex flex-col items-center justify-center p-2">
+                <label class="text-[10px] text-gray-400 font-bold mb-2 uppercase tracking-wide">Pilih Tanggal Baru (Format: YYYY-MM-DD):</label>
+                <input type="date" id="swalNewDate" value="${formattedDate}" class="bg-[#14161a] border border-cyan-500/40 rounded-lg px-4 py-2 text-white font-mono text-sm focus:outline-none focus:border-cyan-400 shadow-inner w-full text-center cursor-pointer">
+            </div>
+        `,
+        background: '#1a1d23',
+        color: '#ffffff',
+        showCancelButton: true,
+        confirmButtonText: 'Simpan',
+        cancelButtonText: 'Batal',
+        confirmButtonColor: '#06b6d4',
+        cancelButtonColor: '#334155',
+        customClass: {
+            popup: 'rounded-xl border border-white/10 shadow-2xl',
+            confirmButton: 'text-[10px] font-black uppercase tracking-wider px-4 py-2 rounded-lg',
+            cancelButton: 'text-[10px] font-bold uppercase tracking-wider px-4 py-2 rounded-lg'
+        },
+        preConfirm: () => {
+            const newDate = document.getElementById('swalNewDate').value;
+            if (!newDate) {
+                Swal.showValidationMessage('Tanggal wajib dipilih!');
+            }
+            return newDate;
+        }
+    }).then(async (result) => {
+        if (result.isConfirmed) {
+            const updatedDate = result.value; // Format: "YYYY-MM-DD" murni tanpa jam
+
+            if (activeElement) activeElement.style.opacity = "0.4";
+
+            try {
+                const updateField = status.toLowerCase().includes('lunas') ? 'tanggal_lunas' : (status.toLowerCase().includes('edar') ? 'tanggal_edar' : 'estimasi_bayar');
+                
+                const { error } = await dbClient
+                    .from('Data_Bayar')
+                    .update({ [updateField]: updatedDate })
+                    .eq('id_bayar', id);
+
+                if (error) throw error;
+
+                if (activeElement) {
+                    activeElement.style.opacity = "1";
+                    activeElement.innerText = updatedDate;
+                }
+
+                Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Tanggal berhasil diperbarui', timer: 1000, showConfirmButton: false, background: '#1a1d23', color: '#ffffff' });
+                runPaymentSearch(); 
+
+            } catch (err) {
+                if (activeElement) activeElement.style.opacity = "1";
+                Swal.fire({ icon: 'error', title: 'Gagal Update', text: err.message, background: '#1a1d23', color: '#ffffff' });
+            }
+        }
+    });
 }
 
 // ==========================================
