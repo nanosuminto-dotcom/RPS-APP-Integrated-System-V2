@@ -14033,6 +14033,7 @@ function getWeeklyDateRanges() {
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const dayOfWeek = today.getDay(); // 0 = Minggu, 1 = Senin, dst.
   
+  // Hitung selisih hari menuju hari Senin terdekat (jika Minggu (0), geser -6 hari ke belakang)
   const diffToMonday = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
   const currentMonday = new Date(today.getFullYear(), today.getMonth(), diffToMonday);
   currentMonday.setHours(0, 0, 0, 0);
@@ -14044,6 +14045,7 @@ function getWeeklyDateRanges() {
     start.setDate(currentMonday.getDate() + (i * 7));
     start.setHours(0, 0, 0, 0);
     
+    // Berakhir pada hari Minggu (+6 hari dari Senin)
     const end = new Date(start);
     end.setDate(start.getDate() + 6);
     end.setHours(0, 0, 0, 0);
@@ -14093,36 +14095,6 @@ async function loadOwnerDashboardData() {
       'transfer_kgd', 'transfer_cdk', 'transfer_pkp', 'transfer_cpy', 'office'
     ];
 
-    // --- PROSES KONSOLIDASI NOMINAL PER ID_BAYAR (Mencegah Dobel Potongan/Admin) ---
-    // Mengelompokkan Data_Bayar berdasarkan id_bayar agar subtotal bruto dijumlahkan,
-    // sementara admin dan potongan diambil nilai maksimumnya (atau unik per bundle).
-    const mapBundleBayar = {};
-    dataBayar.forEach(row => {
-      const id = row.id_bayar || row.id || 'UNKNOWN';
-      const nominal = Number(row.nominal || 0);
-      const potongan = Number(row.potongan || 0);
-      const admin = Number(row.admin || 0);
-
-      if (!mapBundleBayar[id]) {
-        mapBundleBayar[id] = {
-          ...row,
-          subtotalBruto: nominal,
-          potongan: potongan,
-          admin: admin
-        };
-      } else {
-        mapBundleBayar[id].subtotalBruto += nominal;
-        // Ambil nilai potongan/admin terbesar yang mewakili bundle tersebut
-        if (potongan > mapBundleBayar[id].potongan) mapBundleBayar[id].potongan = potongan;
-        if (admin > mapBundleBayar[id].admin) mapBundleBayar[id].admin = admin;
-      }
-    });
-
-    const consolidatedDataBayar = Object.values(mapBundleBayar).map(item => {
-      item.totalBersih = item.subtotalBruto + item.admin - item.potongan;
-      return item;
-    });
-
     // --- A. KALKULASI SALDO REKENING UTAMA ---
     function hitungSaldo(namaRekening, tipePembayaran) {
       let danaMasuk = 0;
@@ -14139,19 +14111,19 @@ async function loadOwnerDashboardData() {
         }
       });
 
-      consolidatedDataBayar.forEach(row => {
+      dataBayar.forEach(row => {
         const status = String(row.status || "").trim().toUpperCase();
         const jenis = String(row.jenis || "").trim().toUpperCase();
-        const sumberRek = String(row.sumber_rek || row.bank_rek_an || "").trim().toUpperCase();
+        const sumberRek = String(row.sumber_rek || "").trim().toUpperCase();
 
         if (sumberRek === namaRekening.toUpperCase() && (status === 'LUNAS' || status.includes('LUNAS'))) {
           if (tipePembayaran === 'GIRO') {
             if (jenis.includes('GIRO')) {
-              danaKeluarBayar += Number(row.totalBersih || 0);
+              danaKeluarBayar += Number(row.nominal || 0);
             }
           } else {
             if (!jenis.includes('GIRO')) {
-              danaKeluarBayar += Number(row.totalBersih || 0);
+              danaKeluarBayar += Number(row.nominal || 0);
             }
           }
         }
@@ -14173,12 +14145,12 @@ async function loadOwnerDashboardData() {
         kasOfficeDebit += Number(row.office_debit || 0);
       }
     });
-    consolidatedDataBayar.forEach(row => {
+    dataBayar.forEach(row => {
       const status = String(row.status || "").trim().toUpperCase();
       const jenis = String(row.jenis || "").trim().toUpperCase();
-      const sumberRek = String(row.sumber_rek || row.bank_rek_an || "").trim().toUpperCase();
+      const sumberRek = String(row.sumber_rek || "").trim().toUpperCase();
       if ((!sumberRek.includes("BCA") && !sumberRek.includes("MANDIRI") && !sumberRek.includes("BNI")) && (status === 'LUNAS' || status.includes('LUNAS')) && !jenis.includes('GIRO')) {
-        kasBayar += Number(row.totalBersih || 0);
+        kasBayar += Number(row.nominal || 0);
       }
     });
     const kasBesar = kasMasuk - kasOfficeDebit - kasBayar;
@@ -14189,22 +14161,22 @@ async function loadOwnerDashboardData() {
     let totalGiroBeredar = 0;
     let totalGiroCair = 0;
 
-    consolidatedDataBayar.forEach(row => {
-      const nominalBersih = Number(row.totalBersih || 0);
+    dataBayar.forEach(row => {
+      const nominal = Number(row.nominal || 0);
       const jenis = String(row.jenis || "").trim().toUpperCase();
       const status = String(row.status || "").trim().toUpperCase();
 
       if ((jenis.includes('GIRO') || jenis.includes('TRANSFER')) && status.includes('DRAFT')) {
-        totalDraft += nominalBersih;
+        totalDraft += nominal;
       }
 
       if (jenis.includes('GIRO')) {
         if (status.includes('PROSES')) {
-          totalGiroProses += nominalBersih;
+          totalGiroProses += nominal;
         } else if (status.includes('BEREDAR') || status.includes('EDAR')) {
-          totalGiroBeredar += nominalBersih;
+          totalGiroBeredar += nominal;
         } else if (status.includes('CAIR') || status.includes('LUNAS')) {
-          totalGiroCair += nominalBersih;
+          totalGiroCair += nominal;
         }
       }
     });
@@ -14239,8 +14211,8 @@ async function loadOwnerDashboardData() {
     if (document.getElementById("dashGiroCair")) document.getElementById("dashGiroCair").innerText = fmt(totalGiroCair);
     if (document.getElementById("dashEstBca")) document.getElementById("dashEstBca").innerText = fmt(estRealBca);
 
-    // --- C. RENDER MATRIKS KEUANGAN MINGGUAN ---
-    const matriksMingguan = generateWeeklyMatrix(consolidatedDataBayar);
+    // --- C. RENDER MATRIKS KEUANGAN MINGGUAN (Murni Berdasarkan Kolom "estimasi_bayar") ---
+    const matriksMingguan = generateWeeklyMatrix(dataBayar, dataMutasi);
     const m = matriksMingguan.slice(0, 5);
 
     m.forEach((mng, idx) => {
@@ -14288,18 +14260,20 @@ async function loadOwnerDashboardData() {
   }
 }
 
-// 4. Kalkulasi Data Matriks Mingguan Menggunakan Data yang Sudah Bersih (Consolidated)
-function generateWeeklyMatrix(consolidatedDataBayar) {
+// 4. Kalkulasi Data Matriks Mingguan Sesuai Kriteria Spesifik Anda
+function generateWeeklyMatrix(dataBayar, dataMutasi) {
   const weeks = getWeeklyDateRanges();
 
-  consolidatedDataBayar.forEach(row => {
-    const nominalBersih = Number(row.totalBersih || 0);
+  dataBayar.forEach(row => {
+    const nominal = Number(row.nominal || 0);
     const jenis = String(row.jenis || "").trim().toLowerCase();
     const status = String(row.status || "").trim().toLowerCase();
     
+    // Acuan pemisah mingguan murni menggunakan kolom "estimasi_bayar"
     const rawTgl = row.estimasi_bayar;
     if (!rawTgl) return;
 
+    // Normalisasi string tanggal mengambil bagian YYYY-MM-DD
     const cleanDateStr = String(rawTgl).substring(0, 10);
     const parts = cleanDateStr.split(/[\/\-\s]/);
     if (parts.length < 3) return;
@@ -14315,37 +14289,46 @@ function generateWeeklyMatrix(consolidatedDataBayar) {
       year = parseInt(parts[2], 10);
     }
 
+    // Buat objek Date lokal murni (tanpa jam)
     const tglItem = new Date(year, month, day);
     tglItem.setHours(0, 0, 0, 0);
 
     if (isNaN(tglItem.getTime())) return;
 
+    // Cari rentang minggu (Senin s.d. Minggu) yang mencakup tgl item ini
     const targetWeek = weeks.find(w => tglItem >= w.start && tglItem <= w.end);
     if (!targetWeek) return;
 
-    // Filter Matriks berdasarkan nominal bersih (nominal + admin - potongan)
+    // --- KETENTUAN FILTER BARIS MATRIKS ---
+
+    // 1. DRAFT TRANSFER: jenis = transfer, status = draft
     if (jenis.includes('transfer') && status === 'draft') {
-      targetWeek.draftTransfer += nominalBersih;
+      targetWeek.draftTransfer += nominal;
     }
 
+    // 2. DRAFT GIRO: jenis = giro, status = draft
     if (jenis.includes('giro') && status === 'draft') {
-      targetWeek.draftGiro += nominalBersih;
+      targetWeek.draftGiro += nominal;
     }
 
+    // 3. TOTAL TRANSFER: jenis = transfer, status = proses atau lunas
     if (jenis.includes('transfer') && (status === 'proses' || status === 'lunas')) {
-      targetWeek.transfer += nominalBersih;
+      targetWeek.transfer += nominal;
     }
 
+    // 4. GIRO PROSES: jenis = giro, status = proses
     if (jenis.includes('giro') && status === 'proses') {
-      targetWeek.giro_proses += nominalBersih;
+      targetWeek.giro_proses += nominal;
     }
 
+    // 5. GIRO BEREDAR: jenis = giro, status = beredar (atau edar)
     if (jenis.includes('giro') && (status === 'beredar' || status === 'edar')) {
-      targetWeek.giro_beredar += nominalBersih;
+      targetWeek.giro_beredar += nominal;
     }
 
+    // 6. GIRO CAIR / LUNAS: jenis = giro, status = lunas (atau cair)
     if (jenis.includes('giro') && (status === 'lunas' || status === 'cair')) {
-      targetWeek.giro_cair += nominalBersih;
+      targetWeek.giro_cair += nominal;
     }
   });
 
@@ -14353,7 +14336,7 @@ function generateWeeklyMatrix(consolidatedDataBayar) {
 }
 
 // =========================================================================
-// 5. LOAD TABEL GIRO KHUSUS (PROSES & BEREDAR)
+// 5. LOAD TABEL GIRO KHUSUS (PROSES & BEREDAR, BILYET DARI 'catatan')
 // =========================================================================
 async function loadGiroOnly() {
   const tbody = document.getElementById('tbodyGiroData');
@@ -14365,17 +14348,15 @@ async function loadGiroOnly() {
     const { data, error } = await dbClient.from('Data_Bayar').select('*').ilike('jenis', '%giro%');
     if (error) throw error;
 
+    // Filter khusus status Proses atau Beredar
     const filteredGiro = (data || []).filter(item => {
       const st = String(item.status || "").trim().toUpperCase();
       return st.includes('PROSES') || st.includes('BEREDAR') || st.includes('EDAR');
     });
 
-    // Grouping per id_bayar agar perhitungan (nominal + admin - potongan) pas untuk 1 baris bundel
     const groupedData = filteredGiro.reduce((acc, item) => {
       const id = item.id_bayar || item.id;
       const nominal = Number(item.nominal || 0);
-      const potongan = Number(item.potongan || 0);
-      const admin = Number(item.admin || 0);
       
       if (!acc[id]) {
         acc[id] = { 
@@ -14387,23 +14368,17 @@ async function loadGiroOnly() {
           tglEdar: item.tanggal_edar || '-',
           estimasiBayar: item.estimasi_bayar || '-',
           status: item.status || 'Proses',
-          subtotalBruto: nominal,
-          potongan: potongan, 
-          admin: admin 
+          totalNominal: nominal,
+          potongan: Number(item.potongan || 0), 
+          admin: Number(item.admin || 0) 
         };
       } else {
-        acc[id].subtotalBruto += nominal;
-        if (potongan > acc[id].potongan) acc[id].potongan = potongan;
-        if (admin > acc[id].admin) acc[id].admin = admin;
+        acc[id].totalNominal += nominal;
       }
       return acc;
     }, {});
 
-    cacheGiroData = Object.values(groupedData).map(item => {
-      item.totalNominal = item.subtotalBruto + item.admin - item.potongan;
-      return item;
-    });
-
+    cacheGiroData = Object.values(groupedData);
     renderGiroTable();
 
   } catch (err) {
@@ -14435,8 +14410,8 @@ function renderGiroTable() {
     let valB = b[currentSortField] !== undefined ? b[currentSortField] : '';
 
     if (currentSortField === 'totalNominal') {
-      const numA = Number(a.totalNominal || 0);
-      const numB = Number(b.totalNominal || 0);
+      const numA = Number((a.totalNominal || 0) - (a.potongan || 0) + (a.admin || 0));
+      const numB = Number((b.totalNominal || 0) - (b.potongan || 0) + (b.admin || 0));
       return currentSortOrder === 'terlama' ? (numA - numB) : (numB - numA);
     }
 
@@ -14447,7 +14422,7 @@ function renderGiroTable() {
   });
 
   tbody.innerHTML = finalData.map(item => {
-    const netGiro = Number(item.totalNominal || 0);
+    const netGiro = item.totalNominal - item.potongan + item.admin;
     return `
       <tr class="hover:bg-white/5 transition-colors border-b border-white/5">
         <td class="p-3 text-cyan-400 font-bold text-left sticky left-0 z-35 bg-[#131720] shadow-[2px_0_5px_rgba(0,0,0,0.4)] w-[130px] whitespace-nowrap">${item.id || ''}</td>
@@ -14459,7 +14434,7 @@ function renderGiroTable() {
         <td class="p-3 text-center whitespace-nowrap">${item.tglProses || ''}</td>
         <td class="p-3 text-center whitespace-nowrap">${item.tglEdar || ''}</td>
         <td class="p-3 text-center whitespace-nowrap">${item.estimasiBayar || ''}</td>
-        <td class="p-3 text-right font-bold text-white whitespace-nowrap">${netGiro.toLocaleString('id-ID')}</td>
+        <td class="p-3 text-right font-bold text-white whitespace-nowrap">${Number(netGiro || 0).toLocaleString('id-ID')}</td>
         <td class="p-3 text-center whitespace-nowrap">
             <span class="px-2 py-0.5 rounded-full ${item.status === 'Cair' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-orange-500/20 text-orange-400'} text-[9px] uppercase font-bold">
                 ${item.status || ''}
