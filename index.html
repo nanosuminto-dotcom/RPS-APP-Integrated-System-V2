@@ -10965,7 +10965,7 @@ async function prosesImportBeli() {
         throw new Error("File kosong atau tidak ada data ditemukan.");
       }
 
-      // 1. Ambil data yang sudah ada untuk cek eksistensi invbeli & status lama
+      // 1. Ambil data yang sudah ada untuk cek eksistensi invbeli & statusbeli aslinya di database
       const checkRes = await fetch(`${DB_URL}/rest/v1/Data_Beli?select=invbeli,statusbeli`, {
         headers: {
           "apikey": DB_KEY,
@@ -10977,6 +10977,7 @@ async function prosesImportBeli() {
       const existingMap = {};
       existingData.forEach(item => {
         if (item.invbeli) {
+          // Simpan status asli yang ada di database agar tidak tertimpa saat update
           existingMap[item.invbeli.trim().toUpperCase()] = item.statusbeli || 'SIMPAN';
         }
       });
@@ -10984,7 +10985,7 @@ async function prosesImportBeli() {
       let insertedCount = 0;
       let updatedCount = 0;
 
-      // 2. Loop dan eksekusi POST atau PATCH satu per satu dengan aman
+      // 2. Loop dan eksekusi POST (Insert) atau PATCH (Update)
       for (let row of rows) {
         const normalizedRow = {};
         Object.keys(row).forEach(k => {
@@ -11023,8 +11024,8 @@ async function prosesImportBeli() {
         const isExist = existingMap.hasOwnProperty(invKey);
 
         if (isExist) {
-          // UPDATE DATA LAMA (Status lama dipertahankan)
-          const currentStatus = existingMap[invKey];
+          // KONDISI JIKA INVBELI SUDAH ADA: Update semua kolom baru dari Excel, KECUALI statusbeli
+          const savedStatus = existingMap[invKey]; // Pertahankan status yang sudah tersimpan di database
           const updatePayload = {
             kodesupp: kodesupp,
             namasupp: namasupp,
@@ -11032,7 +11033,7 @@ async function prosesImportBeli() {
             nombeli: isNaN(nomBeliVal) ? 0 : nomBeliVal,
             tglinvbeli: formattedDate || null,
             tgljt: formattedJT || null,
-            statusbeli: currentStatus
+            statusbeli: savedStatus // Nilai status tetap dikunci menggunakan data yang sudah tersimpan
           };
 
           const updateRes = await fetch(`${DB_URL}/rest/v1/Data_Beli?invbeli=eq.${encodeURIComponent(invbeli)}`, {
@@ -11048,7 +11049,7 @@ async function prosesImportBeli() {
 
           if (updateRes.ok) updatedCount++;
         } else {
-          // INSERT DATA BARU (Status menjadi SIMPAN)
+          // KONDISI JIKA INVBELI BELUM ADA: Insert data baru dengan status default 'SIMPAN'
           const insertPayload = {
             invbeli: invbeli,
             kodesupp: kodesupp,
@@ -11084,7 +11085,7 @@ async function prosesImportBeli() {
         title: 'Import Berhasil!',
         html: `<div class="text-left text-sm">
                  Berhasil menambah: <b>${insertedCount}</b> data baru<br>
-                 Berhasil memperbarui: <b>${updatedCount}</b> data lama
+                 Berhasil memperbarui: <b>${updatedCount}</b> data lama (Status aman/dipertahankan)
                </div>`,
         background: '#1e252e',
         color: '#fff',
