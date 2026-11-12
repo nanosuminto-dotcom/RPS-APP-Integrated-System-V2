@@ -15831,6 +15831,418 @@ async function executePaymentPdfDownload(customFileName) {
   // 7. Simpan dokumen PDF
   doc.save(`${customFileName}.pdf`);
 }
+// ==========================================
+// DEKLARASI VARIABEL UTAMA
+// ==========================================
+let currentMutationMode = "all"; 
+let rawMutationDataResult = [];    
+
+/**
+ * 1. MENYUNTIKKAN DAFTAR BANK DARI REF_REK KE DROPDOWN FILTER (SUPABASE)
+ */
+async function loadMutationBankDropdown() {
+  const selectEl = document.getElementById("mutBankFilter");
+  if (!selectEl) return;
+
+  const currentValue = selectEl.value; 
+
+  try {
+    const { data, error } = await dbClient.from('Ref_Rek').select('*');
+    if (error) throw error;
+
+    selectEl.innerHTML = '<option value="all">Semua Rekening</option>';
+    if (data && data.length > 0) {
+      data.forEach(function(row) {
+        const bankName = row.rekbank || row.nama_rekening || row.rekening;
+        if (!bankName) return;
+        const opt = document.createElement("option");
+        opt.value = bankName.toString().trim(); 
+        opt.textContent = bankName.toString().trim(); 
+        selectEl.appendChild(opt);
+      });
+    }
+    if (currentValue) selectEl.value = currentValue;
+  } catch (err) {
+    console.error("Gagal memuat Ref_Rek dari Supabase:", err);
+  }
+}
+
+/**
+ * 2. MEMICU PENCARIAN GABUNGAN KE SUPABASE (Tabel: Data_Mutasi & Data_Bayar)
+ */
+async function runMutationSearch() {
+  const sDate = document.getElementById("mutSDate").value;
+  const eDate = document.getElementById("mutEDate").value;
+  const bank = document.getElementById("mutBankFilter").value;
+
+  if (!sDate || !eDate) {
+    Swal.fire({ icon: 'warning', title: 'Peringatan', text: 'Tanggal Mulai dan Sampai wajib diisi!', background: '#13161a', color: '#fff' });
+    return;
+  }
+
+  document.getElementById("mutationSearchResult").innerHTML = `
+    <tr><td colspan="8" class="p-6 text-center text-gray-400 font-sans animate-pulse"><i class="fas fa-sync fa-spin text-emerald-400 mr-2"></i> Mengonsolidasi Data_Mutasi & Data_Bayar Lunas...</td></tr>`;
+
+  try {
+    // 1. Ambil data dari tabel Data_Mutasi
+    let queryMutasi = dbClient
+      .from('Data_Mutasi')
+      .select('*')
+      .gte('tanggal', sDate)
+      .lte('tanggal', eDate);
+
+    if (bank && bank !== 'all') {
+      queryMutasi = queryMutasi.eq('rek_bank', bank);
+    }
+
+    // 2. Ambil data pembayaran supplier dari tabel Data_Bayar yang statusnya Lunas
+    let queryBayar = dbClient
+      .from('Data_Bayar')
+      .select('*')
+      .ilike('status', 'lunas') // Mencakup 'Lunas', 'lunas', 'LUNAS'
+      .gte('tanggal', sDate)
+      .lte('tanggal', eDate);
+
+    if (bank && bank !== 'all') {
+      queryBayar = queryBayar.or(`sumber_rek.eq.${bank},bank_rek_an.eq.${bank}`);
+    }
+
+    // Jalankan kedua query secara paralel
+    const [resMutasi, resBayar] = await Promise.all([queryMutasi, queryBayar]);
+
+    if (resMutasi.error) throw resMutasi.error;
+    if (resBayar.error) throw resBayar.error;
+
+    const formattedData = [];
+
+    // --- PROSES DATA DARI TABLE Data_Mutasi ---
+    (resMutasi.data || []).forEach(row => {
+      const idRef = row.id_mutasi || '-';
+      const tanggal = row.tanggal || '-';
+      const bankSumber = row.rek_bank || '-';
+
+      const kreditTotal = Number(row.kgd_tunai || 0) + Number(row.kgd_db_bca || 0) + Number(row.kgd_cr_bca || 0) +
+                          Number(row.kgd_cicilan_bca || 0) + Number(row.kgd_qr_bca || 0) + Number(row.cdk_tunai || 0) +
+                          Number(row.grabmart_kgd || 0) + Number(row.grabmart_cdk || 0) + Number(row.grabmart_pkp || 0) + Number(row.grabmart_cpy || 0) +
+                          Number(row.transfer_kgd || 0) + Number(row.transfer_cdk || 0) + Number(row.transfer_pkp || 0) + Number(row.transfer_cpy || 0) +
+                          Number(row.office || 0);
+
+      if (kreditTotal > 0) {
+        formattedData.push({
+          tanggal: tanggal,
+          idRef: idRef,
+          bankSumber: bankSumber,
+          jenis: "KREDIT / MASUK",
+          keterangan: row.keterangan || '-',
+          nominal: kreditTotal,
+          tipe: "MASUK",
+          nominalMasuk: kreditTotal,
+          nominalKeluar: 0,
+          admin: 0,
+          potongan: 0
+        });
+      }
+
+      const debitTotal = Number(row.office_debit || 0);
+      if (debitTotal > 0) {
+        formattedData.push({
+          tanggal: tanggal,
+          idRef: idRef,
+          bankSumber: bankSumber,
+          jenis: "DEBIT / KELUAR",
+          keterangan: row.keterangan_debit || row.keterangan || '-',
+          nominal: debitTotal,
+          tipe: "KELUAR",
+          nominalMasuk: 0,
+          nominalKeluar: debitTotal,
+          admin: 0,
+          potongan: 0
+        });
+      }
+    });
+
+    // --- PROSES DATA PEMBAYARAN SUPPLIER LUNAS DARI TABLE Data_Bayar ---
+    // Melakukan grouping berdasarkan id_bayar agar multi-invoice dalam satu pembayaran terkonsolidasi
+    const groupedBayarMap = {};
+
+    (resBayar.data || []).forEach(row => {
+      const idBayar = row.id_bayar || 'PAY-LUNAS';
+      const tanggal = row.tanggal || row.estimasi_bayar || '-';
+      const bankSumber = row.sumber_rek || row.bank_rek_an || 'Kas/Bank';
+      const supplierName = row.namalog || row.kode_supp || 'Supplier';
+      const nominal = Number(row.nominal || 0);
+      const potongan = Number(row.potongan || 0);
+      const admin = Number(row.admin || 0);
+
+      if (!groupedBayarMap[idBayar]) {
+        groupedBayarMap[idBayar] = {
+          tanggal: tanggal,
+          idRef: idBayar,
+          bankSumber: bankSumber,
+          jenis: "PEMBAYARAN SUPPLIER",
+          keterangan: `Pembayaran Lunas ke Supplier: ${supplierName} (${row.no_invoice || 'Invoice'})`,
+          nominalBruto: 0,
+          potongan: potongan,
+          admin: admin,
+          tipe: "KELUAR"
+        };
+      }
+      groupedBayarMap[idBayar].nominalBruto += nominal;
+      if (potongan > groupedBayarMap[idBayar].potongan) groupedBayarMap[idBayar].potongan = potongan;
+      if (admin > groupedBayarMap[idBayar].admin) groupedBayarMap[idBayar].admin = admin;
+    });
+
+    // Masukkan hasil grouping Data_Bayar ke dalam formattedData sebagai pengeluaran (KELUAR)
+    Object.values(groupedBayarMap).forEach(item => {
+      const netKeluar = item.nominalBruto - item.potongan + item.admin;
+      formattedData.push({
+        tanggal: item.tanggal,
+        idRef: item.idRef,
+        bankSumber: item.bankSumber,
+        jenis: item.jenis,
+        keterangan: item.keterangan,
+        nominal: netKeluar,
+        tipe: "KELUAR",
+        nominalMasuk: 0,
+        nominalKeluar: netKeluar,
+        admin: item.admin,
+        potongan: item.potongan
+      });
+    });
+
+    rawMutationDataResult = formattedData; 
+    renderMutationTable();        
+
+  } catch (err) {
+    console.error("Gagal menarik data mutasi gabungan dari Supabase:", err);
+    Swal.fire({ icon: 'error', title: 'Database Error', text: err.message, background: '#13161a', color: '#fff' });
+    document.getElementById("mutationSearchResult").innerHTML = `<tr><td colspan="8" class="p-6 text-center text-rose-400 font-sans">Gagal memuat data: ${err.message}</td></tr>`;
+  }
+}
+/**
+ * 3. RENDER TABEL + TOTAL SUMMARY + SALDO REALTIME SEBARIS (GROUPING 1 BARIS PER ID REF)
+ */
+function renderMutationTable() {
+  const tbody = document.getElementById("mutationSearchResult");
+  const tfoot = document.getElementById("mutationSearchFooter");
+
+  // --- LOGIKA JEMPUT BOLA (Fix Saldo 0) ---
+  if (typeof window.DATA_SALDO_GLOBAL === 'undefined' || !window.DATA_SALDO_GLOBAL) {
+    tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-gray-400"><i class="fas fa-sync fa-spin"></i> Sinkronisasi Saldo...</td></tr>`;
+    
+    // Fungsi alternatif / fallback jika getOwnerDashboardData masih berbasis Google Script, 
+    // Anda bisa menyesuaikannya atau membiarkannya jika fungsi tersebut sudah disesuaikan ke Supabase.
+    if (typeof getOwnerDashboardData === 'function') {
+      // Jika berbasis callback lama:
+      try {
+        google.script.run.withSuccessHandler(function(res) {
+          window.DATA_SALDO_GLOBAL = res.saldo; 
+          renderMutationTable(); 
+        }).getOwnerDashboardData();
+      } catch(e) {
+        window.DATA_SALDO_GLOBAL = {};
+        renderMutationTable();
+      }
+    } else {
+      window.DATA_SALDO_GLOBAL = {};
+      renderMutationTable();
+    }
+    return;
+  }
+  // ----------------------------------------
+
+  if (!rawMutationDataResult || rawMutationDataResult.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-gray-400">Data tidak ditemukan pada periode tersebut.</td></tr>`;
+    tfoot.innerHTML = "";
+    return;
+  }
+
+  const saldo = window.DATA_SALDO_GLOBAL;
+  const targetAkun = [
+    { id: "bca2212", label: "BCA 2212" },
+    { id: "bca6702", label: "BCA 6702" },
+    { id: "mandiri", label: "MANDIRI" },
+    { id: "bni", label: "BNI" },
+    { id: "kasBesar", label: "KAS BESAR" }
+  ];
+
+  const fmt = (num) => "Rp " + Number(num || 0).toLocaleString('id-ID');
+
+  // --- PROSES GROUPING: GABUNGKAN ID REF YANG SAMA MENJADI 1 BARIS ---
+  const groupedMap = new Map();
+
+  rawMutationDataResult.forEach(item => {
+    const id = item.idRef || 'UNKNOWN';
+    
+    const mMasuk = item.nominalMasuk !== undefined ? Number(item.nominalMasuk) : (item.tipe === "MASUK" ? Number(item.nominal || 0) : 0);
+    const mKeluar = item.nominalKeluar !== undefined ? Number(item.nominalKeluar) : (item.tipe === "KELUAR" ? Number(item.nominal || 0) : 0);
+    
+    const admin = Number(item.admin || 0);
+    const potongan = Number(item.potongan || 0);
+
+    if (!groupedMap.has(id)) {
+      groupedMap.set(id, {
+        ...item,
+        nominalMasuk: mMasuk,
+        nominalKeluar: mKeluar,
+        netValue: (mKeluar > 0 ? (mKeluar + admin - potongan) : (mMasuk + admin - potongan))
+      });
+    } else {
+      let existing = groupedMap.get(id);
+      existing.nominalMasuk += mMasuk;
+      existing.nominalKeluar += mKeluar;
+      existing.netValue += (mKeluar > 0 ? (mKeluar + admin - potongan) : (mMasuk + admin - potongan));
+    }
+  });
+
+  const processedData = Array.from(groupedMap.values());
+  // -------------------------------------------------------------
+
+  let html = "";
+  let totalMasuk = 0;
+  let totalKeluar = 0;
+  let count = 0;
+
+  processedData.forEach(item => {
+    const nominalMasuk = item.nominalMasuk;
+    const nominalKeluar = item.nominalKeluar;
+    
+    if (currentMutationMode === "in" && nominalMasuk <= 0) return;
+    if (currentMutationMode === "out" && nominalKeluar <= 0) return;
+
+    totalMasuk += nominalMasuk;
+    totalKeluar += nominalKeluar;
+    count++;
+
+    html += `<tr class="border-b border-white/5 hover:bg-white/5 transition-all text-[11px]">
+      <td class="p-2.5 text-gray-300 font-mono">${item.tanggal || '-'}</td>
+      <td class="p-2.5 font-bold text-cyan-400 font-mono">${item.idRef || '-'}</td>
+      <td class="p-2.5 uppercase font-semibold text-center text-white">${item.bankSumber || '-'}</td>
+      <td class="p-2.5 uppercase font-bold text-center text-amber-400 font-sans text-[10px]">${item.jenis || "-"}</td> 
+      <td class="p-2.5 text-slate-300 font-sans leading-tight whitespace-normal">${item.keterangan || '-'}</td>
+      <td class="p-2.5 text-right font-bold text-emerald-400 font-mono">${nominalMasuk > 0 ? fmt(nominalMasuk) : "-"}</td>
+      <td class="p-2.5 text-right font-bold text-rose-400 font-mono">${nominalKeluar > 0 ? fmt(nominalKeluar) : "-"}</td>
+      <td class="p-2.5 text-center">
+        <span class="px-1.5 py-0.5 rounded text-[8px] font-bold border ${nominalMasuk > 0 && nominalKeluar === 0 ? "text-emerald-400 border-emerald-500/30" : (nominalKeluar > 0 ? "text-rose-400 border-rose-500/30" : "text-amber-400 border-amber-500/30")}">
+          ${nominalMasuk > 0 && nominalKeluar === 0 ? "MASUK" : (nominalKeluar > 0 ? "KELUAR" : "MUTASI")}
+        </span>
+      </td>
+    </tr>`;
+  });
+
+  tbody.innerHTML = count === 0 ? `<tr><td colspan="8" class="p-6 text-center text-gray-400">Tidak ada data untuk mode: ${currentMutationMode.toUpperCase()}</td></tr>` : html;
+
+  let saldoRowHtml = targetAkun.map(acc => {
+    const val = saldo[acc.id] || 0;
+    return `
+      <div class="flex flex-col items-center px-3 py-1 border-r border-white/5 last:border-none min-w-[80px]">
+        <span class="text-[8px] text-gray-400 uppercase font-bold">${acc.label}</span>
+        <span class="text-[10px] font-black ${val < 0 ? 'text-rose-400' : 'text-emerald-400'}">
+          ${fmt(val)}
+        </span>
+      </div>`;
+  }).join('');
+
+  tfoot.innerHTML = `
+    <tr class="bg-[#16191f] border-t-2 border-white/10 text-[11px]">
+      <td colspan="5" class="p-2.5 text-right text-gray-300 font-bold uppercase tracking-wider">TOTAL FILTER:</td>
+      <td class="p-2.5 text-right text-emerald-400 font-black text-[12px] bg-emerald-500/5">${fmt(totalMasuk)}</td>
+      <td class="p-2.5 text-right text-rose-400 font-black text-[12px] bg-rose-500/5">${fmt(totalKeluar)}</td>
+      <td></td>
+    </tr>
+    <tr class="bg-[#121418] border-t border-white/5">
+      <td colspan="2" class="p-2 pl-3 text-left font-black text-amber-500 text-[9px] uppercase tracking-wider">
+        <i class="fas fa-wallet mr-1"></i> SALDO TERKINI (REALTIME):
+      </td>
+      <td colspan="6" class="p-1">
+        <div class="flex items-center justify-end flex-wrap">${saldoRowHtml}</div>
+      </td>
+    </tr>`;
+}
+
+/**
+ * 4. KONTROL FILTER MODE
+ */
+function setMutationMode(mode) {
+  currentMutationMode = mode;
+  const btns = {all: 'btnMutAll', in: 'btnMutIn', out: 'btnMutOut'};
+  Object.keys(btns).forEach(key => {
+    const el = document.getElementById(btns[key]);
+    if (el) {
+      el.className = `matrix-btn ${mode === key ? 'active' : 'inactive'} !text-[9px] !px-3.5 !py-1 ${key === 'in' ? '!text-emerald-400' : ''} ${key === 'out' ? '!text-rose-400' : ''}`;
+    }
+  });
+  renderMutationTable();
+}
+
+/**
+ * 5. RESET DATA
+ */
+function clearMutationSearch() {
+  document.getElementById("mutSDate").value = "";
+  document.getElementById("mutEDate").value = "";
+  document.getElementById("mutBankFilter").value = "all";
+  document.getElementById("mutationSearchResult").innerHTML = `<tr><td colspan="8" class="p-6 text-center text-gray-400 font-sans">Silakan tentukan rentang tanggal mutasi dan klik Tampilkan.</td></tr>`;
+  document.getElementById("mutationSearchFooter").innerHTML = "";
+  rawMutationDataResult = [];
+  currentMutationMode = "all";
+}
+
+/**
+ * 6. EXPORT EXCEL
+ */
+function downloadMutationExcel() {
+  if (!rawMutationDataResult || rawMutationDataResult.length === 0) return;
+  const sDate = document.getElementById("mutSDate").value || "-";
+  const eDate = document.getElementById("mutEDate").value || "-";
+  
+  let tMasuk = 0, tKeluar = 0;
+  rawMutationDataResult.forEach(i => {
+    if (i.tipe === "MASUK") tMasuk += i.nominal;
+    if (i.tipe === "KELUAR") tKeluar += i.nominal;
+  });
+
+  let rows = [{"TANGGAL": "LAPORAN MUTASI KEUANGAN"}, {"TANGGAL": "Periode: " + sDate + " s/d " + eDate}, {"TANGGAL": ""}, {"TANGGAL": "Tanggal", "ID": "ID", "REKENING": "Rekening", "DESKRIPSI": "Deskripsi", "MASUK": "Masuk", "KELUAR": "Keluar"}];
+  rawMutationDataResult.forEach(item => {
+    rows.push({"TANGGAL": item.tanggal, "ID": item.idRef, "REKENING": item.bankSumber, "DESKRIPSI": (item.keterangan || "").replace(/<[^>]*>/g, ""), "MASUK": item.tipe === "MASUK" ? item.nominal : 0, "KELUAR": item.tipe === "KELUAR" ? item.nominal : 0});
+  });
+  rows.push({"TANGGAL": "TOTAL FILTER", "MASUK": tMasuk, "KELUAR": tKeluar}, {});
+  
+  const saldo = window.DATA_SALDO_GLOBAL || {};
+  rows.push({"TANGGAL": "SALDO REK TERKINI (GLOBAL):"});
+  Object.keys(saldo).forEach(k => rows.push({"TANGGAL": k.toUpperCase(), "MASUK": saldo[k]}));
+
+  const ws = XLSX.utils.json_to_sheet(rows, {skipHeader: true});
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "MUTASI");
+  XLSX.writeFile(wb, `Mutasi_${sDate}_${eDate}.xlsx`);
+}
+
+/**
+ * 7. EXPORT PDF
+ */
+function downloadMutationPdf() {
+  if (!rawMutationDataResult || rawMutationDataResult.length === 0) return;
+  
+  const saldoFinal = window.DATA_SALDO_GLOBAL || {};
+  let saldoText = Object.keys(saldoFinal).map(k => `${k.toUpperCase()}: Rp ${Number(saldoFinal[k] || 0).toLocaleString('id-ID')}`).join(' | ');
+
+  let tMasuk = 0, tKeluar = 0;
+  rawMutationDataResult.forEach(i => { if(i.tipe === "MASUK") tMasuk += i.nominal; if(i.tipe === "KELUAR") tKeluar += i.nominal; });
+
+  const doc = new jspdf.jsPDF('l', 'mm', 'a4');
+  doc.text("LAPORAN MUTASI KEUANGAN", 14, 15);
+  doc.autoTable({
+    startY: 28,
+    head: [['Tanggal', 'ID', 'Rekening', 'Deskripsi', 'Masuk', 'Keluar']],
+    body: rawMutationDataResult.map(i => [i.tanggal, i.idRef, i.bankSumber, (i.keterangan || "").replace(/<[^>]*>/g, ""), i.tipe === 'MASUK' ? i.nominal.toLocaleString() : '-', i.tipe === 'KELUAR' ? i.nominal.toLocaleString() : '-']),
+    foot: [
+      ['', '', '', 'TOTAL FILTER', tMasuk.toLocaleString(), tKeluar.toLocaleString()],
+      ['', '', '', 'SALDO TERKINI', '', saldoText]
+    ]
+  });
+  doc.save(`Mutasi_Report.pdf`);
+}
   </script>
 </body>
 </html>
