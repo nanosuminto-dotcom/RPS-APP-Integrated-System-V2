@@ -15200,13 +15200,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 // ==========================================
-// DEKLARASI VARIABEL UTAMA DATA PAYMENT
-// ==========================================
-let currentPayMethodMode = "all"; 
-let rawPaymentDataResult = [];    
-
-// ==========================================
-// 1. FUNGSI UTAMA: MENARIK DATA DARI SUPABASE (Tabel: Data_Bayar)
+// 1. FUNGSI UTAMA: MENARIK SEMUA DATA DARI SUPABASE (Tabel: Data_Bayar)
 // ==========================================
 async function runPaymentSearch() {
   const sDate = document.getElementById("paySDate").value;
@@ -15224,31 +15218,58 @@ async function runPaymentSearch() {
     tbody.innerHTML = `
       <tr>
         <td colspan="7" class="p-6 text-center text-gray-400 font-sans animate-pulse">
-          <i class="fas fa-sync fa-spin text-cyan-400"></i> Memuat data dari Supabase (Data_Bayar)...
+          <i class="fas fa-sync fa-spin text-cyan-400"></i> Memuat seluruh data dari Supabase (Data_Bayar)...
         </td>
       </tr>`;
   }
 
   try {
-    let query = dbClient
-      .from('Data_Bayar')
-      .select('*')
-      .gte('tanggal', sDate)
-      .lte('tanggal', eDate);
+    let allData = [];
+    let page = 0;
+    const pageSize = 1000;
+    let fetchMore = true;
 
-    if (status && status !== 'all') {
-      query = query.eq('status', status);
+    // Perulangan otomatis untuk menarik data berdasarkan rentang tanggal estimasi/tempo atau tanggal pengajuan
+    while (fetchMore) {
+      let query = dbClient
+        .from('Data_Bayar')
+        .select('*')
+        .range(page * pageSize, (page + 1) * pageSize - 1);
+
+      // Jika status bukan 'all' atau 'SEMUA', filter langsung di kueri Supabase
+      if (status && status !== 'all' && status !== 'SEMUA') {
+        query = query.eq('status', status);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        allData = allData.concat(data);
+        if (data.length < pageSize) {
+          fetchMore = false; 
+        } else {
+          page++;
+        }
+      } else {
+        fetchMore = false;
+      }
     }
 
-    const { data, error } = await query;
-    if (error) throw error;
+    console.log("Total keseluruhan baris Data_Bayar berhasil ditarik:", allData.length);
 
-    console.log("Data mentah Supabase berhasil ditarik:", data ? data.length : 0, "baris");
-
-    // --- GROUPING BERDASARKAN id_bayar ---
+    // --- FILTER RENTANG TANGGAL & GROUPING BERDASARKAN id_bayar ---
     const groupedMap = {};
 
-    (data || []).forEach(r => {
+    allData.forEach(r => {
+      // Ambil acuan tanggal (bisa dari estimasi_bayar, tgl_jth_tempo, atau tanggal pengajuan)
+      const tglAcuan = r.estimasi_bayar || r.tgl_jth_tempo || r.tanggal;
+      
+      // Jika ingin memfilter berdasarkan rentang tanggal di form:
+      if (tglAcuan && (tglAcuan < sDate || tglAcuan > eDate)) {
+        return; // Lewati jika di luar rentang tanggal yang dipilih di form
+      }
+
       const payId = r.id_bayar || 'UNKNOWN';
       const nominal = Number(r.nominal || 0);
 
