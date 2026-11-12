@@ -14927,7 +14927,6 @@ async function simpanBatchFinance() {
                     color: '#ffffff'
                 });
 
-                // RESET HALAMAN BERSIH KEMBALI OTOMATIS
                 resetFinanceForm();
                 
                 if (typeof loadFinanceHistoryTable === 'function') loadFinanceHistoryTable();
@@ -14947,11 +14946,891 @@ async function simpanBatchFinance() {
     });
 }
 
-// Inisialisasi saat DOM Pertama Kali Dimuat
+
+// =========================================================================
+// 5. MODUL RUCD TABLE: loadFinanceHistoryTable, Detail, Edit, & Hapus dari Supabase
+// =========================================================================
+function onFailure(error) {
+    Swal.fire({
+        icon: 'error',
+        title: 'Terjadi Kesalahan',
+        text: error.message || "Gagal menghubungi server database."
+    });
+    console.error("Error Detail:", error);
+}
+
+async function loadFinanceHistoryTable() {
+    const tbody = document.getElementById('bodyBatchFinance');
+    if (!tbody) return;
+    
+    tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-cyan-400 animate-pulse font-bold">Memuat 25 history mutasi terakhir...</td></tr>';
+
+    try {
+        // Ambil data diurutkan dari yang terbaru, dibatasi hanya 25 baris terakhir
+        const { data, error } = await dbClient
+            .from('Data_Mutasi')
+            .select('*')
+            .order('tanggal', { ascending: false })
+            .limit(25);
+
+        if (error) throw error;
+
+        tbody.innerHTML = '';
+        if (!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-gray-500">Data kosong</td></tr>';
+            return;
+        }
+
+        data.forEach(row => {
+            const creditTot = (row.kgd_tunai || 0) + (row.kgd_db_bca || 0) + (row.kgd_cr_bca || 0) + 
+                              (row.kgd_cicilan_bca || 0) + (row.kgd_qr_bca || 0) + (row.cdk_tunai || 0) + 
+                              (row.grabmart_kgd || 0) + (row.grabmart_cdk || 0) + (row.grabmart_pkp || 0) + (row.grabmart_cpy || 0) + 
+                              (row.transfer_kgd || 0) + (row.transfer_cdk || 0) + (row.transfer_pkp || 0) + (row.transfer_cpy || 0) + 
+                              (row.office || 0);
+
+            const debitTot = row.office_debit || 0;
+
+            const detailData = {
+                kgd: (row.grabmart_kgd || 0) + (row.transfer_kgd || 0),
+                cdk: (row.grabmart_cdk || 0) + (row.transfer_cdk || 0),
+                pkp: (row.grabmart_pkp || 0) + (row.transfer_pkp || 0),
+                cpy: (row.grabmart_cpy || 0) + (row.transfer_cpy || 0),
+                office: row.office || 0,
+                keterangan: row.keterangan || '',
+                office_debit: row.office_debit || 0,
+                keterangan_debit: row.keterangan_debit || ''
+            };
+
+            const detailString = encodeURIComponent(JSON.stringify(detailData));
+            const mutasiId = row.id_mutasi || '';
+
+            tbody.innerHTML += `
+                <tr class="hover:bg-white/5 border-b border-white/5">
+                    <td class="p-3 text-[10px] text-slate-300">${row.tanggal || ''}</td>
+                    <td class="p-3 text-[10px] font-mono">
+                        <button onclick="showFinanceDetail('${mutasiId}', '${detailString}')" class="text-cyan-400 hover:text-cyan-300 hover:underline font-bold text-left transition-all flex items-center gap-1">
+                            <i class="fas fa-info-circle text-[9px]"></i> ${mutasiId}
+                        </button>
+                    </td>
+                    <td class="p-3 text-right text-emerald-400 font-bold font-mono">Rp ${creditTot.toLocaleString('id-ID')}</td>
+                    <td class="p-3 text-right text-rose-400 font-bold font-mono">Rp ${debitTot.toLocaleString('id-ID')}</td>
+                    <td class="p-3 text-center">
+                        <div class="flex justify-center gap-2">
+                            <button onclick="editHistoryFinance('${mutasiId}')" class="text-amber-400 font-bold text-[9px] uppercase border border-amber-500/30 px-2 py-1 rounded hover:bg-amber-500/20 transition-all">Edit</button>
+                            <button onclick="hapusHistoryFinance('${mutasiId}')" class="text-rose-400 font-bold text-[9px] uppercase border border-rose-500/30 px-2 py-1 rounded hover:bg-rose-500/20 transition-all">Hapus</button>
+                        </div>
+                    </td>
+                </tr>`;
+        });
+
+    } catch (err) {
+        console.error("Gagal memuat history Data_Mutasi:", err);
+        tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-rose-400 font-bold text-xs">Gagal Memuat Data: ${err.message || ''}</td></tr>`;
+    }
+}
+
+function showFinanceDetail(id, encodedData) {
+    try {
+        const data = JSON.parse(decodeURIComponent(encodedData));
+        
+        Swal.fire({
+            title: `<span class="text-cyan-400 text-sm font-black uppercase">DETAIL MUTASI ID: ${id}</span>`,
+            html: `
+                <div class="text-left bg-[#12141a] p-4 rounded-xl border border-white/10 space-y-2 text-xs">
+                    <div class="flex justify-between border-b border-white/5 pb-2">
+                        <span class="text-gray-400 font-medium">Transfer KGD:</span>
+                        <span class="font-mono font-bold text-white">${Number(data.kgd || 0).toLocaleString('id-ID')}</span>
+                    </div>
+                    <div class="flex justify-between border-b border-white/5 pb-2">
+                        <span class="text-gray-400 font-medium">Transfer CDK:</span>
+                        <span class="font-mono font-bold text-white">${Number(data.cdk || 0).toLocaleString('id-ID')}</span>
+                    </div>
+                    <div class="flex justify-between border-b border-white/5 pb-2">
+                        <span class="text-gray-400 font-medium">Transfer PKP:</span>
+                        <span class="font-mono font-bold text-white">${Number(data.pkp || 0).toLocaleString('id-ID')}</span>
+                    </div>
+                    <div class="flex justify-between border-b border-white/5 pb-2">
+                        <span class="text-gray-400 font-medium">Transfer CPY:</span>
+                        <span class="font-mono font-bold text-white">${Number(data.cpy || 0).toLocaleString('id-ID')}</span>
+                    </div>
+                    <div class="flex justify-between border-b border-white/5 pb-2">
+                        <span class="text-gray-400 font-medium">Office:</span>
+                        <span class="font-mono font-bold text-emerald-400">${Number(data.office || 0).toLocaleString('id-ID')}</span>
+                    </div>
+                    <div class="flex justify-between border-b border-white/5 pb-2">
+                        <span class="text-gray-400 font-medium">Keterangan:</span>
+                        <span class="text-white italic">${data.keterangan || '-'}</span>
+                    </div>
+                    <div class="flex justify-between border-b border-white/5 pb-2">
+                        <span class="text-gray-400 font-medium">Office Debit:</span>
+                        <span class="font-mono font-bold text-rose-400">${Number(data.office_debit || 0).toLocaleString('id-ID')}</span>
+                    </div>
+                    <div class="flex justify-between pb-1">
+                        <span class="text-gray-400 font-medium">Keterangan Debit:</span>
+                        <span class="text-white italic">${data.keterangan_debit || '-'}</span>
+                    </div>
+                </div>
+            `,
+            background: '#1a1d23',
+            color: '#ffffff',
+            confirmButtonColor: '#06b6d4',
+            confirmButtonText: 'Tutup'
+        });
+    } catch (e) {
+        console.error("Gagal memparsing detail mutasi:", e);
+    }
+}
+
+async function editHistoryFinance(idInputan) {
+    Swal.fire({ title: 'Memuat data...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    
+    try {
+        const { data, error } = await dbClient
+            .from('Data_Mutasi')
+            .select('*')
+            .eq('id_mutasi', idInputan)
+            .single();
+
+        if (error) throw error;
+        if (!data) {
+            Swal.fire('Error', 'Data tidak ditemukan untuk ID: ' + idInputan, 'error');
+            return;
+        }
+
+        document.getElementById("currentIdInput").value = data.id_mutasi || "";
+        document.getElementById("finMainTanggal").value = data.tanggal || "";
+        document.getElementById("finMainRekening").value = data.rek_bank || "";
+
+        // Ubah tombol menjadi mode UPDATE
+        const btn = document.getElementById("btnSimpanFinance");
+        const btnText = document.getElementById("btnSimpanText");
+        
+        if (btnText) btnText.innerText = "UPDATE DATA";
+        if (btn) {
+            btn.classList.remove('bg-amber-600', 'hover:bg-amber-700');
+            btn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+        }
+
+        const fields = {
+            "cKgdTunai": data.kgd_tunai, "cKgdDbBca": data.kgd_db_bca, "cKgdCrBca": data.kgd_cr_bca,
+            "cKgdCic": data.kgd_cicilan_bca, "cKgdQr": data.kgd_qr_bca, "cCdkTunai": data.cdk_tunai,
+            "gKgd": data.grabmart_kgd, "gCdk": data.grabmart_cdk, "gPkp": data.grabmart_pkp, "gCpy": data.grabmart_cpy,
+            "tKgd": data.transfer_kgd, "tCdk": data.transfer_cdk, "tPkp": data.transfer_pkp, "tCpy": data.transfer_cpy,
+            "cOffice": data.office, "dOffice": data.office_debit
+        };
+
+        for (const [fieldId, val] of Object.entries(fields)) {
+            const el = document.getElementById(fieldId);
+            if (el) {
+                let numVal = parseFloat(val);
+                el.value = (!isNaN(numVal) && numVal !== 0) ? numVal.toLocaleString('id-ID') : "";
+            }
+        }
+
+        document.getElementById("cKet").value = data.keterangan || "";
+        document.getElementById("dKet").value = data.keterangan_debit || "";
+        
+        hitungTotalFinanceDebitCredit();
+
+        Swal.close();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    } catch (err) {
+        console.error("Gagal mengambil data mutasi untuk edit:", err);
+        Swal.fire('Gagal', 'Terjadi kesalahan sistem: ' + (err.message || ''), 'error');
+    }
+}
+
+async function hapusHistoryFinance(id) {
+    Swal.fire({ 
+        title: 'Hapus data mutasi?', 
+        text: `ID: ${id} akan dihapus permanen dari Supabase.`,
+        icon: 'warning', 
+        showCancelButton: true, 
+        confirmButtonColor: '#d33', 
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Ya, Hapus!',
+        cancelButtonText: 'Batal',
+        background: '#1a1d23',
+        color: '#ffffff'
+    }).then(async (result) => {
+        if (result.isConfirmed) {
+            Swal.fire({ title: 'Menghapus...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+            try {
+                const { error } = await dbClient
+                    .from('Data_Mutasi')
+                    .delete()
+                    .eq('id_mutasi', id);
+
+                if (error) throw error;
+
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Terhapus!',
+                    text: 'Data mutasi berhasil dihapus.',
+                    timer: 1500,
+                    showConfirmButton: false,
+                    background: '#1a1d23',
+                    color: '#ffffff'
+                });
+                loadFinanceHistoryTable();
+            } catch (err) {
+                console.error("Gagal menghapus mutasi:", err);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Gagal Hapus',
+                    text: err.message || 'Terjadi kesalahan saat menghapus data.',
+                    background: '#1a1d23',
+                    color: '#ffffff'
+                });
+            }
+        }
+    });
+}
+
+
+// =========================================================================
+// 6. INISIALISASI UTAMA SAAT HALAMAN DIMUAT
+// =========================================================================
 document.addEventListener('DOMContentLoaded', () => {
     loadRefRekeningDropdown();
     attachCalculationEvents();
+    if (typeof loadFinanceHistoryTable === 'function') {
+        loadFinanceHistoryTable();
+    }
 });
+// ==========================================
+// DEKLARASI VARIABEL UTAMA DATA PAYMENT
+// ==========================================
+let currentPayMethodMode = "all"; 
+let rawPaymentDataResult = [];    
+
+// ==========================================
+// 1. FUNGSI UTAMA: MENARIK DATA DARI SUPABASE (Tabel: Data_Bayar)
+// ==========================================
+async function runPaymentSearch() {
+  const sDate = document.getElementById("paySDate").value;
+  const eDate = document.getElementById("payEDate").value;
+  const status = document.getElementById("payStatus").value;
+
+  if (!sDate || !eDate) {
+    Swal.fire({ icon: 'warning', title: 'Peringatan', text: 'Tanggal Mulai dan Sampai wajib diisi!', background: '#1a1d23', color: '#fff' });
+    return;
+  }
+
+  // Tampilan Loading Animator saat data ditarik
+  const tbody = document.getElementById("paymentSearchResult");
+  if (tbody) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="7" class="p-6 text-center text-gray-400 font-sans animate-pulse">
+          <i class="fas fa-sync fa-spin text-cyan-400"></i> Memuat data dari Supabase (Data_Bayar)...
+        </td>
+      </tr>`;
+  }
+
+  try {
+    let query = dbClient
+      .from('Data_Bayar')
+      .select('*')
+      .gte('tanggal', sDate)
+      .lte('tanggal', eDate);
+
+    if (status && status !== 'all') {
+      query = query.eq('status', status);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    console.log("Data mentah Supabase berhasil ditarik:", data ? data.length : 0, "baris");
+
+    // --- GROUPING BERDASARKAN id_bayar ---
+    const groupedMap = {};
+
+    (data || []).forEach(r => {
+      const payId = r.id_bayar || 'UNKNOWN';
+      const nominal = Number(r.nominal || 0);
+
+      if (!groupedMap[payId]) {
+        groupedMap[payId] = {
+          idBayar: payId,
+          tglPengajuan: r.tanggal || '',
+          tglEstBayar: r.estimasi_bayar || r.tgl_jth_tempo || '',
+          tglEdar: r.tanggal_edar || '',
+          tglLunas: r.tanggal_lunas || '',
+          supplier: r.namalog || r.kode_supp || '-',
+          kodeSupplier: r.kode_supp || '',
+          jenisBayar: r.jenis || '',
+          bankSumber: r.sumber_rek || r.bank_rek_an || '',
+          status: r.status || 'Draft',
+          potongan: Number(r.potongan || 0),
+          admin: Number(r.admin || 0),
+          subtotalBruto: 0,
+          detailInvoices: []
+        };
+      } else {
+        if (Number(r.potongan || 0) > groupedMap[payId].potongan) {
+          groupedMap[payId].potongan = Number(r.potongan || 0);
+        }
+        if (Number(r.admin || 0) > groupedMap[payId].admin) {
+          groupedMap[payId].admin = Number(r.admin || 0);
+        }
+      }
+
+      groupedMap[payId].subtotalBruto += nominal;
+
+      groupedMap[payId].detailInvoices.push({
+        noInvoice: r.no_invoice || '-',
+        nominal: nominal,
+        cabang: r.cabang || '-',
+        catatan: r.catatan || '-'
+      });
+    });
+
+    // Hitung total bersih (Bruto - Potongan + Admin)
+    rawPaymentDataResult = Object.values(groupedMap).map(item => {
+      item.totalNominal = item.subtotalBruto - item.potongan + item.admin;
+      return item;
+    });
+
+    renderPaymentTable();        
+
+  } catch (err) {
+    console.error("Gagal menarik data dari Supabase:", err);
+    if (tbody) {
+      tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-rose-400 font-sans font-bold">Gagal memuat data: ${err.message || ''}</td></tr>`;
+    }
+    Swal.fire({ icon: 'error', title: 'Database Error', text: err.message, background: '#1a1d23', color: '#fff' });
+  }
+}
+
+// ==========================================
+// 2. FUNGSI FILTER & RENDER: TABEL MASTER KALEM
+// ==========================================
+function renderPaymentTable() {
+  const tbody = document.getElementById("paymentSearchResult");
+  const tfoot = document.getElementById("paymentSearchFooter");
+
+  if (!tbody || !tfoot) return;
+
+  if (!rawPaymentDataResult || !Array.isArray(rawPaymentDataResult) || rawPaymentDataResult.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-gray-400 font-sans">Data tidak ditemukan.</td></tr>`;
+    tfoot.innerHTML = "";
+    return;
+  }
+
+  const fmt = (num) => "Rp " + Number(num || 0).toLocaleString('id-ID');
+  const searchInputEl = document.getElementById("searchPaySupplier");
+  const supplierKeyword = searchInputEl ? searchInputEl.value.toUpperCase().trim() : "";
+
+  let html = "";
+  let grandTotal = 0;
+  let count = 0;
+
+  rawPaymentDataResult.forEach(master => {
+    if (!master) return;
+    
+    const mJenis = master.jenisBayar ? master.jenisBayar.toUpperCase().trim() : "";
+    const filterJenis = currentPayMethodMode ? currentPayMethodMode.toUpperCase().trim() : "ALL";
+    
+    const mSupplier = master.supplier ? master.supplier.toUpperCase().trim() : "";
+    const mKodeSupp = master.kodeSupplier ? master.kodeSupplier.toUpperCase().trim() : "";
+
+    if (filterJenis !== "ALL" && mJenis !== filterJenis) return; 
+    if (supplierKeyword !== "" && !mSupplier.includes(supplierKeyword) && !mKodeSupp.includes(supplierKeyword)) return;
+
+    const netNominal = Number(master.totalNominal || 0);
+    grandTotal += netNominal;
+    count++;
+
+    let badgeColor = "text-gray-400 border-gray-500/30 bg-gray-500/10";
+    const status = (master.status || "").toUpperCase();
+    if (status === "LUNAS" || status === "CAIR") badgeColor = "text-emerald-400 border-emerald-500/30 bg-emerald-500/10";
+    else if (status === "PROSES") badgeColor = "text-cyan-400 border-cyan-500/30 bg-cyan-500/10";
+    else if (status === "BEREDAR") badgeColor = "text-slate-400 border-slate-500/30 bg-slate-500/10";
+
+    html += `<tr onclick="viewPaymentDetail('${master.idBayar || ''}')" class="border-b border-white/5 hover:bg-white/10 cursor-pointer transition-all">
+      <td class="p-2 font-bold text-cyan-400 font-sans">${master.idBayar || '-'}</td>
+      <td class="p-2 text-[10px] leading-tight font-sans text-gray-400">
+        <div class="grid grid-cols-2 gap-x-2">
+          <div><span class="text-gray-500">Buat:</span> <span class="text-white">${master.tglPengajuan || '-'}</span></div>
+          <div><span class="text-cyan-500">Est:</span> <span class="text-cyan-400 font-bold">${master.tglEstBayar || '-'}</span></div>
+          <div><span class="text-gray-500">Edar:</span> <span class="text-gray-300">${master.tglEdar || '-'}</span></div>
+          <div><span class="text-emerald-500">Lns:</span> <span class="text-emerald-300 font-bold">${master.tglLunas || '-'}</span></div>
+        </div>
+      </td>
+      <td class="p-2 uppercase font-semibold text-white tracking-wider">
+        <div class="truncate max-w-[150px]" title="${master.supplier || ''}">${master.supplier || '-'}</div>
+        <div class="text-[8px] text-cyan-400 font-mono font-normal normal-case">${master.kodeSupplier || ''}</div>
+      </td>
+      <td class="p-2 text-slate-300 text-center font-medium text-[10px]">${master.jenisBayar || '-'}</td>
+      <td class="p-2 text-slate-400 text-center text-[10px] truncate" title="${master.bankSumber || '-'}">
+        ${master.bankSumber ? master.bankSumber.split('-').pop().trim() : '-'}
+      </td>
+      <td class="p-2 text-right font-bold text-white">${fmt(netNominal)}</td>
+      <td class="p-2 text-center font-sans">
+        <span class="px-1.5 py-0.5 rounded text-[8px] font-bold border ${badgeColor}">${master.status || '-'}</span>
+      </td>
+    </tr>`;
+  });
+
+  if (count === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-gray-400 font-sans">Tidak ada data pembayaran yang cocok.</td></tr>`;
+    tfoot.innerHTML = "";
+    return;
+  }
+
+  tbody.innerHTML = html;
+  tfoot.innerHTML = `<tr>
+    <td colspan="5" class="p-2 text-right font-sans text-gray-400 uppercase font-bold text-[10px]">TOTAL RINGKASAN:</td>
+    <td class="p-2 text-right text-emerald-400 font-mono text-xs font-black">${fmt(grandTotal)}</td>
+    <td></td>
+  </tr>`;
+}
+
+// ==========================================
+// 3. FUNGSI SWITCHER SUB-TAB METODE BAYAR
+// ==========================================
+function setPaymentReportMode(mode) {
+  const modeNormalized = mode.toLowerCase();
+  currentPayMethodMode = modeNormalized; 
+  
+  ['btnPayAll', 'btnPayTransfer', 'btnPayGiro'].forEach(b => {
+    const el = document.getElementById(b);
+    if(el) el.className = "matrix-btn inactive !text-[9px] !px-3.5 !py-1";
+  });
+  
+  if (modeNormalized === 'all') document.getElementById('btnPayAll').className = "matrix-btn active !text-[9px] !px-3.5 !py-1";
+  if (modeNormalized === 'transfer') document.getElementById('btnPayTransfer').className = "matrix-btn active !text-[9px] !px-3.5 !py-1";
+  if (modeNormalized === 'giro') document.getElementById('btnPayGiro').className = "matrix-btn active !text-[9px] !px-3.5 !py-1";
+  
+  renderPaymentTable();
+}
+
+// ==========================================
+// 4. FUNGSI SWEETALERT MODAL: DETAIL INVOICE
+// ==========================================
+function viewPaymentDetail(idBayar) {
+  const target = rawPaymentDataResult.find(item => item.idBayar === idBayar);
+  if (!target) return;
+
+  const fmt = (num) => "Rp " + Number(num).toLocaleString('id-ID');
+  let detailRows = "";
+  target.detailInvoices.forEach((inv, i) => {
+    detailRows += `
+      <tr class="border-b border-white/10 text-left text-xs">
+        <td class="p-2 text-gray-400 font-sans">${i + 1}</td>
+        <td class="p-2 text-white font-mono font-bold">${inv.noInvoice || '-'}</td>
+        <td class="p-2 text-white font-mono font-bold text-right">${fmt(inv.nominal)}</td>
+        <td class="p-2 text-gray-300 font-sans text-xs">${inv.catatan || '-'}</td>
+      </tr>`;
+  });
+
+  Swal.fire({
+    title: `<span class="text-cyan-400 font-mono text-sm">DETAIL BUNDLE INVOICE ID: ${target.idBayar}</span>`,
+    background: '#13161a',
+    color: '#fff',
+    width: '650px',
+    html: `
+      <div class="text-left text-xs space-y-1 border-b border-white/10 pb-2 mb-2 font-sans text-gray-300">
+        <div><span class="font-bold text-gray-400">Supplier:</span> <span class="text-white uppercase font-black">${target.supplier}</span></div>
+        <div class="grid grid-cols-2 gap-1 text-[11px]">
+          <div><span class="font-bold text-gray-400">Est. Bayar:</span> ${target.tglEstBayar}</div>
+          <div><span class="font-bold text-gray-400">Transaksi:</span> ${target.jenisBayar} (${target.bankSumber || '-'})</div>
+        </div>
+      </div>
+      <div class="overflow-x-auto max-h-[220px] overflow-y-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-slate-700 text-gray-400 text-[10px] uppercase font-bold">
+              <th class="p-1 w-8">No</th>
+              <th class="p-1">No. Invoice</th>
+              <th class="p-1 text-right">Nominal</th>
+              <th class="p-1">Catatan Form</th>
+            </tr>
+          </thead>
+          <tbody>${detailRows}</tbody>
+        </table>
+      </div>
+      <div class="text-right pt-2 mt-2 border-t border-white/10 font-bold text-xs text-white">
+        TOTAL AKUMULASI: <span class="text-emerald-400 font-mono font-black text-sm">${fmt(target.totalNominal)}</span>
+      </div>
+    `,
+    confirmButtonText: 'TUTUP DETAIL',
+    confirmButtonColor: '#475569'
+  });
+}
+
+// ==========================================
+// 5. FUNGSI RESET PENCARIAN FORM
+// ==========================================
+function clearPaymentSearch() {
+  document.getElementById("paySDate").value = "";
+  document.getElementById("payEDate").value = "";
+  document.getElementById("payStatus").value = "all";
+  document.getElementById("searchPaySupplier").value = "";
+  document.getElementById("paymentSearchResult").innerHTML = `<tr><td colspan="7" class="p-6 text-center text-gray-400 font-sans">Silakan tentukan rentang tanggal estimasi bayar dan klik Tampilkan.</td></tr>`;
+  document.getElementById("paymentSearchFooter").innerHTML = "";
+  rawPaymentDataResult = [];
+  currentPayMethodMode = "all";
+}
+
+// ==========================================
+// 6. FUNGSI EDIT TANGGAL STATUS
+// ==========================================
+function editStatusDate(id, status, currentTanggal) {
+    let formattedDate = "";
+    if (currentTanggal && currentTanggal !== "-") {
+        const cleanDateStr = currentTanggal.substring(0, 10);
+        const parts = cleanDateStr.split(/[\/\-\s]/);
+        if (parts.length >= 3) {
+            if (parts[0].length === 4) {
+                formattedDate = `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+            } else {
+                formattedDate = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+            }
+        }
+    }
+
+    const activeElement = event ? event.currentTarget : null;
+
+    Swal.fire({
+        title: `<span class="text-cyan-400 text-xs font-black uppercase">Edit Tanggal ${status}</span>`,
+        html: `
+            <div class="flex flex-col items-center justify-center p-2">
+                <label class="text-[10px] text-gray-400 font-bold mb-2 uppercase tracking-wide">Pilih Tanggal Baru (Jam otomatis 07:00:00):</label>
+                <input type="date" id="swalNewDate" value="${formattedDate}" class="bg-[#14161a] border border-cyan-500/40 rounded-lg px-4 py-2 text-white font-mono text-sm focus:outline-none focus:border-cyan-400 shadow-inner w-full text-center cursor-pointer">
+            </div>
+        `,
+        background: '#1a1d23',
+        color: '#ffffff',
+        showCancelButton: true,
+        confirmButtonText: 'Simpan',
+        cancelButtonText: 'Batal',
+        confirmButtonColor: '#06b6d4',
+        cancelButtonColor: '#334155',
+        customClass: {
+            popup: 'rounded-xl border border-white/10 shadow-2xl',
+            confirmButton: 'text-[10px] font-black uppercase tracking-wider px-4 py-2 rounded-lg',
+            cancelButton: 'text-[10px] font-bold uppercase tracking-wider px-4 py-2 rounded-lg'
+        },
+        preConfirm: () => {
+            const newDate = document.getElementById('swalNewDate').value;
+            if (!newDate) {
+                Swal.showValidationMessage('Tanggal wajib dipilih!');
+            }
+            return newDate;
+        }
+    }).then(async (result) => {
+        if (result.isConfirmed) {
+            const updatedDate = result.value; 
+            const p = updatedDate.split('-');
+            const displayDateText = `${p[0]}/${p[1]}/${p[2]} 07:00:00`; 
+
+            if (activeElement) activeElement.style.opacity = "0.4";
+
+            try {
+                // Update langsung ke tabel Data_Bayar Supabase
+                const updateField = status.toLowerCase().includes('lunas') ? 'tanggal_lunas' : (status.toLowerCase().includes('edar') ? 'tanggal_edar' : 'estimasi_bayar');
+                
+                const { error } = await dbClient
+                    .from('Data_Bayar')
+                    .update({ [updateField]: displayDateText })
+                    .eq('id_bayar', id);
+
+                if (error) throw error;
+
+                if (activeElement) {
+                    activeElement.style.opacity = "1";
+                    activeElement.innerText = displayDateText;
+                }
+
+                Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Tanggal berhasil diperbarui', timer: 1000, showConfirmButton: false, background: '#1a1d23', color: '#ffffff' });
+                runPaymentSearch(); // Refresh tabel
+
+            } catch (err) {
+                if (activeElement) activeElement.style.opacity = "1";
+                Swal.fire({ icon: 'error', title: 'Gagal Update', text: err.message, background: '#1a1d23', color: '#ffffff' });
+            }
+        }
+    });
+}
+
+// ==========================================
+// 7. FUNGSI EXPORT (EXCEL & PDF)
+// ==========================================
+function exportPaymentData(type) {
+  if (!rawPaymentDataResult || rawPaymentDataResult.length === 0) {
+    Swal.fire({ 
+      icon: 'warning', 
+      title: '<span style="color:#f59e0b">Data Kosong</span>', 
+      background: '#13161a',
+      color: '#fff',
+      html: 'Tidak ada data di tabel untuk diexport.<br>Silakan tentukan tanggal dan klik <b>Tampilkan</b> terlebih dahulu!',
+      confirmButtonColor: '#ef4444',
+      confirmButtonText: 'SIAP, PAHAM'
+    });
+    return;
+  }
+
+  const sDate = document.getElementById("paySDate").value || "Mulai";
+  const eDate = document.getElementById("payEDate").value || "Sampai";
+  const supplierKeyword = document.getElementById("searchPaySupplier").value.toUpperCase().trim();
+  const filterSuppStr = supplierKeyword ? supplierKeyword : "SEMUA";
+
+  const cleanSDate = sDate.replace(/[/ ]/g, '_');
+  const cleanEDate = eDate.replace(/[/ ]/g, '_');
+  const defaultFileName = `Laporan_Payment_${filterSuppStr}_${cleanSDate}_to_${cleanEDate}`;
+
+  Swal.fire({
+    title: `<span style="color:#06b6d4; font-family:monospace; font-size:16px;">KONFIRMASI EXPORT ${type.toUpperCase()}</span>`,
+    background: '#13161a',
+    color: '#fff',
+    html: `<div style="text-align:left; font-size:12px; color:#94a3b8; margin-bottom:10px;">Silakan tentukan nama file sesuai kebutuhan Anda:</div>`,
+    input: 'text',
+    inputValue: defaultFileName,
+    inputAttributes: {
+      autocapitalize: 'off',
+      autocorrect: 'off',
+      style: 'background-color:#1e293b; color:#fff; border:1px solid #334155; font-size:12px; font-family:monospace;'
+    },
+    showCancelButton: true,
+    confirmButtonText: `<i class="fas fa-download"></i> UNDUH`,
+    cancelButtonText: 'BATAL',
+    confirmButtonColor: '#0ea5e9',
+    cancelButtonColor: '#475569',
+    reverseButtons: true,
+    inputValidator: (value) => {
+      if (!value.trim()) return 'Nama file tidak boleh kosong!';
+    }
+  }).then((result) => {
+    if (result.isConfirmed) {
+      const finalFileName = result.value.trim().replace(/[/\\?%*:|"<>]/g, '-');
+      
+      Swal.fire({
+        title: 'Memproses Berkas...',
+        html: 'Sedang menyusun struktur data laporan',
+        background: '#13161a',
+        color: '#fff',
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
+      });
+
+      setTimeout(() => {
+        if (type === 'excel') {
+          executePaymentExcelDownload(finalFileName);
+        } else if (type === 'pdf') {
+          executePaymentPdfDownload(finalFileName);
+        }
+
+        const Toast = Swal.mixin({
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 3500,
+          timerProgressBar: true,
+          background: '#1e293b',
+          color: '#fff'
+        });
+
+        Toast.fire({
+          icon: 'success',
+          title: `<span style="font-size:12px;">File <b>${finalFileName}.${type === 'excel' ? 'xlsx' : 'pdf'}</b> berhasil diunduh!</span>`
+        });
+      }, 800);
+    }
+  });
+}
+
+function executePaymentExcelDownload(fileName) {
+  const sDate = document.getElementById("paySDate").value;
+  const eDate = document.getElementById("payEDate").value;
+  const statusSelect = document.getElementById("payStatus").value.toUpperCase();
+  const supplierKeyword = document.getElementById("searchPaySupplier").value.toUpperCase().trim();
+  const filterSuppStr = supplierKeyword ? supplierKeyword : "SEMUA";
+
+  const head = [
+    ["JUDUL:", "LAPORAN MASTER DATA PAYMENT (SUPABASE)"],
+    ["PERIODE:", `${sDate} s/d ${eDate}`],
+    ["STATUS:", statusSelect],
+    ["METODE:", currentPayMethodMode.toUpperCase()],
+    ["SUPPLIER:", filterSuppStr],
+    [] 
+  ];
+
+  const exportList = [];
+  let grandTotal = 0;
+
+  rawPaymentDataResult.forEach(m => {
+    const mJenis = m.jenisBayar ? m.jenisBayar.toUpperCase().trim() : "";
+    const filterJenis = currentPayMethodMode.toUpperCase().trim();
+    const mSupplier = m.supplier ? m.supplier.toUpperCase().trim() : "";
+
+    if (filterJenis !== "ALL" && mJenis !== filterJenis) return; 
+    if (filterSuppStr !== "SEMUA" && !mSupplier.includes(filterSuppStr)) return;
+
+    grandTotal += m.totalNominal;
+
+    exportList.push({
+      "ID Payment": m.idBayar,
+      "Tgl Pengajuan": m.tglPengajuan,
+      "Est Tgl Bayar": m.tglEstBayar,
+      "Tgl Edar Giro": m.tglEdar || "-",
+      "Tgl Lunas": m.tglLunas || "-",
+      "Supplier": m.supplier,
+      "Metode Transaksi": m.jenisBayar,
+      "Bank Sumber": m.bankSumber || "-",
+      "Total Nominal": m.totalNominal,
+      "Status": m.status
+    });
+  });
+
+  exportList.push({
+    "ID Payment": "SUMMARY TOTAL",
+    "Tgl Pengajuan": "-",
+    "Est Tgl Bayar": "-",
+    "Tgl Edar Giro": "-",
+    "Tgl Lunas": "-",
+    "Supplier": "-",
+    "Metode Transaksi": "-",
+    "Bank Sumber": "-",
+    "Total Nominal": grandTotal,
+    "Status": "-"
+  });
+
+  const excelEngine = window["XLSX"];
+  const ws = excelEngine.utils.aoa_to_sheet(head);
+  excelEngine.utils.sheet_add_json(ws, exportList, { origin: -1 });
+
+  ws['!cols'] = [
+    { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 },
+    { wch: 20 }, { wch: 15 }, { wch: 20 }, { wch: 18 }, { wch: 12 }
+  ];
+
+  const wb = excelEngine.utils.book_new();
+  excelEngine.utils.book_append_sheet(wb, ws, "Payment_Report");
+  excelEngine.writeFile(wb, `${fileName}.xlsx`);
+}
+
+async function executePaymentPdfDownload(customFileName) {
+  if (!window["jspdf"] || !window["jspdf"]["jsPDF"]) {
+    Swal.fire({ icon: 'error', title: 'Library Missing', text: 'Komponen jsPDF gagal dimuat di halaman ini.' });
+    return;
+  }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF('l'); // Landscape orientation
+  const now = new Date().toLocaleString('id-ID', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+  // Ambil nama user aktif (jika ada elemennya) atau gunakan default
+  const namaUser = document.getElementById('navUserName')?.innerText || "Admin Finance";
+
+  // 1. Ambil nama PT/profil secara dinamis dari tabel 'profil' Supabase
+  let namaPtDinamis = "PT. RITEL PERKAKAS SOLUSINDO"; // Fallback default
+  try {
+    const { data: dataProfil, error: profErr } = await dbClient
+      .from('profil')
+      .select('namaprofil');
+      
+    if (!profErr && dataProfil && dataProfil.length > 0 && dataProfil[0].namaprofil) {
+      namaPtDinamis = dataProfil[0].namaprofil.toString().trim();
+    }
+  } catch (err) {
+    console.warn("Gagal mengambil profil perusahaan dari Supabase:", err);
+  }
+
+  // 2. Ambil logo dari Supabase Storage ('logo/logo.jpg')
+  let logoBase64 = null;
+  try {
+    const { data, error } = await dbClient.storage.from('logo').download('logo.jpg');
+    if (!error && data) {
+      logoBase64 = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(data);
+      });
+    }
+  } catch (e) {
+    console.warn("Gagal memuat logo dari Supabase Storage:", e);
+  }
+
+  // 3. Ambil parameter filter aktif untuk info header laporan
+  const sDate = document.getElementById("paySDate").value || "-";
+  const eDate = document.getElementById("payEDate").value || "-";
+  const statusSelect = document.getElementById("payStatus").value.toUpperCase();
+  const supplierKeyword = document.getElementById("searchPaySupplier").value.toUpperCase().trim();
+  const filterSuppStr = supplierKeyword ? supplierKeyword : "SEMUA";
+
+  const fmt = (num) => "Rp " + Number(num || 0).toLocaleString('id-ID');
+
+  // 4. Susun isi baris data (body) dari hasil pencarian/filter tabel
+  const body = [];
+  let grandTotal = 0;
+
+  rawPaymentDataResult.forEach(m => {
+    const mJenis = m.jenisBayar ? m.jenisBayar.toUpperCase().trim() : "";
+    const filterJenis = currentPayMethodMode.toUpperCase().trim();
+    const mSupplier = m.supplier ? m.supplier.toUpperCase().trim() : "";
+
+    if (filterJenis !== "ALL" && mJenis !== filterJenis) return; 
+    if (filterSuppStr !== "SEMUA" && !mSupplier.includes(filterSuppStr)) return;
+
+    grandTotal += m.totalNominal;
+    
+    // Gabungkan histori tanggal dalam satu cell agar rapi
+    const tanggalGabung = `B:${m.tglPengajuan} | E:${m.tglEstBayar}\nEd:${m.tglEdar || '-'} | L:${m.tglLunas || '-'}`;
+
+    body.push([
+      m.idBayar,
+      tanggalGabung,
+      m.supplier.toUpperCase(),
+      m.jenisBayar,
+      m.bankSumber || '-',
+      fmt(m.totalNominal),
+      m.status
+    ]);
+  });
+
+  // Tambahkan baris summary total di bagian bawah tabel
+  body.push([
+    { content: 'SUMMARY TOTAL AKUMULASI', colSpan: 5, styles: { fillColor: [220, 225, 230], fontStyle: 'bold', halign: 'right' } },
+    { content: fmt(grandTotal), styles: { fillColor: [220, 225, 230], fontStyle: 'bold' } },
+    { content: '', styles: { fillColor: [220, 225, 230] } }
+  ]);
+
+  // 5. Render Kop Surat (Logo, Nama PT, Periode, User, Waktu Cetak)
+  if (logoBase64) {
+    doc.addImage(logoBase64, 'JPEG', 14, 8, 14, 16);
+  }
+
+  doc.setFontSize(14);
+  doc.setFont("helvetica", "bold");
+  doc.text(namaPtDinamis, 32, 12);
+
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.text(`LAPORAN MASTER DATA PAYMENT (FINANCE)`, 32, 17);
+
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "normal");
+  doc.text(`Periode: ${sDate} s/d ${eDate} | Status: ${statusSelect} | Metode: ${currentPayMethodMode.toUpperCase()} | Supplier: ${filterSuppStr} | Dicetak: ${now}`, 32, 22);
+
+  doc.setLineWidth(0.5);
+  doc.line(14, 25, 283, 25);
+
+  // 6. Render Tabel Menggunakan autoTable
+  doc.autoTable({ 
+    startY: 28, 
+    head: [['ID Payment', 'Histori Tanggal', 'Supplier', 'Metode', 'Bank Sumber', 'Total Nominal', 'Status']], 
+    body: body, 
+    headStyles: { fillColor: [26, 29, 35] }, 
+    styles: { fontSize: 8 } 
+  });
+
+  // 7. Simpan dokumen PDF
+  doc.save(`${customFileName}.pdf`);
+}
   </script>
 </body>
 </html>
