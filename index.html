@@ -15570,7 +15570,587 @@ async function downloadMutationPdf() {
 
   doc.save(`Mutasi_Keuangan_${sDate}_${eDate}.pdf`);
 }
+// =========================================================================
+// MANAJEMEN SETTINGS USERS (STRICT RBAC & DATA FILTERING)
+// =========================================================================
 
+// Fungsi Helper untuk mendeteksi role aktif
+function getSessionRole() {
+  if (typeof session === 'undefined' || !session) return "";
+  const roleVal = session.role || session.Role || session.level || session.jabatan || "";
+  return roleVal.toString().trim().toUpperCase();
+}
+
+// Fungsi Helper untuk mendapatkan username yang sedang login
+function getSessionUsername() {
+  if (typeof session === 'undefined' || !session) return "";
+  return (session.username || session.Username || session.user || "").toString().trim().toLowerCase();
+}
+
+// 1. LOAD DATA DARI SUPABASE
+async function loadUsersSettings() {
+  const tbody = document.getElementById('userTableBody');
+  if (!tbody) return;
+
+  tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-cyan-400 animate-pulse"><i class="fa fa-spinner fa-spin"></i> Memuat data user...</td></tr>';
+  
+  try {
+    let { data, error } = await dbClient
+      .from('Ref_User')
+      .select('*')
+      .order('No', { ascending: true });
+
+    if (error) throw error;
+
+    const role = getSessionRole();
+    const currentUsername = getSessionUsername();
+
+    let rawData = data || [];
+
+    // Jika BUKAN Owner, data difilter HANYA untuk user yang sedang login saja
+    if (role !== "OWNER") {
+      rawData = rawData.filter(u => (u.Username || "").toString().trim().toLowerCase() === currentUsername);
+    }
+
+    allUserData = rawData;
+    renderUserTable(allUserData);
+
+  } catch (err) {
+    console.error("Gagal memuat Ref_User:", err);
+    tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-rose-400 font-bold">Gagal Memuat Data: ${err.message || ''}</td></tr>`;
+  }
+}
+
+// 2. RENDER TABEL & KONTROL HAK AKSES TOMBOL
+function renderUserTable(data) {
+  const tbody = document.getElementById('userTableBody');
+  const btnTambah = document.getElementById('btnTambahUser');
+  
+  const role = getSessionRole();
+  const isOwner = (role === "OWNER");
+
+  // Tombol tambah user baru HANYA muncul untuk Owner
+  if (btnTambah) {
+    btnTambah.style.display = isOwner ? "block" : "none";
+  }
+  
+  if (!data || data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-gray-500 italic">Data tidak ditemukan.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = data.map(u => `
+    <tr class="border-b border-white/5 hover:bg-white/5 transition-all text-white text-xs">
+      <td class="p-3 font-bold text-cyan-400">${u.Username || '-'}</td>
+      <td class="p-3">
+        <span class="bg-white/10 px-2.5 py-1 rounded text-[10px] font-semibold uppercase tracking-wider">
+          ${u.Role || '-'}
+        </span>
+      </td>
+      <td class="p-3">${u.ID_Cabang || '-'}</td>
+      <td class="p-3 font-mono text-gray-500">****</td>
+      
+      <!-- Tombol Aksi: Owner bisa Edit & Hapus, Admin/User hanya bisa Edit (ganti password akun sendiri) -->
+      <td class="p-3 text-center">
+        <div class="inline-flex items-center gap-1.5">
+          <button type="button" onclick="editUser('${u.Username}', '${u.Role}', '${u.ID_Cabang}')" class="bg-blue-600/80 hover:bg-blue-600 text-white px-2.5 py-1 rounded text-[11px] font-medium flex items-center gap-1 transition-colors shadow">
+            <i class="fa fa-edit text-[10px]"></i> Edit
+          </button>
+          
+          ${isOwner ? `
+          <button type="button" onclick="hapusUser('${u.Username}')" class="bg-rose-600/80 hover:bg-rose-600 text-white px-2.5 py-1 rounded text-[11px] font-medium flex items-center gap-1 transition-colors shadow">
+            <i class="fa fa-trash text-[10px]"></i> Hapus
+          </button>` : ''}
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+// 3. FILTER & PENCARIAN
+function filterUserTable() {
+  const userQ = document.getElementById('userSearch')?.value.toLowerCase().trim() || "";
+  const cabQ = document.getElementById('cabangSearchUser')?.value.toLowerCase().trim() || "";
+  
+  if (userQ === "" && cabQ === "") { 
+    renderUserTable(allUserData); 
+    return; 
+  }
+  
+  const filtered = allUserData.filter(u => {
+    const username = (u.Username || "").toString().toLowerCase();
+    const cabang = (u.ID_Cabang || "").toString().toLowerCase();
+    return username.includes(userQ) && cabang.includes(cabQ);
+  });
+  renderUserTable(filtered);
+}
+
+// 4. LOAD DROPDOWN CABANG
+async function loadCabangDropdown(selectedValue = "") {
+  try {
+    const cabangUnik = [...new Set(allUserData.map(u => u.ID_Cabang))].filter(Boolean);
+    const select = document.getElementById('u_cabang');
+    if (!select) return;
+
+    select.innerHTML = '<option value="">-- Pilih Cabang --</option>' + 
+      cabangUnik.map(c => `<option value="${c}" ${c.toLowerCase() === selectedValue.toLowerCase() ? 'selected' : ''}>${c}</option>`).join('');
+  } catch (err) {
+    console.error("Gagal load cabang:", err);
+  }
+}
+
+// MODAL: TAMBAH USER BARU (Hanya Owner)
+function openUserModal() {
+  const isOwner = (getSessionRole() === "OWNER");
+  
+  if (!isOwner) {
+    Swal.fire({ icon: 'error', title: 'Akses Ditolak!', text: 'Hanya Owner yang dapat menambah user.', background: '#1a1a1a', color: '#fff' });
+    return;
+  }
+  
+  document.getElementById('modalUserTitle').innerText = "TAMBAH USER";
+  document.getElementById('u_username').value = "";
+  document.getElementById('u_old_username').value = "";
+  document.getElementById('u_role').value = "Admin";
+  document.getElementById('u_password').value = "";
+  
+  loadCabangDropdown(""); 
+  
+  document.getElementById('u_username').disabled = false;
+  document.getElementById('u_role').disabled = false;
+  document.getElementById('u_cabang').disabled = false;
+  document.getElementById('u_role').style.opacity = "1";
+  document.getElementById('u_cabang').style.opacity = "1";
+
+  document.getElementById('modalUser').classList.remove('hidden');
+}
+
+// MODAL: EDIT USER (Full Edit untuk Owner, Ganti Password Saja untuk Non-Owner)
+function editUser(username, role, cabang) {
+  const isOwner = (getSessionRole() === "OWNER");
+  
+  document.getElementById('modalUserTitle').innerText = isOwner ? "EDIT USER: " + username : "GANTI PASSWORD: " + username;
+  document.getElementById('u_username').value = username;
+  document.getElementById('u_old_username').value = username; 
+  document.getElementById('u_role').value = role;
+  document.getElementById('u_password').value = ""; 
+  
+  loadCabangDropdown(cabang);
+
+  const userField = document.getElementById('u_username');
+  const roleField = document.getElementById('u_role');
+  const cabangField = document.getElementById('u_cabang');
+  
+  if (userField && roleField && cabangField) {
+    // Jika Owner, semua bisa diedit. Jika Admin/User, field identitas dikunci.
+    userField.disabled = !isOwner;
+    roleField.disabled = !isOwner;
+    cabangField.disabled = !isOwner;
+    
+    userField.style.opacity = isOwner ? "1" : "0.5";
+    roleField.style.opacity = isOwner ? "1" : "0.5";
+    cabangField.style.opacity = isOwner ? "1" : "0.5";
+  }
+
+  document.getElementById('modalUser').classList.remove('hidden');
+}
+
+// 5. SIMPAN DATA KE SUPABASE (INSERT / UPDATE)
+async function simpanUser() {
+  const isOwner = (getSessionRole() === "OWNER");
+  
+  const username = document.getElementById('u_username').value.trim();
+  const oldUsername = document.getElementById('u_old_username').value.trim();
+  const password = document.getElementById('u_password').value.trim();
+  
+  const role = isOwner ? document.getElementById('u_role').value.trim() : (session.role || session.Role || 'Admin');
+  const cabang = isOwner ? document.getElementById('u_cabang').value.trim() : (session.cabang || session.ID_Cabang || 'ALL');
+
+  if (!username) {
+    Swal.fire({ icon: 'error', title: 'Oops...', text: 'Username wajib diisi!', background: '#1a1a1a', color: '#fff' });
+    return;
+  }
+
+  document.getElementById('modalUser').classList.add('hidden');
+  Swal.fire({
+    title: 'Memproses...',
+    allowOutsideClick: false,
+    background: '#1a1a1a',
+    color: '#fff',
+    didOpen: () => { Swal.showLoading(); }
+  });
+
+  try {
+    if (oldUsername) {
+      // MODE UPDATE (Ganti password / edit data)
+      let updatePayload = {};
+      
+      if (isOwner) {
+        updatePayload = {
+          Username: username,
+          Role: role,
+          ID_Cabang: cabang
+        };
+      }
+      
+      if (password) {
+        updatePayload.password = password;
+      }
+
+      if (Object.keys(updatePayload).length > 0) {
+        let { error } = await dbClient
+          .from('Ref_User')
+          .update(updatePayload)
+          .eq('Username', oldUsername);
+
+        if (error) throw error;
+      }
+    } else {
+      // MODE TAMBAH BARU (INSERT) - Hanya Owner
+      if (!isOwner) {
+        throw new Error("Akses ditolak. Hanya Owner yang dapat menambah user baru.");
+      }
+
+      const maxNo = allUserData.length > 0 ? Math.max(...allUserData.map(u => u.No || 0)) + 1 : 1;
+
+      let { error } = await dbClient
+        .from('Ref_User')
+        .insert([{
+          No: maxNo,
+          Username: username,
+          Role: role || 'Admin',
+          ID_Cabang: cabang || 'ALL',
+          password: password || '1234'
+        }]);
+
+      if (error) throw error;
+    }
+
+    Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Data berhasil disimpan.', timer: 1500, showConfirmButton: false, background: '#1a1a1a', color: '#fff' });
+    loadUsersSettings();
+
+  } catch (err) {
+    console.error("Gagal menyimpan user:", err);
+    Swal.fire({ icon: 'error', title: 'Gagal', text: err.message || 'Terjadi kesalahan sistem.', background: '#1a1a1a', color: '#fff' });
+  }
+}
+
+// 6. HAPUS DATA DARI SUPABASE (Hanya Owner)
+function hapusUser(username) {
+  const isOwner = (getSessionRole() === "OWNER");
+
+  if (!isOwner) {
+    Swal.fire({ icon: 'error', title: 'Akses Ditolak!', text: 'Hanya Owner yang dapat menghapus user.', background: '#1a1a1a', color: '#fff' });
+    return;
+  }
+
+  Swal.fire({
+    title: 'Hapus User?',
+    text: `User ${username} akan dihapus permanen!`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#ef4444',
+    confirmButtonText: 'Ya, Hapus!',
+    background: '#1a1a1a',
+    color: '#fff'
+  }).then(async (result) => {
+    if (result.isConfirmed) {
+      try {
+        let { error } = await dbClient
+          .from('Ref_User')
+          .delete()
+          .eq('Username', username);
+
+        if (error) throw error;
+
+        loadUsersSettings();
+        Swal.fire({ icon: 'success', title: 'Terhapus!', background: '#1a1a1a', color: '#fff', timer: 1500, showConfirmButton: false });
+      } catch (err) {
+        console.error("Gagal menghapus user:", err);
+        Swal.fire({ icon: 'error', title: 'Gagal', text: err.message || 'Gagal menghapus data.', background: '#1a1a1a', color: '#fff' });
+      }
+    }
+  });
+}
+// =========================================================================
+// MANAJEMEN SETTINGS CABANG (SUPABASE & STRICT RBAC OWNER)
+// =========================================================================
+
+// Fungsi Helper untuk mendeteksi role aktif secara fleksibel (Owner / OWNER / owner)
+function getSessionRole() {
+  if (typeof session === 'undefined' || !session) return "";
+  const roleVal = session.role || session.Role || session.level || session.jabatan || "";
+  return roleVal.toString().trim().toUpperCase();
+}
+
+let allCabangData = [];
+
+// 1. LOAD DATA DARI SUPABASE (Ref_Cabang) - DENGAN PENYEMBUNYIAN TAMPILAN TOTAL
+async function loadCabangSettings() {
+  const tbody = document.getElementById('cabangTableBody');
+  const container = document.getElementById('tab-settingsCabang') || (tbody ? tbody.closest('.space-y-4, .p-4, div') : null);
+  
+  // Deteksi apakah role adalah Owner / OWNER / owner
+  const isOwner = (getSessionRole() === "OWNER");
+
+  // Jika BUKAN Owner, sembunyikan atau kosongkan tampilan sepenuhnya
+  if (!isOwner) {
+    if (container) {
+      container.innerHTML = `
+        <div class="p-8 text-center text-rose-400 font-bold bg-[#1a1a1a] rounded-lg border border-white/10 my-4 shadow-xl">
+          <i class="fa fa-lock text-3xl mb-2"></i>
+          <p>Akses Ditolak. Menu Manajemen Cabang khusus untuk Owner.</p>
+        </div>
+      `;
+    }
+    return;
+  }
+
+  if (!tbody) return;
+  
+  tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-cyan-400 animate-pulse"><i class="fa fa-spinner fa-spin"></i> Memuat data cabang...</td></tr>';
+  
+  try {
+    let { data, error } = await dbClient
+      .from('Ref_Cabang')
+      .select('*')
+      .order('No', { ascending: true });
+
+    if (error) throw error;
+
+    allCabangData = data || [];
+    renderCabangTable(allCabangData);
+
+  } catch (err) {
+    console.error("Gagal memuat Ref_Cabang:", err);
+    tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-rose-400 font-bold">Gagal Memuat Data: ${err.message || ''}</td></tr>`;
+  }
+}
+
+// 2. RENDER TABEL (Sesuai kolom Supabase Ref_Cabang)
+function renderCabangTable(data) {
+  const tbody = document.getElementById('cabangTableBody');
+  const btnTambah = document.getElementById('btnTambahCabang');
+  
+  const isOwner = (getSessionRole() === "OWNER");
+  if (btnTambah) {
+    btnTambah.style.display = isOwner ? "flex" : "none";
+  }
+
+  if (!tbody) return;
+
+  if (!data || data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-white/50 italic">Data tidak ditemukan</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = data.map(c => {
+    let targetFormatted = c.Target_Bulanan ? Number(c.Target_Bulanan).toLocaleString('id-ID') : '0';
+    
+    const safeNama = String(c.Nama_Cabang || "").replace(/'/g, "\\'");
+    const safeLokasi = String(c.Lokasi || "").replace(/'/g, "\\'");
+    
+    return `
+      <tr class="border-b border-white/5 hover:bg-white/5 transition-all text-white text-xs">
+        <td class="p-3 font-bold text-cyan-400">${c.ID_Cabang || '-'}</td> 
+        <td class="p-3">${c.Nama_Cabang || '-'}</td> 
+        <td class="p-3">${c.Lokasi || '-'}</td> 
+        <td class="p-3 font-mono">${targetFormatted}</td> 
+        <td class="p-3 text-center">
+          <div class="inline-flex items-center gap-1.5">
+            <button type="button" onclick="editCabang('${c.ID_Cabang}', '${safeNama}', '${safeLokasi}', '${c.Target_Bulanan || 0}')" class="bg-blue-600/80 hover:bg-blue-600 text-white px-2.5 py-1 rounded text-[11px] font-medium flex items-center gap-1 transition-colors shadow">
+              <i class="fa fa-edit text-[10px]"></i> Edit
+            </button>
+            <button type="button" onclick="hapusCabang('${c.ID_Cabang}')" class="bg-rose-600/80 hover:bg-rose-600 text-white px-2.5 py-1 rounded text-[11px] font-medium flex items-center gap-1 transition-colors shadow">
+              <i class="fa fa-trash text-[10px]"></i> Hapus
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// 3. MODAL CONTROLS
+function openCabangModal() {
+  if (getSessionRole() !== "OWNER") {
+    Swal.fire({ icon: 'error', title: 'Akses Ditolak!', text: 'Hanya Owner yang dapat menambah cabang.', background: '#1a1a1a', color: '#fff' });
+    return;
+  }
+
+  document.getElementById('modalCabangTitle').innerText = "TAMBAH CABANG BARU";
+  document.getElementById('c_id').value = "";
+  document.getElementById('c_nama').value = "";
+  document.getElementById('c_lokasi').value = "";
+  document.getElementById('c_target').value = "";
+  document.getElementById('c_old_id').value = ""; 
+  
+  document.getElementById('c_id').disabled = false;
+  document.getElementById('modalCabang').classList.remove('hidden');
+}
+
+function editCabang(id, nama, lokasi, target) {
+  if (getSessionRole() !== "OWNER") {
+    Swal.fire({ icon: 'error', title: 'Akses Ditolak!', text: 'Hanya Owner yang dapat mengubah data cabang.', background: '#1a1a1a', color: '#fff' });
+    return;
+  }
+
+  document.getElementById('modalCabangTitle').innerText = "EDIT CABANG: " + id;
+  document.getElementById('c_id').value = id;
+  document.getElementById('c_nama').value = nama === 'null' ? '' : nama;
+  document.getElementById('c_lokasi').value = lokasi === 'null' ? '' : lokasi;
+  document.getElementById('c_target').value = target === 'null' ? '' : target;
+  document.getElementById('c_old_id').value = id; 
+  
+  document.getElementById('c_id').disabled = true;
+  document.getElementById('modalCabang').classList.remove('hidden');
+}function editCabang(id, nama, lokasi, target) {
+  if (getSessionRole() !== "OWNER") {
+    Swal.fire({ icon: 'error', title: 'Akses Ditolak!', text: 'Hanya Owner yang dapat mengubah data cabang.', background: '#1a1a1a', color: '#fff' });
+    return;
+  }
+
+  document.getElementById('modalCabangTitle').innerText = "EDIT CABANG: " + id;
+  document.getElementById('c_id').value = id;
+  document.getElementById('c_nama').value = nama === 'null' ? '' : nama;
+  document.getElementById('c_lokasi').value = lokasi === 'null' ? '' : lokasi;
+  document.getElementById('c_target').value = target === 'null' ? '' : target;
+  document.getElementById('c_old_id').value = id; // Menyimpan ID lama untuk acuan pembaruan
+  
+  // BIARKAN AKTIF AGAR BISA DIEDIT OLEH USER
+  document.getElementById('c_id').disabled = false;
+  document.getElementById('modalCabang').classList.remove('hidden');
+}
+
+// 4. DATA ACTIONS KE SUPABASE
+async function simpanCabang() {
+  if (getSessionRole() !== "OWNER") {
+    Swal.fire({ icon: 'error', title: 'Akses Ditolak!', background: '#1a1a1a', color: '#fff' });
+    return;
+  }
+
+  const id = document.getElementById('c_id').value.toLowerCase().trim();
+  const nama = document.getElementById('c_nama').value.trim();
+  const lokasi = document.getElementById('c_lokasi').value.trim();
+  const target = document.getElementById('c_target').value.trim();
+  const oldId = document.getElementById('c_old_id').value.trim();
+
+  if (!id) {
+    Swal.fire({ icon: 'error', title: 'ID Cabang wajib diisi!', background: '#1a1a1a', color: '#fff' });
+    return;
+  }
+
+  if (parseInt(target || 0) > 10000000000) {
+    Swal.fire({ icon: 'error', title: 'Target maksimal 10 Milyar!', background: '#1a1a1a', color: '#fff' });
+    return;
+  }
+
+  document.getElementById('modalCabang').classList.add('hidden');
+  Swal.fire({
+    title: 'Memproses...',
+    allowOutsideClick: false,
+    background: '#1a1a1a',
+    color: '#fff',
+    didOpen: () => { Swal.showLoading(); }
+  });
+
+  try {
+    if (oldId) {
+      // MODE UPDATE (Mendukung perubahan ID_Cabang jika ID baru diketik)
+      let { error } = await dbClient
+        .from('Ref_Cabang')
+        .update({
+          ID_Cabang: id,
+          Nama_Cabang: nama || null,
+          Lokasi: lokasi || null,
+          Target_Bulanan: target ? Number(target) : null
+        })
+        .eq('ID_Cabang', oldId);
+
+      if (error) throw error;
+    } else {
+      // MODE INSERT (TAMBAH BARU)
+      const maxNo = allCabangData.length > 0 ? Math.max(...allCabangData.map(c => c.No || 0)) + 1 : 1;
+
+      let { error } = await dbClient
+        .from('Ref_Cabang')
+        .insert([{
+          No: maxNo,
+          ID_Cabang: id,
+          Nama_Cabang: nama || null,
+          Lokasi: lokasi || null,
+          Target_Bulanan: target ? Number(target) : null
+        }]);
+
+      if (error) throw error;
+    }
+
+    Swal.fire({ icon: 'success', title: 'Berhasil disimpan', timer: 1500, showConfirmButton: false, background: '#1a1a1a', color: '#fff' });
+    loadCabangSettings();
+
+  } catch (err) {
+    console.error("Gagal menyimpan cabang:", err);
+    Swal.fire({ icon: 'error', title: 'Gagal', text: err.message || 'Terjadi kesalahan sistem.', background: '#1a1a1a', color: '#fff' });
+  }
+}
+
+function hapusCabang(id) {
+  if (getSessionRole() !== "OWNER") {
+    Swal.fire({ icon: 'error', title: 'Akses Ditolak!', text: 'Hanya Owner yang dapat menghapus cabang.', background: '#1a1a1a', color: '#fff' });
+    return;
+  }
+
+  Swal.fire({
+    title: 'Hapus Cabang?',
+    text: `Cabang ${id} akan dihapus permanen!`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#ef4444',
+    confirmButtonText: 'Ya, Hapus!'
+  }).then(async (result) => {
+    if (result.isConfirmed) {
+      try {
+        let { error } = await dbClient
+          .from('Ref_Cabang')
+          .delete()
+          .eq('ID_Cabang', id);
+
+        if (error) throw error;
+
+        loadCabangSettings();
+        Swal.fire({ icon: 'success', title: 'Terhapus!', background: '#1a1a1a', color: '#fff', timer: 1500, showConfirmButton: false });
+      } catch (err) {
+        console.error("Gagal menghapus cabang:", err);
+        Swal.fire({ icon: 'error', title: 'Gagal', text: err.message || 'Gagal menghapus data.', background: '#1a1a1a', color: '#fff' });
+      }
+    }
+  });
+}
+
+// 5. FILTER & PENCARIAN
+function filterCabangTable() {
+  if (getSessionRole() !== "OWNER") return;
+
+  const searchInput = document.getElementById('cabangSearch') || document.getElementById('cabangSearchCabang');
+  const input = searchInput ? searchInput.value.toLowerCase().trim() : "";
+  
+  if (!allCabangData || allCabangData.length === 0) return;
+
+  if (input === "") {
+    renderCabangTable(allCabangData);
+    return;
+  }
+
+  const filtered = allCabangData.filter(c => {
+    const idCabang = String(c.ID_Cabang || "").toLowerCase();
+    const namaCabang = String(c.Nama_Cabang || "").toLowerCase();
+    const lokasi = String(c.Lokasi || "").toLowerCase();
+    
+    return idCabang.includes(input) || namaCabang.includes(input) || lokasi.includes(input);
+  });
+  
+  renderCabangTable(filtered);
+}
   </script>
 </body>
 </html>
