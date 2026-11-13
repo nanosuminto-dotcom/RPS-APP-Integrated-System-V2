@@ -12438,7 +12438,9 @@ async function saveCatatanGiro(input, id) {
   }
 }
 
-// --- G. DETAIL INVOICE & NOTIFIKASI ---
+// ==========================================
+// G. DETAIL INVOICE & CETAK NOTA INSTAN
+// ==========================================
 function showDetailInvoice(idBayar) {
   const target = fullPaymentData.find(item => item.id === idBayar);
   if (!target) return;
@@ -12512,13 +12514,77 @@ function showDetailInvoice(idBayar) {
     confirmButtonColor: '#0891b2'
   }).then((result) => {
     if (result.isConfirmed) {
-      if (typeof cetakNotaSatuanLangsung === 'function') {
-        cetakNotaSatuanLangsung(target.id);
-      }
+      cetakNotaSatuanLangsung(target.id);
     }
   });
 }
 
+// --- FUNGSI CETAK NOTA INSTAN LANGSUNG BERDASARKAN ID (SUPABASE) ---
+async function cetakNotaSatuanLangsung(idBayar) {
+  if (!idBayar) {
+    return Swal.fire({ 
+      icon: 'warning', 
+      title: 'ID Tidak Valid', 
+      text: 'ID Pembayaran tidak ditemukan.', 
+      background: '#1e293b', 
+      color: '#f1f5f9' 
+    });
+  }
+
+  Swal.fire({ 
+    title: 'Menyiapkan Nota...', 
+    allowOutsideClick: false, 
+    background: '#1e293b',
+    color: '#f1f5f9',
+    didOpen: () => { Swal.showLoading(); } 
+  });
+
+  try {
+    // 1. Siapkan parameter filter persis seperti proses cetak masal/checklist
+    const filterParams = {
+      id_list: [idBayar],
+      id_payment: "",
+      kode_supplier: "",
+      tgl_mulai: "",
+      tgl_selesai: ""
+    };
+
+    // 2. Ambil data pembayaran dari Supabase dan profil perusahaan secara bersamaan
+    const [dataListFinal, companyInfo] = await Promise.all([
+      fetchCetakDataFromSupabase(filterParams),
+      getCompanyProfileAndLogo()
+    ]);
+
+    if (!dataListFinal || dataListFinal.length === 0) {
+      Swal.close();
+      return Swal.fire({ 
+        icon: 'info', 
+        title: 'Tidak Ditemukan', 
+        text: `Data nota untuk ID ${idBayar} tidak ditemukan di database.`, 
+        background: '#1e293b', 
+        color: '#f1f5f9' 
+      });
+    }
+
+    Swal.close();
+
+    // 3. Generate HTML menggunakan template resmi Anda
+    const contentHtml = generateTemplateHTML(dataListFinal, companyInfo.profil, companyInfo.logoBase64);
+
+    // 4. Buka jendela preview cetak native
+    bukaJendelaPreview(contentHtml);
+
+  } catch (err) {
+    console.error("Gagal mencetak nota instan:", err);
+    Swal.fire({ 
+      icon: 'error', 
+      title: 'Gagal', 
+      text: err.message || 'Terjadi kesalahan saat menyiapkan nota.', 
+      background: '#1e293b', 
+      color: '#f1f5f9' 
+    });
+  }
+}
 function showUINotif(msg, type) {
   Swal.fire({
     title: type === 'success' ? 'Berhasil!' : 'Perhatian',
