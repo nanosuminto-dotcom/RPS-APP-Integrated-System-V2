@@ -15417,7 +15417,7 @@ function editStatusDate(id, status, currentTanggal) {
 }
 
 // ==========================================
-// 3. FUNGSI FILTER & RENDER: TABEL MASTER KALEM
+// 3. FUNGSI FILTER & RENDER: TABEL MASTER KALEM (TERBARU DI ATAS)
 // ==========================================
 function renderPaymentTable() {
   const tbody = document.getElementById("paymentSearchResult");
@@ -15439,7 +15439,10 @@ function renderPaymentTable() {
   let grandTotal = 0;
   let count = 0;
 
-  rawPaymentDataResult.forEach(master => {
+  // Membuat salinan array dan membalikkannya agar data terbaru/masuk terakhir berada di urutan paling atas
+  const sortedData = [...rawPaymentDataResult].reverse();
+
+  sortedData.forEach(master => {
     if (!master) return;
     
     const mJenis = master.jenisBayar ? master.jenisBayar.toUpperCase().trim() : "";
@@ -15519,7 +15522,6 @@ function setPaymentReportMode(mode) {
   
   renderPaymentTable();
 }
-
 // ==========================================
 // 5. FUNGSI SWEETALERT MODAL: DETAIL INVOICE
 // ==========================================
