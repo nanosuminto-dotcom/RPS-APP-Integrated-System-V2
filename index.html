@@ -3707,21 +3707,22 @@
 <div id="tab-settingsSupplier" class="hidden space-y-4 p-4">
   <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
     <input type="text" id="suppSearch" oninput="filterSupplierTable()" placeholder="Cari Kode atau Nama Supplier..." class="md:col-span-2 bg-white/5 border border-white/10 p-2 rounded text-xs text-white outline-none focus:border-cyan-500">
-    <button onclick="openSupplierModal()" class="bg-blue-600 py-2 rounded text-xs font-bold text-white hover:bg-blue-500 transition-all">
+    <button id="btnTambahSupplier" onclick="openSupplierModal()" class="bg-blue-600 py-2 rounded text-xs font-bold text-white hover:bg-blue-500 transition-all flex items-center justify-center gap-2">
       <i class="fa fa-plus"></i> Tambah Supplier Baru
     </button>
   </div>
 
   <div class="glass flex flex-col overflow-hidden rounded-lg border border-white/10 relative">
-    <div class="overflow-x-auto overflow-y-auto max-h-[65vh]">
+    <!-- max-h diubah agar fleksibel memanjang ke bawah atau dibatasi scroll 25 baris (sekitar 75vh) -->
+    <div class="overflow-x-auto overflow-y-auto max-h-[75vh]">
       <table class="w-full text-left text-[11px] text-white min-w-[750px]">
         <thead class="bg-[#1a1d23] uppercase sticky top-0 z-20 border-b border-white/10 shadow-md">
           <tr>
             <th class="p-3 sticky left-0 bg-[#1a1d23] z-30">Kode</th>
-            <th class="p-3">Tempo</th>
             <th class="p-3">Nama</th>
             <th class="p-3">Bank</th>
             <th class="p-3">No. Rek</th>
+            <th class="p-3 text-center">Tempo</th>
             <th class="p-3">A.N</th>
             <th class="p-3 text-center">Aksi</th>
           </tr>
@@ -16150,6 +16151,326 @@ function filterCabangTable() {
   });
   
   renderCabangTable(filtered);
+}
+// =========================================================================
+// MANAJEMEN SETTINGS SUPPLIER (SUPABASE & STRICT RBAC OWNER)
+// =========================================================================
+
+// Fungsi Helper untuk mendeteksi role aktif secara fleksibel
+function getSessionRole() {
+  if (typeof session === 'undefined' || !session) return "";
+  const roleVal = session.role || session.Role || session.level || session.jabatan || "";
+  return roleVal.toString().trim().toUpperCase();
+}
+
+let allSuppData = [];
+
+// 1. LOAD DATA DARI SUPABASE (Ref_Supp) - DIPERBAIKI (Tanpa order 'No')
+async function loadSupplierSettings() {
+  const tbody = document.getElementById('supplierTableBody');
+  const container = document.getElementById('tab-settingsSupplier') || (tbody ? tbody.closest('.space-y-4, .p-4, div') : null);
+  
+  const isOwner = (getSessionRole() === "OWNER");
+
+  if (!isOwner) {
+    if (container) {
+      container.innerHTML = `
+        <div class="p-8 text-center text-rose-400 font-bold bg-[#1a1a1a] rounded-lg border border-white/10 my-4 shadow-xl">
+          <i class="fa fa-lock text-3xl mb-2"></i>
+          <p>Akses Ditolak. Menu Manajemen Supplier khusus untuk Owner.</p>
+        </div>
+      `;
+    }
+    return;
+  }
+
+  if (!tbody) {
+    console.error("ID supplierTableBody TIDAK DITEMUKAN di HTML!");
+    return;
+  }
+  
+  tbody.innerHTML = '<tr><td colspan="7" class="p-4 text-center text-cyan-400 animate-pulse"><i class="fa fa-spinner fa-spin"></i> Memuat data supplier...</td></tr>';
+  
+  try {
+    // Menggunakan kodesupp sebagai pengurutan default agar tidak error 400
+    let { data, error } = await dbClient
+      .from('Ref_Supp')
+      .select('*')
+      .order('kodesupp', { ascending: true });
+
+    if (error) throw error;
+
+    allSuppData = data || [];
+    renderSupplierTable(allSuppData);
+
+  } catch (err) {
+    console.error("Gagal ambil data dari Supabase:", err);
+    tbody.innerHTML = '<tr><td colspan="7" class="p-4 text-center text-red-400 font-bold">Gagal memuat data!</td></tr>';
+  }
+}
+
+// 2. RENDER TABEL (Sesuai kolom Supabase: kodesupp, namsupp, bank, norek, tempo, namarek)
+function renderSupplierTable(data) {
+  const tbody = document.getElementById('supplierTableBody');
+  const btnTambah = document.getElementById('btnTambahSupplier');
+  
+  const isOwner = (getSessionRole() === "OWNER");
+  if (btnTambah) {
+    btnTambah.style.display = isOwner ? "flex" : "none";
+  }
+
+  if (!tbody) return;
+
+  if (!data || data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" class="p-4 text-center text-white/50 italic">Tidak ada data supplier</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = data.map(s => {
+    const kode = String(s.kodesupp || "").replace(/'/g, "\\'");
+    const nama = String(s.namsupp || "").replace(/'/g, "\\'");
+    const bank = String(s.bank || "").replace(/'/g, "\\'");
+    const norek = String(s.norek || "").replace(/'/g, "\\'");
+    const tempo = s.tempo !== undefined && s.tempo !== null ? s.tempo : 0;
+    const namarek = String(s.namarek || "").replace(/'/g, "\\'");
+
+    return `
+    <tr class="border-b border-white/5 hover:bg-white/5 text-white text-xs">
+      <td class="p-3 font-bold text-cyan-400 sticky left-0 bg-[#161920] z-10">${s.kodesupp || '-'}</td>
+      <td class="p-3 font-medium">${s.namsupp || '-'}</td>
+      <td class="p-3">${s.bank || '-'}</td>
+      <td class="p-3 font-mono text-[10px]">${String(s.norek || "").split(',').join('<br>')}</td>
+      <td class="p-3 text-center font-semibold text-amber-400">${tempo} Hari</td>
+      <td class="p-3 text-[10px]">${String(s.namarek || "").split(',').join('<br>')}</td>
+      
+      <!-- Tombol Aksi: Edit (Biru) & Hapus (Merah) -->
+      <td class="p-3 text-center whitespace-nowrap">
+        <div class="inline-flex items-center gap-1.5">
+          <button onclick="editSupplier('${kode}', '${tempo}', '${nama}', '${bank}', '${norek}', '${namarek}')" 
+                  class="bg-blue-600/80 hover:bg-blue-600 text-white px-2.5 py-1 rounded text-[11px] font-medium flex items-center gap-1 transition-colors shadow">
+            <i class="fa fa-edit text-[10px]"></i> Edit
+          </button>
+          
+          ${isOwner ? `
+          <button onclick="hapusSupplier('${s.kodesupp}')" 
+                  class="bg-rose-600/80 hover:bg-rose-600 text-white px-2.5 py-1 rounded text-[11px] font-medium flex items-center gap-1 transition-colors shadow">
+            <i class="fa fa-trash text-[10px]"></i> Hapus
+          </button>` : ''}
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// 3. MODAL CONTROLS
+function openSupplierModal() {
+  if (getSessionRole() !== "OWNER") {
+    Swal.fire({ icon: 'error', title: 'Akses Ditolak!', text: 'Hanya Owner yang dapat menambah supplier.', background: '#1a1a1a', color: '#fff' });
+    return;
+  }
+
+  document.getElementById('modalSupplierTitle').innerText = "TAMBAH SUPPLIER BARU";
+  document.getElementById('s_kode').value = "";
+  document.getElementById('s_tempo').value = "";
+  document.getElementById('s_nama').value = "";
+  document.getElementById('s_old_kode').value = "";
+  
+  for(let i=1; i<=3; i++) {
+    const el = document.getElementById('s_rek' + i);
+    if (el) el.value = "";
+  }
+  
+  document.getElementById('s_kode').disabled = false;
+  document.getElementById('modalSupplier').classList.remove('hidden');
+}
+
+function editSupplier(kode, tempo, nama, bankStr, rekStr, anStr) {
+  if (getSessionRole() !== "OWNER") {
+    Swal.fire({ icon: 'error', title: 'Akses Ditolak!', text: 'Hanya Owner yang dapat mengubah data supplier.', background: '#1a1a1a', color: '#fff' });
+    return;
+  }
+
+  document.getElementById('modalSupplierTitle').innerText = "EDIT SUPPLIER: " + kode;
+  document.getElementById('s_kode').value = kode;
+  document.getElementById('s_tempo').value = tempo === 'null' ? '' : tempo;
+  document.getElementById('s_nama').value = nama === 'null' ? '' : nama;
+
+  const b = (bankStr || "").split(',');
+  const r = (rekStr || "").split(',');
+  const a = (anStr || "").split(',');
+
+  for(let i = 1; i <= 3; i++) {
+    const el = document.getElementById('s_rek' + i);
+    if (!el) continue;
+    const idx = i - 1;
+    
+    if (b[idx] !== undefined && b[idx] !== "" && b[idx] !== "undefined") {
+      let cleanRek = (r[idx] || '').trim();
+      // Buang tanda petik jika data lama masih memilikinya
+      if (cleanRek.startsWith("'")) cleanRek = cleanRek.substring(1);
+      
+      el.value = `${b[idx].trim()} | ${cleanRek} | ${a[idx] && a[idx] !== 'undefined' ? a[idx].trim() : ''}`;
+    } else {
+      el.value = "";
+    }
+  }
+
+  document.getElementById('s_old_kode').value = kode;
+  document.getElementById('s_kode').disabled = false;
+  document.getElementById('modalSupplier').classList.remove('hidden');
+}
+// 4. DATA ACTIONS KE SUPABASE (INSERT / UPDATE) - DIPERBAIKI TANPA 'No'
+async function simpanSupplier() {
+  if (getSessionRole() !== "OWNER") {
+    Swal.fire({ icon: 'error', title: 'Akses Ditolak!', background: '#1a1a1a', color: '#fff' });
+    return;
+  }
+
+  const getVal = (id) => document.getElementById(id) ? document.getElementById(id).value.trim() : "";
+  const inputs = [getVal('s_rek1'), getVal('s_rek2'), getVal('s_rek3')];
+  
+  const banks = [], reks = [], ans = [];
+  inputs.forEach(item => {
+    if (item !== "") {
+      const parts = item.split('|');
+      if(parts[0]) banks.push(parts[0].trim());
+      
+      if(parts[1]) {
+        // Langsung ambil nomor rekening sebagai teks murni (tanpa tanda petik)
+        let rekVal = parts[1].trim();
+        reks.push(rekVal);
+      }
+      
+      if(parts[2]) ans.push(parts[2].trim());
+    }
+  });
+
+  const kode = getVal('s_kode').toUpperCase();
+  const oldKode = getVal('s_old_kode');
+  const tempoVal = getVal('s_tempo');
+  const namaVal = getVal('s_nama');
+
+  if (!kode) {
+    Swal.fire({ icon: 'error', title: 'Kode Supplier wajib diisi!', background: '#1a1a1a', color: '#fff' });
+    return;
+  }
+
+  document.getElementById('modalSupplier').classList.add('hidden');
+  Swal.fire({
+    title: 'Memproses...',
+    allowOutsideClick: false,
+    background: '#1a1a1a',
+    color: '#fff',
+    didOpen: () => { Swal.showLoading(); }
+  });
+
+  try {
+    const payload = {
+      kodesupp: kode,
+      namsupp: namaVal || null,
+      bank: banks.length > 0 ? banks.join(',') : null,
+      norek: reks.length > 0 ? reks.join(',') : null, // Tersimpan bersih tanpa tanda petik
+      tempo: tempoVal !== "" ? Number(tempoVal) : 0,
+      namarek: ans.length > 0 ? ans.join(',') : null
+    };
+
+    if (oldKode) {
+      // MODE UPDATE
+      let { error } = await dbClient
+        .from('Ref_Supp')
+        .update(payload)
+        .eq('kodesupp', oldKode);
+
+      if (error) throw error;
+    } else {
+      // MODE INSERT
+      let { error } = await dbClient
+        .from('Ref_Supp')
+        .insert([payload]);
+
+      if (error) throw error;
+    }
+
+    Swal.fire({
+      icon: 'success', 
+      title: 'Berhasil Disimpan!', 
+      timer: 1500, 
+      showConfirmButton: false,
+      background: '#1a1a1a', 
+      color: '#fff'
+    });
+    
+    loadSupplierSettings();
+
+  } catch (err) {
+    console.error("Gagal menyimpan supplier:", err);
+    Swal.fire({
+      icon: 'error',
+      title: 'Gagal!',
+      text: err.message || 'Terjadi kesalahan sistem.',
+      background: '#1a1a1a', 
+      color: '#fff'
+    });
+  }
+}
+
+// 5. HAPUS DATA DARI SUPABASE
+function hapusSupplier(kode) {
+  if (getSessionRole() !== "OWNER") {
+    Swal.fire({ icon: 'error', title: 'Akses Ditolak!', text: 'Hanya Owner yang dapat menghapus supplier.', background: '#1a1a1a', color: '#fff' });
+    return;
+  }
+
+  Swal.fire({
+    title: 'Hapus Supplier?',
+    text: `Supplier ${kode} akan dihapus permanen!`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#ef4444',
+    confirmButtonText: 'Ya, Hapus!',
+    background: '#1a1a1a',
+    color: '#fff'
+  }).then(async (result) => {
+    if (result.isConfirmed) {
+      try {
+        let { error } = await dbClient
+          .from('Ref_Supp')
+          .delete()
+          .eq('kodesupp', kode);
+
+        if (error) throw error;
+
+        loadSupplierSettings();
+        Swal.fire({ icon: 'success', title: 'Terhapus!', background: '#1a1a1a', color: '#fff', timer: 1500, showConfirmButton: false });
+      } catch (err) {
+        console.error("Gagal menghapus supplier:", err);
+        Swal.fire({ icon: 'error', title: 'Gagal', text: err.message || 'Gagal menghapus data.', background: '#1a1a1a', color: '#fff' });
+      }
+    }
+  });
+}
+
+// 6. FILTER & PENCARIAN
+function filterSupplierTable() {
+  if (getSessionRole() !== "OWNER") return;
+
+  const searchInput = document.getElementById("suppSearch");
+  const input = searchInput ? searchInput.value.toUpperCase().trim() : "";
+  
+  if (!allSuppData || allSuppData.length === 0) return;
+
+  if (input === "") {
+    renderSupplierTable(allSuppData);
+    return;
+  }
+
+  const filtered = allSuppData.filter(s => {
+    const kode = String(s.kodesupp || "").toUpperCase();
+    const nama = String(s.namsupp || "").toUpperCase();
+    return kode.includes(input) || nama.includes(input);
+  });
+  
+  renderSupplierTable(filtered);
 }
   </script>
 </body>
