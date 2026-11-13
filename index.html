@@ -16472,6 +16472,226 @@ function filterSupplierTable() {
   
   renderSupplierTable(filtered);
 }
+// ==========================================================
+// MODUL PAYMENT PLAN (SUPABASE - DATA_BELI & TGLJT)
+// ==========================================================
+let globalPaymentPlanData = [];
+
+// 1. Load Data dari Supabase (Tabel: Data_Beli)
+async function loadPaymentPlanData() {
+  Swal.fire({ 
+    title: 'Memuat Data Payment Plan...', 
+    allowOutsideClick: false,
+    background: '#1a1a1a', 
+    color: '#fff',
+    didOpen: () => Swal.showLoading() 
+  });
+  
+  try {
+    let { data, error } = await dbClient
+      .from('Data_Beli')
+      .select('*')
+      .order('tglinvbeli', { ascending: false });
+
+    if (error) throw error;
+
+    Swal.close();
+
+    // Mapping data disesuaikan dengan skema tabel Data_Beli & tgljt
+    globalPaymentPlanData = (data || []).map(item => ({
+      noInvoice: item.invbeli || '-',
+      cabang: item.ID_Cabang || '-',
+      kodesupp: item.kodesupp || '-',
+      namaSupp: item.namasupp || item.namamsupp || '-',
+      nominal: parseFloat(item.nombeli) || 0, // Mengambil nilai dari kolom nombeli
+      tglInv: item.tglinvbeli || '',
+      tglJthTempo: item.tgljt || item.tgljthtempo || item.tglinvbeli || '', // Acuan utama kolom tgljt
+      status: item.statusbel || item.statusbeli || ''
+    }));
+
+    applyPaymentPlanFilter();
+
+  } catch (err) {
+    console.error("Gagal memuat Data_Beli:", err);
+    Swal.fire({ 
+      icon: 'error', 
+      title: 'Gagal Memuat Data', 
+      text: err.message || 'Terjadi kesalahan pada sistem database.', 
+      background: '#1a1a1a', 
+      color: '#fff' 
+    });
+  }
+}
+
+function getMondaySundayOfWeek(d) {
+  const date = new Date(d);
+  const day = date.getDay();
+  const diffToMonday = date.getDate() - day + (day === 0 ? -6 : 1);
+  const monday = new Date(date.setDate(diffToMonday));
+  monday.setHours(0,0,0,0);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  sunday.setHours(23,59,59,999);
+  return { monday, sunday };
+}
+
+// 2. Fungsi Filter & Kalkulasi Card Payment Plan (Diperbarui untuk Batasan Minggu Depan Tepat 7 Hari)
+function applyPaymentPlanFilter() {
+  const bulanEl = document.getElementById('filterPayBulan');
+  const cabangEl = document.getElementById('filterPayCabang');
+  const statusEl = document.getElementById('filterPayStatus');
+  const cariEl = document.getElementById('filterPayCari');
+
+  const bulanFilter = bulanEl ? bulanEl.value : ''; 
+  const cabangFilter = cabangEl ? cabangEl.value.toLowerCase() : '';
+  const statusFilter = statusEl ? statusEl.value.toUpperCase() : '';
+  const cariFilter = cariEl ? cariEl.value.toLowerCase() : '';
+
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  
+  const { monday: thisMon, sunday: thisSun } = getMondaySundayOfWeek(today);
+  
+  // Rentang Minggu Depan (Tepat 7 hari ke depan / minggu berikutnya)
+  const nextMon = new Date(thisMon);
+  nextMon.setDate(nextMon.getDate() + 7);
+  const nextSun = new Date(thisSun);
+  nextSun.setDate(nextSun.getDate() + 7);
+
+  // Filter ketat status 'SIMPAN'
+  const simpanDataOnly = globalPaymentPlanData.filter(item => {
+    const st = String(item.status || "").trim().toUpperCase();
+    return st === 'SIMPAN';
+  });
+
+  let totalTerlambatVal = 0, countTerlambat = 0;
+  let totalMingguIniVal = 0, countMingguIni = 0;
+  let totalMingguDepanVal = 0, countMingguDepan = 0;
+
+  const processedData = simpanDataOnly.map(item => {
+    const tglJthTempo = item.tglJthTempo ? new Date(item.tglJthTempo) : new Date(NaN);
+    const nominal = item.nominal;
+
+    let computedStatus = 'MENDATANG';
+    if (!isNaN(tglJthTempo.getTime())) {
+      tglJthTempo.setHours(0,0,0,0);
+      if (tglJthTempo < thisMon) {
+        computedStatus = 'TERLAMBAT';
+      } else if (tglJthTempo >= thisMon && tglJthTempo <= thisSun) {
+        computedStatus = 'BERJALAN';
+      } else if (tglJthTempo >= nextMon && tglJthTempo <= nextSun) {
+        computedStatus = 'MENDATANG';
+      } else if (tglJthTempo > nextSun) {
+        // Jika lewat dari minggu depan, status tetap MENDATANG tapi tidak masuk hitungan card minggu depan
+        computedStatus = 'MENDATANG_LANJUT'; 
+      }
+    }
+
+    // Akumulasi nilai nombeli pada masing-masing card (Minggu Depan dibatasi persis di rentang nextMon s.d. nextSun)
+    if (computedStatus === 'TERLAMBAT') {
+      totalTerlambatVal += nominal;
+      countTerlambat++;
+    } else if (computedStatus === 'BERJALAN') {
+      totalMingguIniVal += nominal;
+      countMingguIni++;
+    } else if (computedStatus === 'MENDATANG') { // Hanya mencakup rentang 7 hari minggu depan
+      totalMingguDepanVal += nominal;
+      countMingguDepan++;
+    }
+
+    // Normalisasi kembali label status untuk tabel jika diperlukan
+    const displayStatus = (computedStatus === 'MENDATANG_LANJUT') ? 'MENDATANG' : computedStatus;
+
+    return { ...item, computedStatus: displayStatus, tglJthTempoDate: tglJthTempo };
+  });
+
+  // Update Tampilan Card UI secara aman
+  if(document.getElementById('cardTerlambatVal')) document.getElementById('cardTerlambatVal').innerText = `Rp ${fmt(totalTerlambatVal)}`;
+  if(document.getElementById('cardTerlambatCount')) document.getElementById('cardTerlambatCount').innerText = `${countTerlambat} Invoice`;
+  if(document.getElementById('cardMingguIniVal')) document.getElementById('cardMingguIniVal').innerText = `Rp ${fmt(totalMingguIniVal)}`;
+  if(document.getElementById('cardMingguIniCount')) document.getElementById('cardMingguIniCount').innerText = `${countMingguIni} Invoice`;
+  if(document.getElementById('cardMingguDepanVal')) document.getElementById('cardMingguDepanVal').innerText = `Rp ${fmt(totalMingguDepanVal)}`;
+  if(document.getElementById('cardMingguDepanCount')) document.getElementById('cardMingguDepanCount').innerText = `${countMingguDepan} Invoice`;
+
+  // Filter Baris Tabel Payment Plan
+  const filtered = processedData.filter(item => {
+    if (bulanFilter) {
+      const itemBulan = item.tglInv ? item.tglInv.substring(0, 7) : '';
+      if (itemBulan !== bulanFilter) return false;
+    }
+    if (cabangFilter && !String(item.cabang).toLowerCase().includes(cabangFilter)) return false;
+    if (statusFilter && item.computedStatus !== statusFilter) return false;
+    if (cariFilter) {
+      const matchInv = String(item.noInvoice).toLowerCase().includes(cariFilter);
+      const matchSupp = String(item.namaSupp).toLowerCase().includes(cariFilter);
+      if (!matchInv && !matchSupp) return false;
+    }
+    return true;
+  });
+
+  renderPaymentPlanTable(filtered);
+}
+
+// 3. Render Tabel Payment Plan
+function renderPaymentPlanTable(data) {
+  const tbody = document.getElementById('paymentPlanTableBody');
+  if (!tbody) return;
+  
+  tbody.innerHTML = '';
+
+  if (!data || data.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8" class="text-center p-6 text-gray-500 font-bold">Tidak ada data invoice ditemukan.</td></tr>`;
+    return;
+  }
+
+  let html = "";
+  data.forEach(item => {
+    let badgeColor = 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30';
+    if (item.computedStatus === 'TERLAMBAT') badgeColor = 'bg-red-500/20 text-red-300 border-red-500/30';
+    if (item.computedStatus === 'BERJALAN') badgeColor = 'bg-amber-500/20 text-amber-300 border-amber-500/30';
+
+    // Encode objek data agar aman dikirim ke tombol aksi
+    const itemJson = encodeURIComponent(JSON.stringify(item));
+
+    html += `<tr class="hover:bg-white/[0.02] transition-colors border-b border-white/[0.02] text-xs">
+      <td class="p-3 text-gray-300">${item.tglInv || '-'}</td>
+      <td class="p-3 font-bold text-cyan-400">${item.noInvoice}</td>
+      <td class="p-3 text-gray-200 font-medium">${item.namaSupp || '-'}</td>
+      <td class="p-3 text-gray-300 font-semibold">${item.cabang}</td>
+      <td class="p-3 text-orange-300">${item.tglJthTempo || '-'}</td>
+      <td class="p-3 text-right font-bold text-white">Rp ${fmt(item.nominal)}</td>
+      <td class="p-3 text-center">
+        <span class="text-[9px] px-2 py-0.5 rounded border font-black uppercase ${badgeColor}">${item.computedStatus}</span>
+      </td>
+      <td class="p-3 text-center">
+        <button onclick="openModalBayarInvoice('${itemJson}')" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded text-[10px] font-black uppercase transition-all shadow">
+          Bayar
+        </button>
+      </td>
+    </tr>`;
+  });
+  tbody.innerHTML = html;
+}
+
+// 4. Fungsi Membuka Modal Pembayaran (Mirip Nota Baru / Entry Pembayaran Supplier)
+function openModalBayarInvoice(encodedItem) {
+  try {
+    const item = JSON.parse(decodeURIComponent(encodedItem));
+    
+    // Panggil fungsi modal pembayaran utama aplikasi Anda
+    if (typeof openModalBayar === 'function') {
+      openModalBayar(item); 
+    } else if (typeof openModalBayarBaru === 'function') {
+      openModalBayarBaru(item); 
+    } else if (typeof openEntryBayar === 'function') {
+      openEntryBayar(item);
+    } else {
+      console.warn("Fungsi modal bayar utama tidak terdeteksi, pastikan nama fungsi di aplikasi Anda sesuai.");
+    }
+  } catch (err) {
+    console.error("Gagal membuka modal bayar:", err);
+  }
+}
   </script>
 </body>
 </html>
