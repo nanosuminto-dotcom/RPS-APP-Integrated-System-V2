@@ -3989,11 +3989,10 @@
                class="w-full bg-black/30 border border-white/10 rounded-lg p-2 text-white text-xs placeholder-gray-500 focus:ring-1 focus:ring-cyan-500 outline-none">
       </div>
 
-      <!-- Dropdown Lihat Cabang / Master -->
+      <!-- Dropdown Lihat Cabang -->
       <div class="w-36">
         <label class="text-[10px] text-cyan-400 uppercase font-bold mb-1 block">Tampilkan Data</label>
         <select id="branchSelect" onchange="loadGMData()" class="w-full bg-black/30 border border-white/10 rounded-lg p-2 text-white text-xs outline-none">
-          <option value="GM">MASTER (GM)</option>
           <option value="GM_KGD">CABANG KGD</option>
           <option value="GM_CDK">CABANG CDK</option>
           <option value="GM_PKP">CABANG PKP</option>
@@ -4046,6 +4045,7 @@
       </div>
     </div>
   </div>
+  
   <!-- Hidden Inputs -->
   <input type="file" id="csvMasterInput" accept=".csv" class="hidden" onchange="processFileSelected(event)">
   <input type="file" id="excelSyncInput" accept=".xlsx, .xls" class="hidden" onchange="processExcelSync(event)">
@@ -16757,6 +16757,471 @@ function openModalBayarInvoice(encodedItem) {
   } catch (err) {
     console.error("Gagal membuka modal bayar:", err);
   }
+}
+// ==========================================================
+// MODUL GRAB MERCHANT (SUPABASE INTEGRATED)
+// ==========================================================
+
+let targetBranch = "GM_KGD";
+let targetSyncBranch = "GM_KGD";
+
+// 1. Ambil dan Render Data Berdasarkan Cabang yang Dipilih di Dropdown Utama dari Supabase
+async function loadGMData() {
+  const tbody = document.getElementById('gmTableBody');
+  const thead = document.getElementById('tableHeader');
+  const branchSelectEl = document.getElementById('branchSelect');
+  const selectedBranch = branchSelectEl ? branchSelectEl.value : targetBranch;
+  
+  if (!tbody || !thead) return;
+  
+  console.log("--> Sedang mengambil data dari tabel Supabase:", selectedBranch);
+  
+  thead.innerHTML = `<th class="p-3 text-cyan-400 italic">Mengambil data ${selectedBranch} dari Supabase...</th>`;
+  tbody.innerHTML = '';
+  
+  try {
+    let { data, error } = await dbClient
+      .from(selectedBranch)
+      .select('*');
+
+    console.log("--> Hasil Response dari Supabase:", { data, error });
+
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      thead.innerHTML = '<th class="p-3 text-yellow-400 font-bold">Informasi: Tabel Kosong / RLS Terkunci</th>';
+      tbody.innerHTML = `<tr><td class="p-4 text-center text-yellow-300 italic">Tabel <b>${selectedBranch}</b> mengembalikan 0 baris. Silakan lakukan <b>Import</b> atau <b>Sinkron</b> untuk memasukkan data.</td></tr>`;
+      updateStatistics();
+      return;
+    }
+
+    // FILTER: Buang baris instruksi template Grab jika sempat tersimpan di database
+    const filteredData = data.filter(item => {
+      const rowString = JSON.stringify(item).toUpperCase();
+      return !rowString.includes("JANGAN MENGHAPUS ATAU MENGEDIT");
+    });
+
+    if (filteredData.length === 0) {
+      thead.innerHTML = '<th class="p-3 text-yellow-400 font-bold">Informasi: Tabel Kosong</th>';
+      tbody.innerHTML = `<tr><td class="p-4 text-center text-yellow-300 italic">Tidak ada data produk ditemukan pada tabel <b>${selectedBranch}</b>.</td></tr>`;
+      updateStatistics();
+      return;
+    }
+
+    const headers = Object.keys(filteredData[0]);
+
+    // Render Header dengan dukungan Sorting
+    let headerHtml = "";
+    headers.forEach((h, index) => {
+      headerHtml += `<th onclick="sortTable(${index})" class="p-2.5 whitespace-nowrap uppercase font-bold tracking-wider cursor-pointer hover:text-cyan-400 transition select-none" title="Klik untuk mengurutkan">
+        ${h} ↕
+      </th>`;
+    });
+    thead.innerHTML = headerHtml;
+    
+    // Render Rows
+    let rowsHtml = "";
+    filteredData.forEach(item => {
+      const row = headers.map(h => item[h]);
+      
+      let isUpdated = row.some(cell => String(cell).includes("UPDATED")); 
+      let rowBgClass = isUpdated ? 'bg-amber-500/10 hover:bg-amber-500/20' : 'hover:bg-white/5';
+      
+      rowsHtml += `<tr class="${rowBgClass} transition">`;
+      
+      row.forEach((cell, cellIndex) => {
+        let cellVal = (cell !== null && cell !== undefined) ? String(cell) : '';
+        
+        if (cellVal === 'UPDATED' && cellIndex === row.length - 1) return; 
+
+        let isPerm = (cellVal === 'UNAVAILABLE_PERMANENTLY');
+        let isAvail = (cellVal === 'AVAILABLE');
+        
+        let cellClass = 'p-2.5 whitespace-nowrap text-white';
+        
+        if (isPerm) {
+          cellClass = 'p-2.5 whitespace-nowrap font-bold text-red-400 bg-red-600/20 border border-red-500/30';
+        } else if (isAvail) {
+          cellClass = 'p-2.5 whitespace-nowrap font-bold text-emerald-400';
+        }
+
+        if (isUpdated) {
+          cellClass += ' border-l border-r border-amber-500/30';
+        }
+
+        rowsHtml += `<td class="${cellClass}">${cellVal}</td>`;
+      });
+      
+      rowsHtml += `</tr>`;
+    });
+    
+    tbody.innerHTML = rowsHtml;
+    updateStatistics();
+
+  } catch (err) {
+    console.error("Gagal memuat data GM dari Supabase:", err);
+    thead.innerHTML = '<th class="p-3 text-rose-400">Error Supabase</th>';
+    tbody.innerHTML = `<tr><td class="p-4 text-center text-rose-400 italic">Gagal memuat data: ${err.message}</td></tr>`;
+    updateStatistics();
+  }
+}
+
+// 2. Smart Search / Filter Real-time & Sinkronisasi Statistik
+function filterTable() {
+  const input = document.getElementById("searchInput").value.toUpperCase();
+  const tbody = document.getElementById("gmTableBody");
+  if (!tbody) return;
+  
+  const tr = tbody.getElementsByTagName("tr");
+  
+  for (let i = 0; i < tr.length; i++) {
+    let text = tr[i].textContent || tr[i].innerText;
+    tr[i].style.display = text.toUpperCase().indexOf(input) > -1 ? "" : "none";
+  }
+  
+  updateStatistics();
+}
+
+// 3. Fungsi Penghitung Statistik Real-Time
+function updateStatistics() {
+  const tbody = document.getElementById('gmTableBody');
+  if (!tbody) return;
+  
+  const rows = Array.from(tbody.getElementsByTagName('tr'));
+  const visibleRows = rows.filter(row => row.style.display !== 'none');
+  
+  let total = 0;
+  let available = 0;
+  let unavailable = 0;
+
+  visibleRows.forEach(row => {
+    if (row.querySelector('td') && !row.querySelector('.italic')) {
+      total++;
+      let rowText = row.textContent.toUpperCase();
+      
+      if (row.querySelector('.text-red-400') || rowText.includes('UNAVAILABLE_PERMANENTLY')) {
+        unavailable++;
+      } else if (rowText.includes('AVAILABLE')) {
+        available++;
+      }
+    }
+  });
+
+  const elTotal = document.getElementById('statTotal');
+  const elAvailable = document.getElementById('statAvailable');
+  const elUnavailable = document.getElementById('statUnavailable');
+
+  if (elTotal) elTotal.innerText = total;
+  if (elAvailable) elAvailable.innerText = available;
+  if (elUnavailable) elUnavailable.innerText = unavailable;
+}
+
+// 4. Tombol Import CSV: Pop-up Pilihan Cabang
+async function promptImportCSV() {
+  const { value: branch } = await Swal.fire({
+    title: '<span class="text-white font-bold">Pilih Cabang Import</span>',
+    text: 'Data lama pada cabang ini akan dihapus dan ditimpa file CSV baru sebagai master:',
+    input: 'select',
+    inputOptions: {
+      'GM_KGD': 'CABANG KGD',
+      'GM_CDK': 'CABANG CDK',
+      'GM_PKP': 'CABANG PKP',
+      'GM_CPY': 'CABANG CPY'
+    },
+    inputPlaceholder: '-- Pilih Tabel Tujuan --',
+    showCancelButton: true,
+    background: '#1a1d23',
+    color: '#ffffff',
+    confirmButtonColor: '#0891b2',
+    cancelButtonColor: '#374151',
+    confirmButtonText: 'Lanjutkan',
+    cancelButtonText: 'Batal',
+    inputAttributes: {
+      style: 'background-color: #0f1115; color: #ffffff; border: 1px solid rgba(255,255,255,0.2); padding: 10px; border-radius: 8px;'
+    },
+    customClass: {
+      popup: 'border border-white/10 shadow-2xl rounded-2xl',
+      input: 'custom-swal-select'
+    }
+  });
+
+  if (branch) {
+    targetBranch = branch;
+    const fileInput = document.getElementById('csvMasterInput');
+    if (fileInput) fileInput.click();
+  }
+}
+
+// Helper Parser CSV Grab Merchant (Membersihkan baris instruksi & menyesuaikan header)
+function parseCSVToObjects(text) {
+  const lines = text.split(/\r?\n/);
+  if (lines.length < 2) return [];
+  
+  // Cari baris header kolom asli (yang mengandung ItemID atau *ItemID)
+  let headerRowIndex = 0;
+  for (let i = 0; i < Math.min(5, lines.length); i++) {
+    if (lines[i].includes('ItemID') || lines[i].includes('*ItemID')) {
+      headerRowIndex = i;
+      break;
+    }
+  }
+
+  const rawHeaders = lines[headerRowIndex].split(',').map(h => h.trim().replace(/^"*|"*$/g, ''));
+  let result = [];
+
+  for (let i = headerRowIndex + 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    
+    // Lewati baris teks instruksi Grab Merchant agar tidak ikut masuk sebagai data
+    if (lines[i].includes('[Jangan menghapus atau mengedit')) continue;
+    
+    const row = [];
+    let inQuotes = false;
+    let currentVal = '';
+    
+    for (let char of lines[i]) {
+      if (char === '"') {
+        inQuotes = !inQuotes;
+      } else if (char === ',' && !inQuotes) {
+        row.push(currentVal.trim().replace(/^"*|"*$/g, ''));
+        currentVal = '';
+      } else {
+        currentVal += char;
+      }
+    }
+    row.push(currentVal.trim().replace(/^"*|"*$/g, ''));
+    
+    const obj = {};
+    let hasValue = false;
+    rawHeaders.forEach((header, index) => {
+      if (!header) return;
+      // Hilangkan tanda bintang (*) agar bersih menjadi nama kolom database (misal: ItemID)
+      let cleanHeader = header.replace(/^\*/, '');
+      let val = row[index] !== undefined ? row[index] : null;
+      if (val) hasValue = true;
+      obj[cleanHeader] = val;
+    });
+
+    if (hasValue) {
+      result.push(obj);
+    }
+  }
+  return result;
+}
+
+// 5. Proses File CSV: Hapus Data Lama & Ganti Baru ke Supabase
+function processFileSelected(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const nameEl = document.getElementById('navUserName');
+  const roleEl = document.getElementById('navUserRole');
+  const currentActiveUser = (nameEl && roleEl) ? `${nameEl.innerText.trim()} - ${roleEl.innerText.trim()}` : "Admin";
+
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    const csvText = e.target.result;
+    
+    Swal.fire({
+      title: 'Mengganti Data Master...',
+      text: `Menghapus data lama & mengunggah file baru ke ${targetBranch}`,
+      background: '#1a1d23',
+      color: '#fff',
+      allowOutsideClick: false,
+      didOpen: () => { Swal.showLoading(); }
+    });
+
+    try {
+      const parsedData = parseCSVToObjects(csvText);
+      if (parsedData.length === 0) throw new Error("File CSV kosong atau format header kolom tidak valid.");
+
+      // LANGKAH 1: Hapus seluruh data lama pada tabel cabang tujuan
+      const { error: deleteError } = await dbClient
+        .from(targetBranch)
+        .delete()
+        .neq('id', 0); // Menghapus semua baris record yang ada di tabel
+
+      if (deleteError) throw new Error(`Gagal menghapus data lama: ${deleteError.message}`);
+
+      // LANGKAH 2: Masukkan data baru secara bertahap (batch 500 baris)
+      const batchSize = 500;
+      for (let i = 0; i < parsedData.length; i += batchSize) {
+        const batch = parsedData.slice(i, i + batchSize);
+        const { error: insertError } = await dbClient
+          .from(targetBranch)
+          .insert(batch);
+          
+        if (insertError) throw new Error(`Gagal memasukkan data baru: ${insertError.message}`);
+      }
+
+      // LANGKAH 3: Catat log aktivitas ke LOG_GM
+      try {
+        await dbClient.from('LOG_GM').insert([{
+          username: currentActiveUser,
+          action: 'IMPORT_REPLACE_CSV',
+          details: `Replace total tabel ${targetBranch} dengan ${parsedData.length} item master baru (${file.name})`
+        }]);
+      } catch (logErr) {
+        console.warn("Gagal menulis log:", logErr);
+      }
+
+      Swal.fire({
+        icon: 'success',
+        title: 'Master Berhasil Diganti!',
+        text: `${parsedData.length} baris data baru berhasil menggantikan seluruh data lama di ${targetBranch}.`,
+        background: '#1a1d23',
+        color: '#fff',
+        confirmButtonColor: '#0891b2',
+        timer: 3000
+      });
+      
+      document.getElementById('csvMasterInput').value = '';
+      
+      // Otomatis arahkan tampilan ke cabang yang baru di-import dan muat ulang tabel
+      const branchSelectEl = document.getElementById('branchSelect');
+      if (branchSelectEl) branchSelectEl.value = targetBranch;
+      loadGMData();
+
+    } catch (err) {
+      console.error("Error Import CSV:", err);
+      Swal.fire({
+        icon: 'error',
+        title: 'Gagal Mengunggah',
+        text: err.message,
+        background: '#1a1d23',
+        color: '#fff',
+        confirmButtonColor: '#e11d48'
+      });
+      document.getElementById('csvMasterInput').value = '';
+    }
+  };
+  reader.readAsText(file);
+}
+// 6. Tombol Sinkronkan Stock (.xlsx) - Pilihan Cabang
+async function promptSyncExcel() {
+  const { value: branch } = await Swal.fire({
+    title: '<span class="text-white font-bold">Sinkronkan Stock Cabang</span>',
+    text: 'Pilih tabel cabang tujuan sinkronisasi Excel:',
+    input: 'select',
+    inputOptions: {
+      'GM_KGD': 'CABANG KGD',
+      'GM_CDK': 'CABANG CDK',
+      'GM_PKP': 'CABANG PKP',
+      'GM_CPY': 'CABANG CPY'
+    },
+    inputPlaceholder: '-- Pilih Tabel Tujuan --',
+    showCancelButton: true,
+    background: '#1a1d23',
+    color: '#ffffff',
+    confirmButtonColor: '#d97706',
+    cancelButtonColor: '#374151',
+    confirmButtonText: 'Lanjutkan',
+    cancelButtonText: 'Batal',
+    inputAttributes: {
+      style: 'background-color: #0f1115; color: #ffffff; border: 1px solid rgba(255,255,255,0.2); padding: 10px; border-radius: 8px;'
+    },
+    customClass: {
+      popup: 'border border-white/10 shadow-2xl rounded-2xl',
+      input: 'custom-swal-select'
+    }
+  });
+
+  if (branch) {
+    targetSyncBranch = branch;
+    const excelInput = document.getElementById('excelSyncInput');
+    if (excelInput) excelInput.click();
+  }
+}
+
+// 7. Proses File Excel (.xlsx) Langsung di Browser & Update Supabase
+function processExcelSync(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const nameEl = document.getElementById('navUserName');
+  const roleEl = document.getElementById('navUserRole');
+  const currentActiveUser = (nameEl && roleEl) ? `${nameEl.innerText.trim()} - ${roleEl.innerText.trim()}` : "Admin";
+
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array', cellText: true, raw: false });
+      
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false, defval: "" });
+
+      if (!jsonData || jsonData.length === 0) {
+        throw new Error("File Excel kosong atau format tidak valid.");
+      }
+
+      Swal.fire({
+        title: 'Menyinkronkan Stock...',
+        text: `Memproses data ke ${targetSyncBranch}`,
+        background: '#1a1d23',
+        color: '#fff',
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
+      });
+
+      const headers = jsonData[0];
+      const rows = jsonData.slice(1);
+
+      for (let r of rows) {
+        let itemObj = {};
+        headers.forEach((h, idx) => {
+          if (h) {
+            let cleanHeader = h.replace(/^\*/, '');
+            itemObj[cleanHeader] = r[idx] !== undefined ? r[idx] : "";
+          }
+        });
+
+        let itemIdKey = Object.keys(itemObj).find(k => k.includes('ItemID'));
+        if (itemIdKey && itemObj[itemIdKey]) {
+          await dbClient
+            .from(targetSyncBranch)
+            .update(itemObj)
+            .eq(itemIdKey, itemObj[itemIdKey]);
+        }
+      }
+
+      // Catat log aktivitas sinkronisasi ke tabel LOG_GM
+      try {
+        await dbClient.from('LOG_GM').insert([{
+          username: currentActiveUser,
+          action: 'SYNC_EXCEL',
+          details: `Sinkronisasi stok berhasil untuk ${targetSyncBranch}`
+        }]);
+      } catch (logErr) {
+        console.warn("Gagal menulis log:", logErr);
+      }
+
+      Swal.fire({
+        icon: 'success',
+        title: 'Sinkronisasi Berhasil!',
+        text: `Stock untuk ${targetSyncBranch} berhasil diperbarui oleh ${currentActiveUser}.`,
+        background: '#1a1d23',
+        color: '#fff',
+        confirmButtonColor: '#d97706',
+        timer: 3000
+      });
+      
+      document.getElementById('excelSyncInput').value = '';
+      loadGMData();
+
+    } catch (error) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Gagal Menyinkronkan',
+        text: error.message,
+        background: '#1a1d23',
+        color: '#fff'
+      });
+      document.getElementById('excelSyncInput').value = '';
+    }
+  };
+  reader.readAsArrayBuffer(file);
 }
   </script>
 </body>
