@@ -11776,9 +11776,11 @@ async function loadDaftarPembayaran() {
   }
 
   try {
+    // Diurutkan dari tanggal terbaru ke terlama agar langsung presisi di awal
     let { data, error } = await dbClient
       .from('Data_Bayar')
       .select('*')
+      .order('tanggal', { ascending: false })
       .order('id', { ascending: false });
 
     if (error) throw error;
@@ -11796,6 +11798,7 @@ async function loadDaftarPembayaran() {
           tanggal: r.tanggal ? String(r.tanggal).substring(0, 10) : '',
           tglInvoice: r.tgl_invoice ? String(r.tgl_invoice).substring(0, 10) : '',
           kodeSupp: r.kode_supp || '',
+          namalog: r.namalog || '',
           jenis: r.jenis || '',
           bankRekAn: r.bank_rek_an || '',
           status: r.status || 'Draft',
@@ -11809,7 +11812,7 @@ async function loadDaftarPembayaran() {
           catatan: r.catatan || '',
           sumberRek: r.sumber_rek || '',
           potongan: Number(r.potongan || 0), 
-          admin: Number(r.admin || 0),      
+          admin: Number(r.admin || 0),       
           subtotalBruto: 0,
           detailInvoices: []
         };
@@ -11917,16 +11920,18 @@ function renderTable(data) {
   const tbody = document.getElementById('pembayaranTableBody');
   if (!tbody) return;
 
-  // DIUBAH: Urutkan berdasarkan Tanggal terbaru (descending) ke tanggal lama (mundur)
-  // Jika tanggalnya sama, urutkan berdasarkan ID terbesar ke terkecil
+  // Diurutkan presisi secara descending berdasarkan Tanggal (terbaru di halaman 1, semakin mundur ke belakang)
   const sortedData = [...data].sort((a, b) => {
-    const dateA = new Date(a.tanggal || 0);
-    const dateB = new Date(b.tanggal || 0);
+    const rawDateA = (a.tanggal || '').replace(/-/g, '');
+    const rawDateB = (b.tanggal || '').replace(/-/g, '');
     
-    if (dateB - dateA !== 0) {
-      return dateB - dateA; // Tanggal terbaru otomatis ditaruh di halaman 1 (paling atas)
+    const numDateA = parseInt(rawDateA) || 0;
+    const numDateB = parseInt(rawDateB) || 0;
+    
+    if (numDateB !== numDateA) {
+      return numDateB - numDateA; 
     }
-    return (b.id || 0) - (a.id || 0); // Cadangan urutan berdasarkan ID jika tanggalnya sama
+    return (b.dbId || b.id || 0) - (a.dbId || a.id || 0);
   });
 
   const total = sortedData.length;
@@ -11954,7 +11959,7 @@ function renderTable(data) {
     return;
   }
 
-  tbody.innerHTML = dataToDisplay.map((r, index) => {
+  tbody.innerHTML = dataToDisplay.map((r) => {
     return generateRowHTML(r);
   }).join('');
 }
@@ -11974,7 +11979,7 @@ function nextPaymentPage() {
   }
 }
 
-// --- C. FILTER & PENCARIAN (Mencakup Semua Halaman / Global) ---
+// --- C. FILTER & PENCARIAN GLOBAL ---
 function applyFilters() {
   const sText = document.getElementById('paySearch')?.value.toLowerCase().trim() || "";
   const fBul  = document.getElementById('fBulan')?.value || "";
@@ -11983,13 +11988,11 @@ function applyFilters() {
   const fSta  = document.getElementById('fStatus')?.value || "";
 
   currentFilteredData = fullPaymentData.filter(r => {
-    // Gunakan String() untuk id agar aman jika berupa angka, dan sesuaikan nama kolom dengan struktur database Anda
     const rId = String(r.id || "").toLowerCase();
-    const rKodeSupp = String(r.kode_supp || r.kodeSupp || "").toLowerCase();
-    const rBankRekAn = String(r.bank_rek_an || r.bankRekAn || "").toLowerCase();
+    const rKodeSupp = String(r.kodeSupp || "").toLowerCase();
     const rNamalog = String(r.namalog || "").toLowerCase();
+    const rBankRekAn = String(r.bankRekAn || "").toLowerCase();
 
-    // Pencarian mencakup ID, Kode Supplier, Nama Supplier (namalog), dan Rekening Tujuan
     const idMatch = sText === "" || 
                     rId.includes(sText) || 
                     rKodeSupp.includes(sText) || 
@@ -12004,7 +12007,7 @@ function applyFilters() {
     return idMatch && bulMatch && supMatch && jenMatch && staMatch;
   });
 
-  paymentCurrentPage = 1; // Reset ke halaman 1 setiap kali filter/pencarian dijalankan
+  paymentCurrentPage = 1;
   renderTable(currentFilteredData);
 }
 
