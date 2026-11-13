@@ -11917,10 +11917,22 @@ function renderTable(data) {
   const tbody = document.getElementById('pembayaranTableBody');
   if (!tbody) return;
 
-  const total = data.length;
+  // DIUBAH: Urutkan berdasarkan Tanggal terbaru (descending) ke tanggal lama (mundur)
+  // Jika tanggalnya sama, urutkan berdasarkan ID terbesar ke terkecil
+  const sortedData = [...data].sort((a, b) => {
+    const dateA = new Date(a.tanggal || 0);
+    const dateB = new Date(b.tanggal || 0);
+    
+    if (dateB - dateA !== 0) {
+      return dateB - dateA; // Tanggal terbaru otomatis ditaruh di halaman 1 (paling atas)
+    }
+    return (b.id || 0) - (a.id || 0); // Cadangan urutan berdasarkan ID jika tanggalnya sama
+  });
+
+  const total = sortedData.length;
   const start = (paymentCurrentPage - 1) * paymentPageSize;
   const end = Math.min(start + paymentPageSize, total);
-  const dataToDisplay = data.slice(start, end);
+  const dataToDisplay = sortedData.slice(start, end);
 
   const elRange = document.getElementById('paymentRange');
   const elTotal = document.getElementById('paymentTotal');
@@ -11942,7 +11954,9 @@ function renderTable(data) {
     return;
   }
 
-  tbody.innerHTML = dataToDisplay.map(r => generateRowHTML(r)).join('');
+  tbody.innerHTML = dataToDisplay.map((r, index) => {
+    return generateRowHTML(r);
+  }).join('');
 }
 
 function prevPaymentPage() {
@@ -11960,7 +11974,7 @@ function nextPaymentPage() {
   }
 }
 
-// --- C. FILTER & PENCARIAN ---
+// --- C. FILTER & PENCARIAN (Mencakup Semua Halaman / Global) ---
 function applyFilters() {
   const sText = document.getElementById('paySearch')?.value.toLowerCase().trim() || "";
   const fBul  = document.getElementById('fBulan')?.value || "";
@@ -11969,16 +11983,28 @@ function applyFilters() {
   const fSta  = document.getElementById('fStatus')?.value || "";
 
   currentFilteredData = fullPaymentData.filter(r => {
-    const idMatch = r.id.toLowerCase().includes(sText) || r.kodeSupp.toLowerCase().includes(sText) || (r.bankRekAn && r.bankRekAn.toLowerCase().includes(sText));
+    // Gunakan String() untuk id agar aman jika berupa angka, dan sesuaikan nama kolom dengan struktur database Anda
+    const rId = String(r.id || "").toLowerCase();
+    const rKodeSupp = String(r.kode_supp || r.kodeSupp || "").toLowerCase();
+    const rBankRekAn = String(r.bank_rek_an || r.bankRekAn || "").toLowerCase();
+    const rNamalog = String(r.namalog || "").toLowerCase();
+
+    // Pencarian mencakup ID, Kode Supplier, Nama Supplier (namalog), dan Rekening Tujuan
+    const idMatch = sText === "" || 
+                    rId.includes(sText) || 
+                    rKodeSupp.includes(sText) || 
+                    rNamalog.includes(sText) || 
+                    rBankRekAn.includes(sText);
+
     const bulMatch = (fBul === "" || (r.tanggal && r.tanggal.split('-')[1] === fBul));
-    const supMatch = (fSup === "" || r.kodeSupp.toLowerCase().includes(fSup));
+    const supMatch = (fSup === "" || rKodeSupp.includes(fSup));
     const jenMatch = (fJen === "" || r.jenis === fJen);
     const staMatch = (fSta === "" || r.status === fSta);
 
     return idMatch && bulMatch && supMatch && jenMatch && staMatch;
   });
 
-  paymentCurrentPage = 1;
+  paymentCurrentPage = 1; // Reset ke halaman 1 setiap kali filter/pencarian dijalankan
   renderTable(currentFilteredData);
 }
 
@@ -12504,6 +12530,7 @@ function showUINotif(msg, type) {
     customClass: { popup: 'glass-toast' }
   });
 }
+
 // ==========================================
 // MODUL CETAK & PREVIEW NATIVE SUPABASE (TERBARU & BERSIH)
 // ==========================================
