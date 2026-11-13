@@ -15219,7 +15219,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 // ==========================================
-// 1. FUNGSI UTAMA: MENARIK SEMUA DATA DARI SUPABASE (FORMAT TGL: YYYY-MM-DD)
+// 1. FUNGSI UTAMA: MENARIK SEMUA DATA DARI SUPABASE DENGAN NILAI NETTO AKURAT
 // ==========================================
 async function runPaymentSearch() {
   const sDate = document.getElementById("paySDate").value; // Format: YYYY-MM-DD
@@ -15310,6 +15310,7 @@ async function runPaymentSearch() {
           detailInvoices: []
         };
       } else {
+        // Ambil nilai potongan/admin tertinggi jika tersebar di baris lain dengan id_bayar yang sama (agar tidak double)
         if (Number(r.potongan || 0) > groupedMap[payId].potongan) {
           groupedMap[payId].potongan = Number(r.potongan || 0);
         }
@@ -15328,6 +15329,7 @@ async function runPaymentSearch() {
       });
     });
 
+    // Kalkulasi nilai Netto Final per ID: (Bruto - Potongan + Admin) hanya 1 kali
     rawPaymentDataResult = Object.values(groupedMap).map(item => {
       item.totalNominal = item.subtotalBruto - item.potongan + item.admin;
       return item;
@@ -15415,7 +15417,7 @@ function editStatusDate(id, status, currentTanggal) {
 }
 
 // ==========================================
-// 2. FUNGSI FILTER & RENDER: TABEL MASTER KALEM
+// 3. FUNGSI FILTER & RENDER: TABEL MASTER KALEM
 // ==========================================
 function renderPaymentTable() {
   const tbody = document.getElementById("paymentSearchResult");
@@ -15449,6 +15451,7 @@ function renderPaymentTable() {
     if (filterJenis !== "ALL" && mJenis !== filterJenis) return; 
     if (supplierKeyword !== "" && !mSupplier.includes(supplierKeyword) && !mKodeSupp.includes(supplierKeyword)) return;
 
+    // Menggunakan totalNominal yang sudah berupa nilai Netto teragregasi
     const netNominal = Number(master.totalNominal || 0);
     grandTotal += netNominal;
     count++;
@@ -15492,14 +15495,14 @@ function renderPaymentTable() {
 
   tbody.innerHTML = html;
   tfoot.innerHTML = `<tr>
-    <td colspan="5" class="p-2 text-right font-sans text-gray-400 uppercase font-bold text-[10px]">TOTAL RINGKASAN:</td>
+    <td colspan="5" class="p-2 text-right font-sans text-gray-400 uppercase font-bold text-[10px]">TOTAL RINGKASAN (NETTO):</td>
     <td class="p-2 text-right text-emerald-400 font-mono text-xs font-black">${fmt(grandTotal)}</td>
     <td></td>
   </tr>`;
 }
 
 // ==========================================
-// 3. FUNGSI SWITCHER SUB-TAB METODE BAYAR
+// 4. FUNGSI SWITCHER SUB-TAB METODE BAYAR
 // ==========================================
 function setPaymentReportMode(mode) {
   const modeNormalized = mode.toLowerCase();
@@ -15518,7 +15521,7 @@ function setPaymentReportMode(mode) {
 }
 
 // ==========================================
-// 4. FUNGSI SWEETALERT MODAL: DETAIL INVOICE
+// 5. FUNGSI SWEETALERT MODAL: DETAIL INVOICE
 // ==========================================
 function viewPaymentDetail(idBayar) {
   const target = rawPaymentDataResult.find(item => item.idBayar === idBayar);
@@ -15548,6 +15551,10 @@ function viewPaymentDetail(idBayar) {
           <div><span class="font-bold text-gray-400">Est. Bayar:</span> ${target.tglEstBayar}</div>
           <div><span class="font-bold text-gray-400">Transaksi:</span> ${target.jenisBayar} (${target.bankSumber || '-'})</div>
         </div>
+        <div class="grid grid-cols-2 gap-1 text-[11px] pt-1">
+          <div><span class="font-bold text-gray-400">Potongan:</span> ${fmt(target.potongan)}</div>
+          <div><span class="font-bold text-gray-400">Admin:</span> ${fmt(target.admin)}</div>
+        </div>
       </div>
       <div class="overflow-x-auto max-h-[220px] overflow-y-auto">
         <table class="w-full text-left border-collapse">
@@ -15555,22 +15562,23 @@ function viewPaymentDetail(idBayar) {
             <tr class="border-b border-slate-700 text-gray-400 text-[10px] uppercase font-bold">
               <th class="p-1 w-8">No</th>
               <th class="p-1">No. Invoice</th>
-              <th class="p-1 text-right">Nominal</th>
+              <th class="p-1 text-right">Nominal Bruto</th>
               <th class="p-1">Catatan Form</th>
             </tr>
           </thead>
           <tbody>${detailRows}</tbody>
         </table>
       </div>
-      <div class="text-right pt-2 mt-2 border-t border-white/10 font-bold text-xs text-white">
-        TOTAL AKUMULASI: <span class="text-emerald-400 font-mono font-black text-sm">${fmt(target.totalNominal)}</span>
+      <div class="text-right pt-2 mt-2 border-t border-white/10 font-bold text-xs text-white space-y-0.5">
+        <div>TOTAL BRUTO: <span class="font-mono">${fmt(target.subtotalBruto)}</span></div>
+        <div>POTONGAN / ADMIN: <span class="font-mono text-rose-400">-${fmt(target.potongan)} / +${fmt(target.admin)}</span></div>
+        <div class="text-sm pt-1">TOTAL AKUMULASI NETTO: <span class="text-emerald-400 font-mono font-black">${fmt(target.totalNominal)}</span></div>
       </div>
     `,
     confirmButtonText: 'TUTUP DETAIL',
     confirmButtonColor: '#475569'
   });
 }
-
 // ==========================================
 // 5. FUNGSI RESET PENCARIAN FORM
 // ==========================================
@@ -15977,7 +15985,7 @@ async function loadMutationBankDropdown() {
 }
 
 /**
- * 2. MEMICU PENCARIAN GABUNGAN (ACUAN Data_Bayar MENGGUNAKAN `tanggal_lunas`)
+ * 2. MEMICU PENCARIAN GABUNGAN (ACUAN Data_Bayar MENGGUNAKAN `tanggal_lunas` & NILAI NETTO AKURAT)
  */
 async function runMutationSearch() {
   const sDate = document.getElementById("mutSDate").value; // Format: YYYY-MM-DD
@@ -16005,7 +16013,6 @@ async function runMutationSearch() {
     }
 
     // 2. Ambil data pembayaran supplier dari tabel Data_Bayar KHUSUS STATUS LUNAS
-    // Berdasarkan tanggal_lunas (tanggal efektif pembayaran) & mengabaikan jam
     let queryBayar = dbClient
       .from('Data_Bayar')
       .select('*')
@@ -16066,36 +16073,60 @@ async function runMutationSearch() {
       }
     });
 
-    // --- B. PROSES DATA PEMBAYARAN SUPPLIER LUNAS (MENGGUNAKAN `tanggal_lunas`) ---
+    // --- B. PROSES DATA PEMBAYARAN SUPPLIER LUNAS (AGREGASI ID & PERHITUNGAN NETTO) ---
+    const groupedBayarMap = {};
+
     (resBayar.data || []).forEach(row => {
       const idBayar = row.id_bayar || row.id || 'PAY-LUNAS';
-      
-      // Menggunakan tanggal_lunas sebagai acuan tanggal efektif pembayaran
+      const nominal = Number(row.nominal || 0);
       const rawTgl = row.tanggal_lunas || row.tanggal || row.estimasi_bayar || '';
       const tanggal = rawTgl ? String(rawTgl).substring(0, 10) : '-';
-      
-      const bankSumber = row.sumber_rek || row.bank_rek_an || 'Kas/Bank';
-      const supplierCode = row.kode_supp || '-';
-      const supplierName = row.namalog || 'Supplier';
-      const bankRekAn = row.bank_rek_an || '-';
-      const nominalInvoice = Number(row.nominal || 0);
-      const jenisBayar = row.jenis || 'TRANSFER'; 
+
+      if (!groupedBayarMap[idBayar]) {
+        groupedBayarMap[idBayar] = {
+          idBayar: idBayar,
+          tanggal: tanggal,
+          bankSumber: row.sumber_rek || row.bank_rek_an || 'Kas/Bank',
+          supplierCode: row.kode_supp || '-',
+          supplierName: row.namalog || 'Supplier',
+          bankRekAn: row.bank_rek_an || '-',
+          jenisBayar: row.jenis || 'TRANSFER',
+          potongan: Number(row.potongan || 0),
+          admin: Number(row.admin || 0),
+          subtotalBruto: 0
+        };
+      } else {
+        // Ambil nilai potongan/admin tertinggi jika tersebar di baris lain dengan id_bayar yang sama (agar tidak double)
+        if (Number(row.potongan || 0) > groupedBayarMap[idBayar].potongan) {
+          groupedBayarMap[idBayar].potongan = Number(row.potongan || 0);
+        }
+        if (Number(row.admin || 0) > groupedBayarMap[idBayar].admin) {
+          groupedBayarMap[idBayar].admin = Number(row.admin || 0);
+        }
+      }
+
+      groupedBayarMap[idBayar].subtotalBruto += nominal;
+    });
+
+    // Masukkan ke formattedData menggunakan nilai Netto Final (Bruto - Potongan + Admin)
+    Object.values(groupedBayarMap).forEach(item => {
+      const netNominal = item.subtotalBruto - item.potongan + item.admin;
 
       const descHtml = `
-        <div class="font-bold text-white">Pembayaran Supplier [${supplierCode}]</div>
-        <div class="text-[10px] text-gray-400 font-mono mt-0.5">${bankRekAn} | ${supplierName}</div>
+        <div class="font-bold text-white">Pembayaran Supplier [${item.supplierCode}]</div>
+        <div class="text-[10px] text-gray-400 font-mono mt-0.5">${item.bankRekAn} | ${item.supplierName}</div>
       `;
 
       formattedData.push({
-        tanggal: tanggal,
-        idRef: idBayar,
-        bankSumber: bankSumber,
-        jenis: jenisBayar.toUpperCase(),
+        tanggal: item.tanggal,
+        idRef: item.idBayar,
+        bankSumber: item.bankSumber,
+        jenis: item.jenisBayar.toUpperCase(),
         keterangan: descHtml,
-        nominal: nominalInvoice,
+        nominal: netNominal,
         tipe: "KELUAR",
         nominalMasuk: 0,
-        nominalKeluar: nominalInvoice
+        nominalKeluar: netNominal
       });
     });
 
