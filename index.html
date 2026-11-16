@@ -12224,7 +12224,9 @@ async function fetchHutangDetailsPro(supId) {
       const invNo = i.invbeli || '-';
       const cabangVal = i.ID_Cabang || '-';
       const tglInvVal = i.tglinvbeli || '-';
-      const tempoVal = i.tempo || '0';
+      
+      // Mengambil tanggal jatuh tempo dari kolom tgljt (fallback ke tgljthtempo atau tglinvbeli)
+      const tglJtVal = i.tgljt || i.tgljthtempo || i.tglinvbeli || '-';
 
       return `
       <tr class="border-b border-white/5">
@@ -12232,14 +12234,14 @@ async function fetchHutangDetailsPro(supId) {
           <input type="checkbox" class="inv-chk-pro" 
             data-id="${invNo}" 
             data-tglinv="${tglInvVal}" 
-            data-tempo="${tempoVal}" 
+            data-tempo="${tglJtVal}" 
             data-cabang="${cabangVal}" 
             onchange="calcNettoPro(); hitungJadwalOtomatis();">
         </td>
         <td class="p-3 text-white font-bold">${invNo}</td>
         <td class="p-3 text-white/60">${cabangVal}</td>
         <td class="p-3 text-white/40">${tglInvVal}</td>
-        <td class="p-3 text-orange-400">${tempoVal} hari</td>
+        <td class="p-3 text-orange-400 font-mono text-[11px]">${tglJtVal}</td>
         <td class="p-3 text-right text-white/60">Rp ${nom.toLocaleString('id-ID')}</td>
         <td class="p-3 text-right">
           <input type="text" 
@@ -12308,6 +12310,7 @@ function calcNettoPro() {
   if (txtTotal) txtTotal.innerText = "Rp " + subTotal.toLocaleString('id-ID', {minimumFractionDigits: 2});
   if (txtNetto) txtNetto.innerText = "Rp " + Math.max(0, netto).toLocaleString('id-ID', {minimumFractionDigits: 2});
 }
+
 // --- RENDER 10 RIWAYAT TERAKHIR (AMBIL LANGSUNG DARI SUPABASE) ---
 async function renderHistory() {
   const container = document.getElementById('historyListPro');
@@ -12316,7 +12319,6 @@ async function renderHistory() {
   container.innerHTML = '<div class="text-white/20 p-2 text-center text-[9px]">Memuat riwayat...</div>';
 
   try {
-    // Ambil 10 data terakhir dari tabel Data_Bayar di Supabase
     const { data: historyData, error } = await dbClient
       .from('Data_Bayar')
       .select('id_bayar, nominal, tanggal')
@@ -12343,20 +12345,35 @@ async function renderHistory() {
   }
 }
 
+// --- HITUNG JADWAL OTOMATIS BERDASARKAN TGLJT ---
 function hitungJadwalOtomatis() {
   const cbs = document.querySelectorAll('.inv-chk-pro:checked');
   const info = document.getElementById('info_jadwal');
   if (!info) return;
-  if (cbs.length === 0) { info.innerText = ""; info.dataset.iso = ""; return; }
+  if (cbs.length === 0) { info.innerText = "-"; info.dataset.iso = ""; return; }
 
-  let tglMax = new Date(Math.max(...Array.from(cbs).map(c => new Date(c.dataset.tempo))));
-  const jenis = document.getElementById('f_jenis_bayar').value;
-  const targetDay = (jenis === "Transfer") ? 1 : 2; 
+  // Ambil tanggal jatuh tempo (tgljt) dari checkbox yang dicentang
+  let validDates = Array.from(cbs)
+    .map(c => c.dataset.tempo)
+    .filter(t => t && t !== '-')
+    .map(t => new Date(t).getTime());
+
+  if (validDates.length === 0) {
+    info.innerText = "-";
+    info.dataset.iso = "";
+    return;
+  }
+
+  // Cari tanggal jatuh tempo paling maksimum di antara nota yang dipilih
+  let tglMax = new Date(Math.max(...validDates));
+  const jenis = document.getElementById('f_jenis_bayar')?.value || "Transfer";
+  const targetDay = (jenis === "Transfer") ? 1 : 2; // Senin (1) atau Selasa (2)
   
   let tglBayar = new Date(tglMax);
   let hariJatuhTempo = tglMax.getDay(); 
 
-  if (hariJatuhTempo >= 3 && hariJatuhTempo <= 6) {
+  // Jika jatuh tempo hari Rabu (3) s.d. Minggu (0), geser ke minggu berikutnya
+  if (hariJatuhTempo >= 3 || hariJatuhTempo === 0) {
     tglBayar.setDate(tglBayar.getDate() + 7);
   }
 
@@ -12366,6 +12383,7 @@ function hitungJadwalOtomatis() {
   const hariIni = new Date();
   hariIni.setHours(0, 0, 0, 0);
 
+  // Jika hasil estimasi kurang dari hari ini, majukan ke jadwal terdekat berikutnya
   if (tglBayar < hariIni) {
     let tglMaju = new Date(hariIni);
     let hariIniGet = tglMaju.getDay();
@@ -12383,10 +12401,10 @@ function hitungJadwalOtomatis() {
   info.innerText = "Estimasi Bayar: " + tglBayar.toLocaleDateString('id-ID', { 
     weekday: 'long', 
     day: 'numeric', 
-    month: 'long' 
+    month: 'long',
+    year: 'numeric'
   });
 }
-
 // --- E. FUNGSI AKSI (SIMPAN DATA KE SUPABASE) ---
 // --- E. FUNGSI AKSI (SIMPAN 1 BARIS PER INVOICE KE SUPABASE) ---
 async function saveOnly() {
