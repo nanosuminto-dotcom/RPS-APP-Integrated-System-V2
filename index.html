@@ -1500,6 +1500,11 @@
     .swal2-title, .swal2-html-container {
       color: inherit !important;
     }
+    /* Memastikan opsi di dalam select dropdown terbaca jelas dengan teks putih dan background gelap */
+select option {
+  background-color: #0f1115;
+  color: #ffffff;
+}
   </style>
 </head>
 
@@ -9847,9 +9852,10 @@ async function loadPOTab() {
       }).then(r => r.json()).catch(() => [])
     ]);
 
+    // Mengambil data master supplier dengan kolom 'namsupp' sesuai gambar database Anda
     dataMasterSupp = (Array.isArray(resSupp) ? resSupp : []).map(s => ({
-      kode: (s.kodesupp || s.kode_supp || s.kode || "").trim().toUpperCase(),
-      nama: (s.namasupp || s.nama_supp || s.nama || "").trim(),
+      kode: (s.kodesupp || s.kode || "").trim().toUpperCase(),
+      nama: (s.namsupp || s.namasupp || s.nama || "").trim(),
       tempo: parseInt(s.tempo || 0, 10)
     }));
 
@@ -9878,7 +9884,26 @@ async function loadPOTab() {
     const elCabang = document.getElementById('poCabang');
     if (elCabang) elCabang.innerHTML = hCab;
 
-    // Mapping dan URUTKAN berdasarkan tanggal terbaru (tglpo descending) di paling atas
+    // Populasikan Dropdown Supplier (Kode & Nama)
+    let hKode = '<option value="">- Kode -</option>';
+    let hNama = '<option value="">- Nama Supplier -</option>';
+    dataMasterSupp.forEach(s => {
+      hKode += `<option value="${s.kode}">${s.kode}</option>`;
+      hNama += `<option value="${s.kode}">${s.nama}</option>`;
+    });
+    
+    const elKode = document.getElementById('poKodeSupp');
+    const elNama = document.getElementById('poNamaSupp');
+    if (elKode) {
+      elKode.innerHTML = hKode;
+      elKode.onchange = () => syncSupplier('kode');
+    }
+    if (elNama) {
+      elNama.innerHTML = hNama;
+      elNama.onchange = () => syncSupplier('nama');
+    }
+
+    // Mapping dan URUTKAN berdasarkan tanggal terbaru (tglpo descending)
     allPOData = poRows.map(row => ({
       tgl: row.tglpo,
       cabang: (row.ID_Cabang || "").trim().toUpperCase(),
@@ -9892,21 +9917,7 @@ async function loadPOTab() {
       status: (row.statuspo || 'PENDING').toUpperCase()
     })).sort((a, b) => new Date(b.tgl) - new Date(a.tgl));
 
-    // Sinkronisasi awal data ke filteredPOData
     filteredPOData = [...allPOData];
-
-    let hKode = '<option value="">- Kode -</option>';
-    let hNama = '<option value="">- Nama Supplier -</option>';
-    dataMasterSupp.forEach(s => {
-      hKode += `<option value="${s.kode}">${s.kode}</option>`;
-      hNama += `<option value="${s.kode}">${s.nama}</option>`;
-    });
-    
-    const elKode = document.getElementById('poKodeSupp');
-    const elNama = document.getElementById('poNamaSupp');
-    if (elKode) elKode.innerHTML = hKode;
-    if (elNama) elNama.innerHTML = hNama;
-
     poCurrentPage = 1;
     displayFilteredPO();
 
@@ -9982,7 +9993,8 @@ function renderPOTable(data) {
       if (r.status === 'SELESAI') sCol = 'text-green-400 bg-green-400/10';
 
       let tglTampilan = (r.status === 'SELESAI') ? (r.tglTerima || '-') : (r.status === 'TERKIRIM' ? (r.tglKirim || '-') : "Baru Dibuat");
-      let formattedTgl = (typeof formatTglIndo === 'function') ? formatTglIndo(r.tgl) : r.tgl;
+      let formattedTgl = formatTglIndo(r.tgl);
+      let formattedNilai = (typeof fmt === 'function') ? fmt(r.nilai) : r.nilai.toLocaleString('id-ID');
 
       let roleSekarang = (typeof userRole !== 'undefined') ? userRole : 'OWNER';
       let bolehEdit = (roleSekarang === 'OWNER' || roleSekarang === 'ADMIN' || true);
@@ -10006,7 +10018,7 @@ function renderPOTable(data) {
       <div class="text-[9px] text-orange-500 font-bold uppercase tracking-wider">${r.kodeSupp || '-'} | ${r.tempo} Hari</div>
     </td>
     <td class="px-3 py-2 text-right font-black text-white w-[15%] font-mono">
-      <span>Rp ${typeof fmt === 'function' ? fmt(r.nilai) : r.nilai.toLocaleString('id-ID')}</span>
+      <span>Rp ${formattedNilai}</span>
     </td>
     <td class="p-3 text-center w-[12%]">
       <span class="px-2 py-0.5 rounded text-[8px] font-black uppercase ${sCol}">${r.status}</span>
@@ -10116,18 +10128,18 @@ function syncSupplier(source) {
   kodeEl.value = val;
   namaEl.value = val;
 
-  const supp = dataMasterSupp.find(s => s.kode === val.toUpperCase());
+  const supp = dataMasterSupp.find(s => s.kode.toUpperCase() === val.toUpperCase());
   if (tempoEl) {
     tempoEl.value = supp ? supp.tempo : 0;
   }
 }
 
 // ==========================================
-// 5. FUNGSI RESET FORM PO & IMPORT EXCEL
+// 5. FUNGSI RESET FORM PO & SIMPAN
 // ==========================================
 function resetFormPO() {
   try {
-    if(document.getElementById('poTgl')) document.getElementById('poTgl').value = '';
+    if(document.getElementById('poTgl')) document.getElementById('poTgl').value = new Date().toISOString().split('T')[0];
     if(document.getElementById('poCabang')) document.getElementById('poCabang').value = '';
     if(document.getElementById('poNo')) document.getElementById('poNo').value = '';
     if(document.getElementById('poKodeSupp')) document.getElementById('poKodeSupp').value = '';
@@ -10138,8 +10150,102 @@ function resetFormPO() {
     console.error("Error resetting form:", e);
   }
 }
+
+async function savePO() {
+  const btn = event?.currentTarget;
+  
+  const tgl = document.getElementById('poTgl')?.value;
+  const cabang = document.getElementById('poCabang')?.value;
+  const noNota = document.getElementById('poNo')?.value.trim();
+  const kodeSupp = document.getElementById('poKodeSupp')?.value.trim();
+  const tempo = parseInt(document.getElementById('poTempo')?.value || 0, 10);
+  const rawNominal = document.getElementById('poNominal')?.value || "0";
+  const cleanNominal = parseFloat(rawNominal.replace(/[^0-9]/g, '')) || 0;
+
+  if (!tgl || !noNota || !cabang || !kodeSupp || cleanNominal <= 0) {
+    return Swal.fire("Lengkapi Data", "Tanggal, No Nota, Cabang, Supplier, dan Nominal wajib diisi dengan benar!", "warning");
+  }
+
+  // Mengambil nama supplier secara presisi dari master data berdasarkan kode yang dipilih
+  const suppObj = dataMasterSupp.find(s => s.kode.toUpperCase() === kodeSupp.toUpperCase());
+  const finalNamaSupp = suppObj ? suppObj.nama : '';
+  const finalTempo = suppObj ? suppObj.tempo : tempo;
+
+  const payload = {
+    invpo: noNota,
+    tglpo: tgl,
+    ID_Cabang: cabang,
+    kodesupp: kodeSupp.toUpperCase(),
+    namasupp: finalNamaSupp, // Otomatis terisi dari namsupp di Ref_Supp
+    tempo: finalTempo,
+    nompo: cleanNominal
+  };
+
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Menyimpan...';
+  }
+
+  try {
+    const checkRes = await fetch(`${DB_URL}/rest/v1/Data_PO?invpo=eq.${encodeURIComponent(noNota)}&select=invpo`, {
+      headers: { "apikey": DB_KEY, "Authorization": `Bearer ${DB_KEY}` }
+    });
+    const existing = await checkRes.json();
+
+    let response;
+    if (Array.isArray(existing) && existing.length > 0) {
+      response = await fetch(`${DB_URL}/rest/v1/Data_PO?invpo=eq.${encodeURIComponent(noNota)}`, {
+        method: 'PATCH',
+        headers: {
+          "apikey": DB_KEY,
+          "Authorization": `Bearer ${DB_KEY}`,
+          "Content-Type": "application/json",
+          "Prefer": "return=representation"
+        },
+        body: JSON.stringify(payload)
+      });
+    } else {
+      payload.statuspo = 'PENDING';
+      response = await fetch(`${DB_URL}/rest/v1/Data_PO`, {
+        method: 'POST',
+        headers: {
+          "apikey": DB_KEY,
+          "Authorization": `Bearer ${DB_KEY}`,
+          "Content-Type": "application/json",
+          "Prefer": "return=representation"
+        },
+        body: JSON.stringify(payload)
+      });
+    }
+
+    if (response.ok) {
+      Swal.fire({
+        icon: 'success',
+        title: 'Berhasil',
+        text: 'Data PO berhasil disimpan dengan nama supplier otomatis!',
+        timer: 1500,
+        showConfirmButton: false
+      });
+      resetFormPO();
+      loadPOTab();
+    } else {
+      const errJson = await response.json();
+      throw new Error(errJson.message || 'Gagal menyimpan ke database');
+    }
+
+  } catch (err) {
+    console.error("Gagal simpan PO:", err);
+    Swal.fire("Gagal", err.message, "error");
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa fa-save"></i> SIMPAN';
+    }
+  }
+}
+
 // ==========================================
-// FUNGSI IMPORT DATA PO (SESUAI STRUKTUR SUPABASE)
+// 6. IMPORT DATA PO (EXCEL / CSV)
 // ==========================================
 function importExcelPO() {
   Swal.fire({
@@ -10148,7 +10254,7 @@ function importExcelPO() {
     html: `
       <div class="text-left space-y-3 mt-3">
         <div id="dropZone" class="border-2 border-dashed border-white/20 hover:border-cyan-500 rounded-xl p-6 text-center cursor-pointer transition-all bg-black/20"
-             onclick="const inp = document.getElementById('fileExcelInput'); if(inp) inp.click();"
+             onclick="document.getElementById('fileExcelInput').click()"
              ondragover="event.preventDefault(); this.classList.add('border-cyan-500');"
              ondragleave="this.classList.remove('border-cyan-500');"
              ondrop="handleFileDrop(event)">
@@ -10157,7 +10263,7 @@ function importExcelPO() {
           <span class="inline-block mt-2 px-3 py-1 bg-cyan-600 text-white text-[10px] font-bold rounded-lg hover:bg-cyan-500 transition-all">Pilih File</span>
           <input type="file" id="fileExcelInput" accept=".csv, .txt, .xlsx, .xls" class="hidden" onchange="handleFileSelect(this)">
         </div>
-        <div id="fileInfo" class="text-[10px] text-cyan-400 text-center font-medium hidden"></div>
+        <div id="fileInfo" class="text-[10px] text-gray-400 text-center italic hidden"></div>
       </div>
     `,
     showCancelButton: true,
@@ -10176,14 +10282,13 @@ function importExcelPO() {
     }
   }).then(async (result) => {
     if (result.isConfirmed && result.value) {
-      const file = result.value;
-      parseAndUploadCSV(file);
+      parseAndUploadCSV(result.value);
     }
   });
 }
 
 function handleFileSelect(input) {
-  if (input && input.files && input.files[0]) {
+  if (input.files && input.files[0]) {
     showFileInfo(input.files[0].name);
   }
 }
@@ -10195,27 +10300,17 @@ function handleFileDrop(event) {
 
   if (event.dataTransfer.files && event.dataTransfer.files[0]) {
     const file = event.dataTransfer.files[0];
-    const fileInput = document.getElementById('fileExcelInput');
-    if (fileInput) {
-      fileInput.files = event.dataTransfer.files;
-    }
+    document.getElementById('fileExcelInput').files = event.dataTransfer.files;
     showFileInfo(file.name);
   }
 }
 
 function showFileInfo(fileName) {
-  let attempts = 0;
-  const checkInterval = setInterval(() => {
-    const infoEl = document.getElementById('fileInfo');
-    if (infoEl) {
-      infoEl.innerText = `File dipilih: ${fileName}`;
-      infoEl.classList.remove('hidden');
-      clearInterval(checkInterval);
-    } else {
-      attempts++;
-      if (attempts > 15) clearInterval(checkInterval);
-    }
-  }, 40);
+  const infoEl = document.getElementById('fileInfo');
+  if (infoEl) {
+    infoEl.innerText = `File dipilih: ${fileName}`;
+    infoEl.classList.remove('hidden');
+  }
 }
 
 async function parseAndUploadCSV(file) {
@@ -10232,57 +10327,17 @@ async function parseAndUploadCSV(file) {
   reader.onload = async function(e) {
     try {
       const data = new Uint8Array(e.target.result);
-      const workbook = XLSX.read(data, { type: 'array', cellDates: true, raw: true });
+      const workbook = XLSX.read(data, { type: 'array', cellDates: true });
       
       const firstSheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[firstSheetName];
       const rows = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
 
       if (!rows || rows.length === 0) {
-        throw new Error("File CSV/Excel kosong atau tidak ada data.");
+        throw new Error("File Excel kosong atau tidak ada data.");
       }
 
-      // 1. Ambil data eksisting untuk mengamankan 'statuspo' agar tetap dipertahankan jika invpo sama
-      const existingRes = await fetch(`${DB_URL}/rest/v1/Data_PO?select=invpo,statuspo`, {
-        headers: {
-          "apikey": DB_KEY,
-          "Authorization": `Bearer ${DB_KEY}`
-        }
-      });
-      const existingData = existingRes.ok ? await existingRes.json() : [];
-      const statusMap = {};
-      existingData.forEach(item => {
-        statusMap[item.invpo] = item.statuspo; 
-      });
-
-      const rawPayloads = [];
-
-      // Helper aman untuk parsing tanggal Excel/CSV
-      const parseExcelDate = (val) => {
-        if (!val) return '';
-        if (val instanceof Date) {
-          if (isNaN(val.getTime())) return '';
-          return val.toISOString().split('T')[0];
-        }
-        if (typeof val === 'number') {
-          const d = new Date(Math.round((val - (25567 + 2)) * 86400 * 1000));
-          if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
-        }
-        let strVal = String(val).trim();
-        if (/^\d{1,2}[-/]\d{1,2}[-/]\d{2,4}$/.test(strVal)) {
-          const parts = strVal.split(/[-/]/);
-          let day = parts[0].padStart(2, '0');
-          let month = parts[1].padStart(2, '0');
-          let year = parts[2];
-          if (year.length === 2) year = '20' + year;
-          return `${year}-${month}-${day}`;
-        }
-        let parsed = new Date(strVal);
-        if (!isNaN(parsed.getTime()) && parsed.getFullYear() > 2000 && parsed.getFullYear() < 2100) {
-          return parsed.toISOString().split('T')[0];
-        }
-        return '';
-      };
+      const batchPayloads = [];
 
       rows.forEach((row) => {
         const getVal = (keys) => {
@@ -10294,85 +10349,58 @@ async function parseAndUploadCSV(file) {
           return '';
         };
 
-        const formattedTglPO = parseExcelDate(getVal(['tglpo', 'tgl', 'tanggal']));
-        const formattedTglKirim = parseExcelDate(getVal(['tglkirim', 'tgl_kirim']));
-        const formattedTglTerima = parseExcelDate(getVal(['tglterima', 'tgl_terima']));
+        const tglRaw = getVal(['tglpo', 'tgl', 'tanggal']);
+        let formattedDate = '';
+        if (tglRaw) {
+          if (tglRaw instanceof Date) {
+            formattedDate = tglRaw.toISOString().split('T')[0];
+          } else {
+            let parsed = new Date(tglRaw);
+            if (!isNaN(parsed.getTime())) {
+              formattedDate = parsed.toISOString().split('T')[0];
+            } else {
+              formattedDate = String(tglRaw).trim().substring(0, 10);
+            }
+          }
+        }
 
         const invpo = String(getVal(['invpo', 'no_nota', 'nota'])).trim();
-        const ID_Cabang = String(getVal(['id_cabang', 'ID_Cabang', 'cabang'])).trim();
-        const kodesupp = String(getVal(['kodesupp', 'kode_supp', 'kode'])).trim();
-        const namasupp = String(getVal(['namasupp', 'nama_supp', 'nama'])).trim();
+        const ID_Cabang = String(getVal(['ID_Cabang', 'id_cabang', 'cabang'])).trim();
+        const kodesupp = String(getVal(['kodesupp', 'kode_supp', 'kode'])).trim().toUpperCase();
         
-        // Baca tempo dari file, dukung beberapa variasi nama kolom
-        let tempoVal = parseInt(getVal(['tempo', 'tempo_hari', 'TEMPO']) || 0, 10);
-
-        // Jika tempo di file kosong/0, coba ambil otomatis dari master supplier (dataMasterSupp)
-        const cleanKode = kodesupp.trim().toUpperCase();
-        const masterSupp = typeof dataMasterSupp !== 'undefined' ? dataMasterSupp.find(s => (s.kode || s.kodesupp || "").trim().toUpperCase() === cleanKode) : null;
-        
-        if ((!tempoVal || isNaN(tempoVal)) && masterSupp) {
-          tempoVal = masterSupp.tempo !== undefined ? parseInt(masterSupp.tempo, 10) : (masterSupp.TEMPO !== undefined ? parseInt(masterSupp.TEMPO, 10) : 0);
-        }
+        // Mengambil nama dan tempo dari master berdasarkan kodesupp
+        const masterSupp = dataMasterSupp.find(s => s.kode === kodesupp);
+        const namasupp = masterSupp ? masterSupp.nama : String(getVal(['namasupp', 'namsupp', 'nama_supp', 'nama'])).trim();
+        const tempo = masterSupp ? masterSupp.tempo : parseInt(getVal(['tempo']) || 0, 10);
         
         let nompoVal = getVal(['nompo', 'nominal', 'nilai']) || 0;
         if (typeof nompoVal === 'string') {
           nompoVal = parseFloat(nompoVal.replace(/[^0-9.]/g, '')) || 0;
         }
 
-        // Pertahankan statuspo lama jika invpo sudah ada di database, jika baru gunakan 'PENDING'
-        let statuspo = statusMap[invpo] !== undefined ? statusMap[invpo] : null;
-        if (!statuspo) {
-          statuspo = String(getVal(['statuspo', 'status']) || 'PENDING').toUpperCase();
-          if (statuspo === 'SIMPAN' || statuspo === '') statuspo = 'PENDING';
-        }
+        let statuspo = String(getVal(['statuspo', 'status']) || 'PENDING').toUpperCase();
+        if (statuspo === 'SIMPAN' || statuspo === '') statuspo = 'PENDING';
 
-        // Validasi ketat: tglpo dan invpo WAJIB terisi
-        if (formattedTglPO && invpo) {
-          rawPayloads.push({
-            tglpo: formattedTglPO,
+        if (formattedDate && invpo) {
+          batchPayloads.push({
+            tglpo: formattedDate,
             invpo: invpo,
             ID_Cabang: ID_Cabang,
             kodesupp: kodesupp,
             namasupp: namasupp,
-            tempo: isNaN(tempoVal) ? 0 : tempoVal, // <-- Properti tempo sekarang sudah disertakan
+            tempo: isNaN(tempo) ? 0 : tempo,
             nompo: isNaN(nompoVal) ? 0 : nompoVal,
-            tglkirim: formattedTglKirim || null,
-            tglterima: formattedTglTerima || null,
             statuspo: statuspo
           });
         }
       });
 
-      if (rawPayloads.length === 0) {
-        throw new Error("Tidak ada data valid yang terbaca. Pastikan kolom **tglpo** dan **invpo** terisi.");
+      if (batchPayloads.length === 0) {
+        throw new Error("Tidak ada data valid yang terbaca. Pastikan header Excel: tglpo, invpo, ID_Cabang, kodesupp, tempo, nompo.");
       }
 
-      // Filter unik berdasarkan invpo untuk mencegah duplikat di dalam file
-      const uniqueMap = new Map();
-      rawPayloads.forEach(item => {
-        uniqueMap.set(item.invpo, item);
-      });
-      const batchPayloads = Array.from(uniqueMap.values());
-      const uniqueInvpoList = Array.from(uniqueMap.keys());
+      Swal.update({ title: `Mengunggah ${batchPayloads.length} Data ke Supabase...` });
 
-      Swal.update({ title: `Membersihkan data lama & mengunggah ${batchPayloads.length} Data baru...` });
-
-      // 2. Hapus data lama yang memiliki invpo sama menggunakan batch
-      if (uniqueInvpoList.length > 0) {
-        const chunkSize = 200;
-        for (let i = 0; i < uniqueInvpoList.length; i += chunkSize) {
-          const chunk = uniqueInvpoList.slice(i, i + chunkSize);
-          await fetch(`${DB_URL}/rest/v1/Data_PO?invpo=in.(${chunk.map(v => encodeURIComponent(v)).join(',')})`, {
-            method: 'DELETE',
-            headers: {
-              "apikey": DB_KEY,
-              "Authorization": `Bearer ${DB_KEY}`
-            }
-          });
-        }
-      }
-
-      // 3. Masukkan data baru ke Supabase
       const response = await fetch(`${DB_URL}/rest/v1/Data_PO`, {
         method: 'POST',
         headers: {
@@ -10390,9 +10418,9 @@ async function parseAndUploadCSV(file) {
         Swal.fire({
           icon: 'success',
           title: 'Berhasil!',
-          text: `${batchPayloads.length} data PO berhasil diimpor!`,
+          text: `${batchPayloads.length} data PO berhasil tersimpan di database!`,
           background: '#0f1115',
-          timer: 1800,
+          timer: 1500,
           showConfirmButton: false
         });
         loadPOTab();
@@ -10416,7 +10444,11 @@ async function parseAndUploadCSV(file) {
 
   reader.readAsArrayBuffer(file);
 }
-function changeStatus(noNota, status) {
+
+// ==========================================
+// 7. STATUS, EDIT & HAPUS PO
+// ==========================================
+async function changeStatus(noNota, status) {
   const confirmMsg = status === 'TERKIRIM' ? 'Ubah status jadi TERKIRIM?' : 'Selesaikan PO ini?';
   const confirmBtn = status === 'TERKIRIM' ? '#3b82f6' : '#10b981';
   
@@ -10464,21 +10496,16 @@ function changeStatus(noNota, status) {
   });
 }
 
-// ==========================================
-// 7. EDIT & HAPUS PO (SUPABASE NATIVE)
-// ==========================================
 function editFullPO(noNotaAsli) {
   const item = allPOData.find(d => d.noNota === noNotaAsli);
   if (!item) return;
 
   const opsiCabang = document.getElementById('poCabang').innerHTML;
-
-  // Cari data awal dari item atau master supplier untuk mengisi nilai default
   const cleanKode = (item.kodeSupp || "").trim().toUpperCase();
-  const masterSupp = typeof dataMasterSupp !== 'undefined' ? dataMasterSupp.find(s => ((s.kode || s.kodesupp || "").trim().toUpperCase() === cleanKode)) : null;
+  const masterSupp = dataMasterSupp.find(s => s.kode === cleanKode);
   
-  const initialTempo = masterSupp ? (masterSupp.tempo !== undefined ? masterSupp.tempo : (masterSupp.TEMPO || 0)) : (item.tempo !== undefined ? item.tempo : 0);
-  const initialNama = masterSupp ? (masterSupp.nama || masterSupp.namasupp || "") : (item.namaSupp || "");
+  const initialTempo = masterSupp ? masterSupp.tempo : (item.tempo !== undefined ? item.tempo : 0);
+  const initialNama = masterSupp ? masterSupp.nama : (item.namaSupp || "");
 
   Swal.fire({
     title: '<span class="text-lg font-black text-white">EDIT DATA PO</span>',
@@ -10527,18 +10554,16 @@ function editFullPO(noNotaAsli) {
     reverseButtons: true,
     didOpen: () => { 
       document.getElementById('editCabang').value = item.cabang; 
-      // Jalankan autoFill secara otomatis saat modal terbuka untuk memastikan sinkronisasi data master
-      if (item.kodeSupp) {
-        autoFillEditSupplier(item.kodeSupp);
-      }
     },
     preConfirm: () => {
+      const editKodeVal = document.getElementById('editKode').value.trim().toUpperCase();
+      const mSupp = dataMasterSupp.find(s => s.kode === editKodeVal);
       return {
         invpo: document.getElementById('editNoNota').value.trim(),
         ID_Cabang: document.getElementById('editCabang').value.trim(),
-        kodesupp: document.getElementById('editKode').value.trim(),
-        namasupp: document.getElementById('editNama').value.trim(),
-        tempo: parseInt(document.getElementById('editTempo').value || 0, 10),
+        kodesupp: editKodeVal,
+        namasupp: mSupp ? mSupp.nama : document.getElementById('editNama').value.trim(),
+        tempo: mSupp ? mSupp.tempo : parseInt(document.getElementById('editTempo').value || 0, 10),
         nompo: parseFloat(document.getElementById('editNilai').value.replace(/\./g, "") || 0)
       }
     }
@@ -10614,25 +10639,56 @@ function deletePORowConfirm(noNota) {
 // 8. FUNGSI PENDUKUNG INPUT & FORMAT
 // ==========================================
 function autoFillEditSupplier(kode) {
-  const cleanKode = (kode || "").trim().toUpperCase();
   const inpNama = document.getElementById('editNama');
   const inpTempo = document.getElementById('editTempo');
-
-  // Mencari dari data master supplier dengan berbagai variasi nama properti
-  const supp = typeof dataMasterSupp !== 'undefined' ? dataMasterSupp.find(s => {
-    const sKode = (s.kode || s.kodesupp || "").trim().toUpperCase();
-    return sKode === cleanKode;
-  }) : null;
-  
+  const supp = dataMasterSupp.find(s => s.kode === kode.toUpperCase());
   if (supp) {
-    if (inpNama) inpNama.value = supp.nama || supp.namasupp || "";
-    const tempoVal = supp.tempo !== undefined ? supp.tempo : (supp.TEMPO !== undefined ? supp.TEMPO : (supp.tempo_hari || 0));
-    if (inpTempo) inpTempo.value = tempoVal;
+    if (inpNama) inpNama.value = supp.nama;
+    if (inpTempo) inpTempo.value = supp.tempo || 0;
   } else {
     if (inpNama) inpNama.value = "Supplier tidak ditemukan";
     if (inpTempo) inpTempo.value = 0;
   }
 }
+
+function formatRibuanInput(angka) {
+  let val = angka.replace(/[^0-9]/g, '');
+  if (!val) return "";
+  return new Intl.NumberFormat('id-ID').format(val);
+}
+
+function formatRupiahInput(el) {
+  let val = el.value.replace(/[^0-9]/g, '');
+  if (!val) {
+    el.value = "";
+    return;
+  }
+  el.value = new Intl.NumberFormat('id-ID').format(val);
+}
+
+function formatTglIndo(dateStr) {
+  if (!dateStr) return '-';
+  try {
+    let str = String(dateStr).trim();
+    if (str.includes('T')) str = str.split('T')[0];
+    const parts = str.split(/[-/]/);
+    if (parts.length === 3) {
+      let y, m, d;
+      if (parts[0].length === 4) {
+        y = parts[0]; m = parts[1]; d = parts[2];
+      } else {
+        d = parts[0]; m = parts[1]; y = parts[2];
+      }
+      const months = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+      let mIdx = parseInt(m, 10);
+      return `${d} ${months[mIdx] || m} ${y}`;
+    }
+    return str;
+  } catch (e) {
+    return dateStr;
+  }
+}
+
 // ==========================================
 // PENGATURAN GLOBAL PURCHASE (SUPABASE NATIVE)
 // ==========================================
