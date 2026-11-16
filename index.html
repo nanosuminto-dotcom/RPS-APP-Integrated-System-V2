@@ -530,7 +530,7 @@
       background-color: rgba(255, 255, 255, 0.1) !important;
     }
 
-    /* ==========================================================
+   /* ==========================================================
     9. THEME LIGHT / DARK - COMFORTABLE, CONSISTENT, SAFE
    ========================================================== */
 
@@ -1435,9 +1435,34 @@
     }
 
     /* ==========================================================
-       PERBAIKAN KONTRAS TEKS PUTIH / TRANSPARAN DI MODE TERANG
-       (Judul Summary, Angka Netto, ID, & Riwayat jadi Gelap Terbaca)
+       DUKUNGAN GLOBAL UNTUK SEMUA DIV MODAL (REVISI, PAYMENT, DLL)
+       (Otomatis menyesuaikan Mode Terang & Gelap + Tombol Aman)
        ========================================================== */
+    body.light-mode [id*="modal" i] > div,
+    body.light-mode [id*="Modal"] > div,
+    body.light-mode .modal > div,
+    body.light-mode [role="dialog"],
+    body.light-mode div.fixed.inset-0 > div {
+      background-color: #ffffff !important;
+      border-color: var(--border-soft) !important;
+      color: #0f172a !important;
+      box-shadow: 0 20px 35px rgba(15, 23, 42, 0.15) !important;
+    }
+
+    /* Memastikan backdrop/overlay belakang modal tetap gelap transparan */
+    body.light-mode [id*="modal" i].fixed.inset-0,
+    body.light-mode [id*="Modal"].fixed.inset-0,
+    body.light-mode .modal.fixed.inset-0,
+    body.light-mode div.fixed.inset-0 {
+      background-color: rgba(15, 23, 42, 0.55) !important;
+    }
+
+    /* Semua teks putih/pudar di dalam seluruh div modal menjadi gelap pekat */
+    body.light-mode [id*="modal" i] [class*="text-white"]:not(button):not(.btn):not([class*="bg-"]),
+    body.light-mode [id*="Modal"] [class*="text-white"]:not(button):not(.btn):not([class*="bg-"]),
+    body.light-mode .modal [class*="text-white"]:not(button):not(.btn):not([class*="bg-"]),
+    body.light-mode [role="dialog"] [class*="text-white"]:not(button):not(.btn):not([class*="bg-"]),
+    body.light-mode div.fixed.inset-0 [class*="text-white"]:not(button):not(.btn):not([class*="bg-"]),
     body.light-mode [class*="text-white"]:not(button):not(.btn):not([class*="bg-red-"]):not([class*="bg-emerald-"]):not([class*="bg-cyan-"]):not([class*="bg-blue-"]):not([class*="bg-amber-"]):not([class*="bg-gray-600"]):not([class*="swal2-"]) {
       color: #0f172a !important;
     }
@@ -1450,7 +1475,7 @@
       color: #ffffff !important;
     }
 
-    /* Perjelas elemen spesifik dalam modal pembayaran/summary */
+    /* Perjelas elemen spesifik dalam modal pembayaran/revisi/summary */
     body.light-mode #netto_val_pro,
     body.light-mode #txt_total_pro,
     body.light-mode #m_id_display,
