@@ -582,7 +582,7 @@
       color: var(--text) !important;
     }
 
-    body.light-mode * {
+    body.light-mode *:not(button):not(.btn):not([class*="bg-"]):not([class*="swal2-"]) {
       transition: background-color 0.28s ease, color 0.28s ease, border-color 0.28s ease, box-shadow 0.28s ease;
     }
 
@@ -823,7 +823,6 @@
     body.light-mode .text-black,
     body.light-mode .text-gray-950,
     body.light-mode .text-slate-950,
-    body.light-mode .text-white,
     body.light-mode .text-slate-300 {
       color: #475569 !important;
     }
@@ -1385,8 +1384,9 @@
       box-shadow: 0 10px 18px rgba(15, 23, 42, 0.12) !important;
     }
 
-    body.light-mode button:not(.bg-cyan-500):not(.bg-cyan-400):not(.bg-emerald-500):not(.bg-green-500):not(.bg-orange-500):not(.bg-red-500):not(.bg-blue-500):not(.bg-indigo-500):not(.bg-violet-500):not(.bg-amber-500):not(.bg-yellow-500) {
-      background-color: var(--surface-3) !important;
+    /* DIKECUALIKAN UNTUK TOMBOL SWEETALERT & TOMBOL BERWARNA */
+    body.light-mode button:not(.swal2-styled):not(.swal2-confirm):not(.swal2-cancel):not(.swal2-deny):not(.swal2-close):not([class*="bg-"]) {
+      background-color: var(--surface) !important;
       color: var(--text) !important;
       border-color: var(--border-soft) !important;
     }
@@ -1411,6 +1411,12 @@
     }
 
     body:not(.light-mode) .sidebar-item,
+    body.light-mode .sidebar-item:hover {
+      background: rgba(14, 165, 233, 0.08) !important;
+      color: var(--text) !important;
+    }
+
+    body:not(.light-mode) .sidebar-item,
     body:not(.light-mode) .nav-btn,
     body:not(.light-mode) .label-mini,
     body:not(.light-mode) .menu-item-label {
@@ -1426,6 +1432,48 @@
       background: rgba(34, 211, 238, 0.08) !important;
       color: #67e8f9 !important;
       border-left-color: #67e8f9 !important;
+    }
+
+    /* ==========================================================
+       PERBAIKAN KONTRAS TEKS PUTIH / TRANSPARAN DI MODE TERANG
+       (Judul Summary, Angka Netto, ID, & Riwayat jadi Gelap Terbaca)
+       ========================================================== */
+    body.light-mode [class*="text-white"]:not(button):not(.btn):not([class*="bg-red-"]):not([class*="bg-emerald-"]):not([class*="bg-cyan-"]):not([class*="bg-blue-"]):not([class*="bg-amber-"]):not([class*="bg-gray-600"]):not([class*="swal2-"]) {
+      color: #0f172a !important;
+    }
+
+    /* Menjaga teks di dalam tombol agar tetap putih bersih sesuai warna aslinya */
+    body.light-mode button [class*="text-white"],
+    body.light-mode .btn [class*="text-white"],
+    body.light-mode button.text-white,
+    body.light-mode .btn.text-white {
+      color: #ffffff !important;
+    }
+
+    /* Perjelas elemen spesifik dalam modal pembayaran/summary */
+    body.light-mode #netto_val_pro,
+    body.light-mode #txt_total_pro,
+    body.light-mode #m_id_display,
+    body.light-mode #info_jadwal,
+    body.light-mode #historyListPro span:first-child {
+      color: #0f172a !important;
+    }
+
+    /* Styling SweetAlert untuk Mode Terang & Gelap (Pop-up Saja, Tombol Tetap Asli) */
+    body.dark .swal2-popup, 
+    html.dark .swal2-popup {
+      background-color: #1a1a1a !important;
+      color: #ffffff !important;
+    }
+
+    body.light-mode .swal2-popup, 
+    body:not(.dark):not(.light-mode) .swal2-popup {
+      background-color: #ffffff !important;
+      color: #1f2937 !important;
+    }
+
+    .swal2-title, .swal2-html-container {
+      color: inherit !important;
     }
   </style>
 </head>
