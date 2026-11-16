@@ -9799,7 +9799,7 @@ let poCurrentPage = 1;
 const poPageSize = 20;
 
 // ==========================================
-// 1. FUNGSI LOAD DATA PO & URUTKAN TGL TERBARU
+// 1. FUNGSI LOAD DATA PO & URUTKAN NO DESCENDING
 // ==========================================
 async function loadPOTab() {
   const tableBody = document.getElementById('poTableBody');
@@ -9852,7 +9852,6 @@ async function loadPOTab() {
       }).then(r => r.json()).catch(() => [])
     ]);
 
-    // Mengambil data master supplier dengan kolom 'namsupp' sesuai gambar database Anda
     dataMasterSupp = (Array.isArray(resSupp) ? resSupp : []).map(s => ({
       kode: (s.kodesupp || s.kode || "").trim().toUpperCase(),
       nama: (s.namsupp || s.namasupp || s.nama || "").trim(),
@@ -9884,7 +9883,6 @@ async function loadPOTab() {
     const elCabang = document.getElementById('poCabang');
     if (elCabang) elCabang.innerHTML = hCab;
 
-    // Populasikan Dropdown Supplier (Kode & Nama)
     let hKode = '<option value="">- Kode -</option>';
     let hNama = '<option value="">- Nama Supplier -</option>';
     dataMasterSupp.forEach(s => {
@@ -9903,19 +9901,20 @@ async function loadPOTab() {
       elNama.onchange = () => syncSupplier('nama');
     }
 
-    // Mapping dan URUTKAN berdasarkan tanggal terbaru (tglpo descending)
+    // Mapping dan URUTKAN berdasarkan kolom "no" secara descending (nomor terbesar/terbaru di atas)
     allPOData = poRows.map(row => ({
+      no: parseInt(row.no || 0, 10),
       tgl: row.tglpo,
       cabang: (row.ID_Cabang || "").trim().toUpperCase(),
       noNota: row.invpo,
       kodeSupp: row.kodesupp,
-      namaSupp: row.namasupp,
+      namaSupp: row.namasupp || row.namsupp || "",
       tempo: parseInt(row.tempo || 0, 10),
       nilai: parseFloat(row.nompo || 0),
       tglKirim: row.tglkirim,
       tglTerima: row.tglterima,
       status: (row.statuspo || 'PENDING').toUpperCase()
-    })).sort((a, b) => new Date(b.tgl) - new Date(a.tgl));
+    })).sort((a, b) => b.no - a.no);
 
     filteredPOData = [...allPOData];
     poCurrentPage = 1;
@@ -10135,7 +10134,7 @@ function syncSupplier(source) {
 }
 
 // ==========================================
-// 5. FUNGSI RESET FORM PO & SIMPAN
+// 5. FUNGSI RESET FORM PO & SIMPAN (TANPA NAMALOG DI JS)
 // ==========================================
 function resetFormPO() {
   try {
@@ -10166,17 +10165,17 @@ async function savePO() {
     return Swal.fire("Lengkapi Data", "Tanggal, No Nota, Cabang, Supplier, dan Nominal wajib diisi dengan benar!", "warning");
   }
 
-  // Mengambil nama supplier secara presisi dari master data berdasarkan kode yang dipilih
   const suppObj = dataMasterSupp.find(s => s.kode.toUpperCase() === kodeSupp.toUpperCase());
   const finalNamaSupp = suppObj ? suppObj.nama : '';
   const finalTempo = suppObj ? suppObj.tempo : tempo;
 
+  // Payload murni tanpa namalog
   const payload = {
     invpo: noNota,
     tglpo: tgl,
     ID_Cabang: cabang,
     kodesupp: kodeSupp.toUpperCase(),
-    namasupp: finalNamaSupp, // Otomatis terisi dari namsupp di Ref_Supp
+    namasupp: finalNamaSupp,
     tempo: finalTempo,
     nompo: cleanNominal
   };
@@ -10222,7 +10221,7 @@ async function savePO() {
       Swal.fire({
         icon: 'success',
         title: 'Berhasil',
-        text: 'Data PO berhasil disimpan dengan nama supplier otomatis!',
+        text: 'Data PO berhasil disimpan!',
         timer: 1500,
         showConfirmButton: false
       });
@@ -10368,7 +10367,6 @@ async function parseAndUploadCSV(file) {
         const ID_Cabang = String(getVal(['ID_Cabang', 'id_cabang', 'cabang'])).trim();
         const kodesupp = String(getVal(['kodesupp', 'kode_supp', 'kode'])).trim().toUpperCase();
         
-        // Mengambil nama dan tempo dari master berdasarkan kodesupp
         const masterSupp = dataMasterSupp.find(s => s.kode === kodesupp);
         const namasupp = masterSupp ? masterSupp.nama : String(getVal(['namasupp', 'namsupp', 'nama_supp', 'nama'])).trim();
         const tempo = masterSupp ? masterSupp.tempo : parseInt(getVal(['tempo']) || 0, 10);
@@ -10508,38 +10506,39 @@ function editFullPO(noNotaAsli) {
   const initialNama = masterSupp ? masterSupp.nama : (item.namaSupp || "");
 
   Swal.fire({
-    title: '<span class="text-lg font-black text-white">EDIT DATA PO</span>',
-    background: '#0f1115',
+    title: '<span class="text-xl font-black text-white">EDIT DATA PO</span>',
+    background: '#12141a', // Background modal gelap selaras dengan tema aplikasi
+    color: '#ffffff', // Warna teks utama putih
     html: `
-      <div class="text-left space-y-3 mt-4">
+      <div class="text-left space-y-3.5 mt-4">
         <div>
-          <label class="text-[10px] text-gray-400 font-bold uppercase">No Nota / No PO</label>
-          <input id="editNoNota" class="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-cyan-500" value="${item.noNota}">
+          <label class="text-[11px] text-cyan-400 font-bold uppercase tracking-wider">No Nota / No PO</label>
+          <input id="editNoNota" class="w-full bg-neutral-900 border border-neutral-700 rounded-xl p-3 text-white font-medium outline-none focus:border-cyan-500 transition-all" value="${item.noNota}">
         </div>
         <div>
-          <label class="text-[10px] text-gray-400 font-bold uppercase">Cabang</label>
-          <select id="editCabang" class="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-cyan-500">
+          <label class="text-[11px] text-cyan-400 font-bold uppercase tracking-wider">Cabang</label>
+          <select id="editCabang" class="w-full bg-neutral-900 border border-neutral-700 rounded-xl p-3 text-white font-medium outline-none focus:border-cyan-500 transition-all">
             ${opsiCabang}
           </select>
         </div>
-        <div class="flex gap-2">
+        <div class="flex gap-2.5">
           <div class="w-1/3">
-            <label class="text-[10px] text-gray-400 font-bold uppercase">Kode Supp</label>
-            <input id="editKode" class="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-cyan-500" value="${item.kodeSupp}" oninput="autoFillEditSupplier(this.value)">
+            <label class="text-[11px] text-cyan-400 font-bold uppercase tracking-wider">Kode Supp</label>
+            <input id="editKode" class="w-full bg-neutral-900 border border-neutral-700 rounded-xl p-3 text-white font-medium outline-none focus:border-cyan-500 transition-all" value="${item.kodeSupp}" oninput="autoFillEditSupplier(this.value)">
           </div>
           <div class="w-2/3">
-            <label class="text-[10px] text-gray-400 font-bold uppercase">Nama Supplier</label>
-            <input id="editNama" class="w-full bg-gray-800/50 border border-white/5 rounded-xl p-3 text-gray-400 outline-none" value="${initialNama}" readonly>
+            <label class="text-[11px] text-gray-400 font-bold uppercase tracking-wider">Nama Supplier</label>
+            <input id="editNama" class="w-full bg-neutral-950/80 border border-neutral-800 rounded-xl p-3 text-gray-300 font-semibold outline-none" value="${initialNama}" readonly>
           </div>
         </div>
-        <div class="flex gap-2">
+        <div class="flex gap-2.5">
           <div class="w-1/2">
-            <label class="text-[10px] text-gray-400 font-bold uppercase">Tempo (Hari)</label>
-            <input id="editTempo" class="w-full bg-gray-800/50 border border-white/5 rounded-xl p-3 text-gray-400 outline-none" value="${initialTempo}" readonly>
+            <label class="text-[11px] text-gray-400 font-bold uppercase tracking-wider">Tempo (Hari)</label>
+            <input id="editTempo" class="w-full bg-neutral-950/80 border border-neutral-800 rounded-xl p-3 text-gray-300 font-semibold outline-none" value="${initialTempo}" readonly>
           </div>
           <div class="w-1/2">
-            <label class="text-[10px] text-gray-400 font-bold uppercase">Nominal PO (Rp)</label>
-            <input id="editNilai" class="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-cyan-400 font-black text-lg outline-none focus:border-cyan-500" value="${typeof fmt === 'function' ? fmt(item.nilai) : item.nilai}" onkeyup="this.value = formatRibuanInput(this.value)">
+            <label class="text-[11px] text-cyan-400 font-bold uppercase tracking-wider">Nominal PO (Rp)</label>
+            <input id="editNilai" class="w-full bg-neutral-900 border border-neutral-700 rounded-xl p-3 text-cyan-400 font-black text-lg outline-none focus:border-cyan-500 transition-all" value="${typeof fmt === 'function' ? fmt(item.nilai) : item.nilai}" onkeyup="this.value = formatRibuanInput(this.value)">
           </div>
         </div>
       </div>
@@ -10551,6 +10550,7 @@ function editFullPO(noNotaAsli) {
     cancelButtonText: 'BATAL',
     confirmButtonColor: '#06b6d4',
     denyButtonColor: '#ef4444',
+    cancelButtonColor: '#374151',
     reverseButtons: true,
     didOpen: () => { 
       document.getElementById('editCabang').value = item.cabang; 
@@ -10569,7 +10569,13 @@ function editFullPO(noNotaAsli) {
     }
   }).then(async (result) => {
     if (result.isConfirmed) {
-      Swal.fire({ title: 'Updating...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+      Swal.fire({ 
+        title: 'Updating...', 
+        background: '#12141a', 
+        color: '#ffffff', 
+        allowOutsideClick: false, 
+        didOpen: () => { Swal.showLoading(); } 
+      });
       try {
         const response = await fetch(`${DB_URL}/rest/v1/Data_PO?invpo=eq.${encodeURIComponent(noNotaAsli)}`, {
           method: 'PATCH',
@@ -10583,14 +10589,14 @@ function editFullPO(noNotaAsli) {
         });
 
         if (response.ok) {
-          Swal.fire({ icon: 'success', title: 'Data Berhasil Diupdate', timer: 1000, showConfirmButton: false });
+          Swal.fire({ icon: 'success', title: 'Data Berhasil Diupdate', background: '#12141a', color: '#ffffff', timer: 1000, showConfirmButton: false });
           loadPOTab();
         } else {
           const errText = await response.text();
-          Swal.fire('Error', errText, 'error');
+          Swal.fire({ icon: 'error', title: 'Error', text: errText, background: '#12141a', color: '#ffffff' });
         }
       } catch (err) {
-        Swal.fire('Error', err.message, 'error');
+        Swal.fire({ icon: 'error', title: 'Error', text: err.message, background: '#12141a', color: '#ffffff' });
       }
 
     } else if (result.isDenied) {
