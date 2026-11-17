@@ -11886,7 +11886,7 @@ document.addEventListener("DOMContentLoaded", () => {
   loadPurBranchDropdown();
 });
 // =========================================================================
-// MODUL PEMBAYARAN TERPADU (SYNC, NETTO, EDIT FULL, & REALTIME UPDATE)
+// MODUL PEMBAYARAN TERPADU (BULK SYNC, NETTO, EDIT FULL, & REALTIME UPDATE)
 // =========================================================================
 
 let fullPaymentData = []; 
@@ -11912,7 +11912,6 @@ async function loadDaftarPembayaran() {
   }
 
   try {
-    // Diurutkan dari tanggal terbaru ke terlama agar langsung presisi di awal
     let { data, error } = await dbClient
       .from('Data_Bayar')
       .select('*')
@@ -12056,7 +12055,6 @@ function renderTable(data) {
   const tbody = document.getElementById('pembayaranTableBody');
   if (!tbody) return;
 
-  // Diurutkan presisi secara descending berdasarkan Tanggal (terbaru di halaman 1, semakin mundur ke belakang)
   const sortedData = [...data].sort((a, b) => {
     const rawDateA = (a.tanggal || '').replace(/-/g, '');
     const rawDateB = (b.tanggal || '').replace(/-/g, '');
@@ -12154,8 +12152,8 @@ function resetAllFilters() {
   });
   applyFilters();
 }
+
 // --- C. FUNGSI MODAL & FORM (SUPABASE NATIVE) ---
-// --- 1. MODAL & INISIALISASI ---
 function openModalBayar() {
   const id = "PAY-NEW-" + new Date().getTime().toString().slice(-6);
   const mDisplay = document.getElementById('m_id_display');
@@ -12173,25 +12171,20 @@ function openModalBayar() {
   }
   
   loadInitialDataPro();
-  renderHistory(); // Otomatis muat 10 riwayat terakhir saat modal dibuka
+  renderHistory();
 }
 
-// --- FUNGSI GENERATE ID OTOMATIS: PAY-kodesuppYYMMDDXXXX ---
 function generatePayId(kodeSupp) {
   const now = new Date();
   const yy = String(now.getFullYear()).slice(-2);
   const mm = String(now.getMonth() + 1).padStart(2, '0');
   const dd = String(now.getDate()).padStart(2, '0');
-  const randomNum = Math.floor(1000 + Math.random() * 9000); // 4 digit random (XXXX)
+  const randomNum = Math.floor(1000 + Math.random() * 9000);
   
   return `PAY-${kodeSupp}${yy}${mm}${dd}${randomNum}`;
 }
 
-// --- 2. LOAD DATA SUPPLIER DARI "Ref_Supp" & REKENING SUMBER DARI "Ref_Rek" ---
 async function loadInitialDataPro() {
-  console.log("=== MEMULAI LOAD DATA MODAL (SUPABASE) ===");
-
-  // A. Load Supplier dari Ref_Supp
   try {
     const { data: suppliers, error: supError } = await dbClient
       .from('Ref_Supp')
@@ -12202,7 +12195,6 @@ async function loadInitialDataPro() {
 
     const el = document.getElementById('f_sup_select');
     if (el && suppliers) {
-      // Tampilkan hanya kode supplier (misal: PSE)
       el.innerHTML = '<option value="">-- PILIH KODE SUPPLIER --</option>' + 
         suppliers.map(s => `
           <option value="${s.kodesupp}" 
@@ -12212,15 +12204,12 @@ async function loadInitialDataPro() {
             ${s.kodesupp}
           </option>
         `).join("");
-      console.log("Ref_Supp berhasil dimuat:", suppliers.length, "baris");
     }
   } catch (supErr) {
     console.error("Gagal memuat Ref_Supp:", supErr);
   }
 
-  // B. Load Rekening Sumber dari Ref_Rek (Kolom: rekbank)
   try {
-    console.log("Mengambil data dari tabel Ref_Rek...");
     const { data: reks, error: rekError } = await dbClient
       .from('Ref_Rek')
       .select('rekbank');
@@ -12234,27 +12223,19 @@ async function loadInitialDataPro() {
           reks.map(r => `
             <option value="${r.rekbank}">${r.rekbank}</option>
           `).join("");
-        console.log("Ref_Rek berhasil dimuat:", reks);
       } else {
-        console.warn("Tabel Ref_Rek kosong atau tidak mengembalikan data.");
         elRek.innerHTML = '<option value="">-- Data Rekening Kosong --</option>';
       }
     }
   } catch (rekErr) {
     console.error("Gagal memuat Ref_Rek dari Supabase:", rekErr);
-    const elRek = document.getElementById('f_rek_asal');
-    if (elRek) {
-      elRek.innerHTML = '<option value="">-- Gagal Muat Rekening --</option>';
-    }
   }
 }
 
-// Buka dropdown saat diklik/fokus
 function openSupplierDropdown() {
   filterSupplierDropdown('');
 }
 
-// Filter daftar supplier berdasarkan ketikan kode murni (hanya kodesupp)
 function filterSupplierDropdown(keyword) {
   const selectEl = document.getElementById('f_sup_select');
   const dropdown = document.getElementById('supplierCustomDropdown');
@@ -12267,7 +12248,7 @@ function filterSupplierDropdown(keyword) {
   let count = 0;
 
   for (let i = 1; i < selectEl.options.length; i++) {
-    const optText = selectEl.options[i].text.trim(); // Hanya kode supplier (misal: PSE)
+    const optText = selectEl.options[i].text.trim();
     const optVal = selectEl.options[i].value;
 
     if (optText.toLowerCase().includes(term)) {
@@ -12277,10 +12258,10 @@ function filterSupplierDropdown(keyword) {
       item.innerText = optText;
       
       item.onclick = function() {
-        document.getElementById('f_sup_search').value = optText; // Masukkan kode ke input pencarian
+        document.getElementById('f_sup_search').value = optText;
         selectEl.value = optVal;
         dropdown.classList.add('hidden');
-        handleSupplierChangePro(); // Otomatis isi bank, generate ID, & tarik data hutang
+        handleSupplierChangePro();
       };
       
       dropdown.appendChild(item);
@@ -12292,7 +12273,6 @@ function filterSupplierDropdown(keyword) {
   }
 }
 
-// Tutup dropdown otomatis saat klik di luar area
 document.addEventListener('click', function(e) {
   const container = document.getElementById('f_sup_search')?.closest('div');
   const dropdown = document.getElementById('supplierCustomDropdown');
@@ -12301,15 +12281,12 @@ document.addEventListener('click', function(e) {
   }
 });
 
-// --- 3. OTOMATIS ISI REKENING TUJUAN & GENERATE ID ---
 function handleSupplierChangePro() {
   const sel = document.getElementById('f_sup_select');
   const rekDropdown = document.getElementById('f_rek_tujuan_sup');
   if(!sel || !sel.value) return;
 
   const kodeSupp = sel.value;
-
-  // Generate ID baru sesuai format: PAY-kodesuppYYMMDDXXXX
   const newPayId = generatePayId(kodeSupp);
   const fNoBayar = document.getElementById('f_no_bayar');
   const mDisplay = document.getElementById('m_id_display');
@@ -12322,18 +12299,15 @@ function handleSupplierChangePro() {
   const rek = opt.dataset.rek || "";
   const an = opt.dataset.an || "";
 
-  // Mengisi otomatis informasi bank rek a.n dengan format newline
   if (bank && rek) {
     rekDropdown.innerHTML = `<option value="${bank} | ${rek} | ${an}">${bank}\n${rek} (a/n ${an})</option>`;
   } else {
     rekDropdown.innerHTML = '<option value="-">Tanpa Rekening Terdaftar</option>';
   }
   
-  // Ambil data hutang dari Data_Beli berdasarkan kodesupp yang dipilih
   fetchHutangDetailsPro(kodeSupp);
 }
 
-// --- 4. CARI HUTANG DI "Data_Beli" BERDASARKAN KODESUPP & STATUS 'SIMPAN'/'Simpan' ---
 async function fetchHutangDetailsPro(supId) {
   const tbody = document.getElementById('invTableBodyPro');
   if (!tbody) return;
@@ -12359,8 +12333,6 @@ async function fetchHutangDetailsPro(supId) {
       const invNo = i.invbeli || '-';
       const cabangVal = i.ID_Cabang || '-';
       const tglInvVal = i.tglinvbeli || '-';
-      
-      // Mengambil tanggal jatuh tempo dari kolom tgljt (fallback ke tgljthtempo atau tglinvbeli)
       const tglJtVal = i.tgljt || i.tgljthtempo || i.tglinvbeli || '-';
 
       return `
@@ -12393,50 +12365,40 @@ async function fetchHutangDetailsPro(supId) {
   }
 }
 
-// --- D. FUNGSI KALKULASI & JADWAL ---
-// --- FORMAT PEMISAH TITIK RIBUAN OTOMATIS SAAT KETIK ---
 function formatRupiahInput(input) {
-  let val = input.value.replace(/[^0-9,]/g, ""); // Hanya izinkan angka dan koma
+  let val = input.value.replace(/[^0-9,]/g, "");
   let parts = val.split(",");
-  let integerPart = parts[0].replace(/\./g, ""); // Hapus titik lama
+  let integerPart = parts[0].replace(/\./g, "");
   
   if (integerPart) {
     integerPart = Number(integerPart).toLocaleString('id-ID');
   }
   
-  // Gabungkan kembali dengan bagian desimal jika ada
   input.value = parts.length > 1 ? integerPart + "," + parts[1] : integerPart;
   
-  // Panggil ulang kalkulasi netto setiap kali nilai berubah
   if (typeof calcNettoPro === "function") {
     calcNettoPro();
   }
 }
 
-// --- FUNGSI KALKULASI NETTO YANG AKURAT ---
 function calcNettoPro() {
   let subTotal = 0;
   
-  // 1. Jumlahkan semua nota yang dicentang
   document.querySelectorAll('.inv-chk-pro:checked').forEach(chk => {
      const row = chk.closest('tr');
      const inputEl = row.querySelector('.pay-input-pro');
      if (!inputEl) return;
      
-     // Bersihkan titik ribuan dan ubah koma desimal jadi titik standar JS
      let cleanVal = inputEl.value.replace(/\./g, "").replace(",", ".");
      subTotal += parseFloat(cleanVal) || 0;
   });
   
-  // 2. Ambil Potongan (hanya 1 kali)
   const rawPotongan = document.getElementById('f_disc_pro')?.value || "0";
   const potongan = parseFloat(rawPotongan.replace(/\./g, "").replace(",", ".")) || 0;
   
-  // 3. Ambil Biaya Admin (hanya 1 kali)
   const rawAdmin = document.getElementById('f_admin_pro')?.value || "0";
   const admin = parseFloat(rawAdmin.replace(/\./g, "").replace(",", ".")) || 0;
   
-  // 4. Rumus Netto: Total Bayar (Subtotal) - Potongan + Admin
   const netto = subTotal - potongan + admin;
   
   const txtTotal = document.getElementById('txt_total_pro');
@@ -12446,7 +12408,6 @@ function calcNettoPro() {
   if (txtNetto) txtNetto.innerText = "Rp " + Math.max(0, netto).toLocaleString('id-ID', {minimumFractionDigits: 2});
 }
 
-// --- RENDER 10 RIWAYAT TERAKHIR (AMBIL LANGSUNG DARI SUPABASE) ---
 async function renderHistory() {
   const container = document.getElementById('historyListPro');
   if (!container) return;
@@ -12480,14 +12441,12 @@ async function renderHistory() {
   }
 }
 
-// --- HITUNG JADWAL OTOMATIS BERDASARKAN TGLJT ---
 function hitungJadwalOtomatis() {
   const cbs = document.querySelectorAll('.inv-chk-pro:checked');
   const info = document.getElementById('info_jadwal');
   if (!info) return;
   if (cbs.length === 0) { info.innerText = "-"; info.dataset.iso = ""; return; }
 
-  // Ambil tanggal jatuh tempo (tgljt) dari checkbox yang dicentang
   let validDates = Array.from(cbs)
     .map(c => c.dataset.tempo)
     .filter(t => t && t !== '-')
@@ -12499,15 +12458,13 @@ function hitungJadwalOtomatis() {
     return;
   }
 
-  // Cari tanggal jatuh tempo paling maksimum di antara nota yang dipilih
   let tglMax = new Date(Math.max(...validDates));
   const jenis = document.getElementById('f_jenis_bayar')?.value || "Transfer";
-  const targetDay = (jenis === "Transfer") ? 1 : 2; // Senin (1) atau Selasa (2)
+  const targetDay = (jenis === "Transfer") ? 1 : 2; 
   
   let tglBayar = new Date(tglMax);
   let hariJatuhTempo = tglMax.getDay(); 
 
-  // Jika jatuh tempo hari Rabu (3) s.d. Minggu (0), geser ke minggu berikutnya
   if (hariJatuhTempo >= 3 || hariJatuhTempo === 0) {
     tglBayar.setDate(tglBayar.getDate() + 7);
   }
@@ -12518,7 +12475,6 @@ function hitungJadwalOtomatis() {
   const hariIni = new Date();
   hariIni.setHours(0, 0, 0, 0);
 
-  // Jika hasil estimasi kurang dari hari ini, majukan ke jadwal terdekat berikutnya
   if (tglBayar < hariIni) {
     let tglMaju = new Date(hariIni);
     let hariIniGet = tglMaju.getDay();
@@ -12540,8 +12496,8 @@ function hitungJadwalOtomatis() {
     year: 'numeric'
   });
 }
-// --- E. FUNGSI AKSI (SIMPAN DATA KE SUPABASE) ---
-// --- E. FUNGSI AKSI (SIMPAN 1 BARIS PER INVOICE KE SUPABASE) ---
+
+// --- A. FUNGSI SIMPAN (SAVEONLY) ---
 async function saveOnly() {
   const btn = document.getElementById('btnSimpan');
   const selectedInvs = Array.from(document.querySelectorAll('.inv-chk-pro:checked'));
@@ -12551,7 +12507,6 @@ async function saveOnly() {
     return; 
   }
 
-  // --- PROTEKSI NO INVOICE GANDA ---
   const checkDuplicate = selectedInvs.map(chk => chk.dataset.id);
   const isDuplicate = checkDuplicate.some((item, index) => checkDuplicate.indexOf(item) !== index);
   
@@ -12573,8 +12528,8 @@ async function saveOnly() {
   const sumberRekVal = document.getElementById('f_rek_asal')?.value || "";
   const bankRekAnVal = document.getElementById('f_rek_tujuan_sup')?.value || "";
   const catatanVal = document.getElementById('f_note_bayar')?.value || "";
+  const statusBayarVal = 'Draft';
   
-  // Ambil tanggal estimasi untuk kolom tgl_jth_tempo
   const estimasiIso = document.getElementById('info_jadwal').dataset.iso || null;
   const tglEstimasiSaja = estimasiIso ? estimasiIso.split(' ')[0] : null;
   
@@ -12585,7 +12540,6 @@ async function saveOnly() {
   }
 
   try {
-    // 1. Petakan setiap item yang dicentang menjadi satu objek baris tersendiri
     const rowsToInsert = selectedInvs.map(chk => {
       const row = chk.closest('tr');
       const inputEl = row.querySelector('.pay-input-pro');
@@ -12594,56 +12548,68 @@ async function saveOnly() {
       
       const invNo = chk.dataset.id;
       const tglInv = chk.dataset.tglinv || null;
-      const cabangVal = chk.dataset.cabang || "-";
-
-      // Jika ada beberapa item, potongan & admin bisa didistribusikan atau dicatat proporsional / pada baris pertama. 
-      // Sesuai permintaan, kita catat nominal bersih per baris (atau nilai bayar bersih nota tersebut).
-      const itemNetto = cleanAmt; 
+      const cabangVal = chk.dataset.cabang || "-"; 
 
       return {
         id_bayar: idBayarVal,
         tanggal: tglBayarVal,
-        tgl_invoice: tglInv,
+        tgl_invoice: tglInv || null,
         kode_supp: kodeSuppVal,
         jenis: jenisVal,
-        sumber_rek: sumberRekVal,        // Tercatat dengan benar
+        sumber_rek: sumberRekVal,
         bank_rek_an: bankRekAnVal,
-        catatan: catatanVal,             // Tercatat dengan benar
-        cabang: cabangVal,               // Tercatat per baris invoice
+        catatan: catatanVal,
+        cabang: cabangVal,
         potongan: potonganClean,
         admin: adminClean,
         username: userName,
-        estimasi_bayar: estimasiIso,
+        estimasi_bayar: estimasiIso || null,
         tgl_jth_tempo: tglEstimasiSaja,
-        status: 'Draft',
-        nominal: itemNetto,              // Nominal per 1 baris invoice
-        no_invoice: invNo                // 1 baris 1 nomor invoice
+        status: statusBayarVal,
+        nominal: cleanAmt,
+        no_invoice: invNo
       };
     });
 
-    // 2. Eksekusi insert banyak baris sekaligus ke Supabase (Data_Bayar)
+    // 1. Insert ke Data_Bayar
     const { error: insertError } = await dbClient
       .from('Data_Bayar')
       .insert(rowsToInsert);
 
     if (insertError) throw insertError;
 
-    showUINotif("Data pembayaran berhasil disimpan (per baris invoice)!", "success");
+    // 2. Sinkronisasi langsung ke Data_Beli (Status 'Draft', estimasi terisi, tanggal proses NULL)
+    const listInvNo = rowsToInsert.map(r => r.no_invoice).filter(Boolean);
+    if (listInvNo.length > 0) {
+      const { error: beliErr } = await dbClient
+        .from('Data_Beli')
+        .update({
+          statusbeli: 'Draft',
+          estimasi_bayar: tglEstimasiSaja || null,
+          tanggal_proses: null,
+          tanggal_edar: null,
+          tanggal_lunas: null
+        })
+        .in('invbeli', listInvNo);
+
+      if (beliErr) {
+        console.error("Gagal sinkronisasi Data_Beli saat Save:", beliErr.message);
+      }
+    }
+
+    showUINotif("Data pembayaran berhasil disimpan & Data_Beli diperbarui!", "success");
     
-    // 3. Refresh Data Tabel Utama & History secara real-time
     if (typeof loadDaftarPembayaran === "function") {
       await loadDaftarPembayaran();
     }
     renderHistory();
 
-    // 4. UPDATE UI TOMBOL MENJADI TERSIMPAN
     if (btn) {
       btn.disabled = true;
       btn.innerHTML = '<i class="fas fa-check-circle mr-2"></i>DATA TERSIMPAN';
       btn.className = "p-4 bg-gray-600 text-white rounded-lg text-[10px] font-black w-full cursor-not-allowed";
     }
 
-    // 5. KUNCI ROW DI TABEL MODAL
     document.querySelectorAll('#invTableBodyPro tr').forEach(row => {
       const chk = row.querySelector('.inv-chk-pro');
       if (chk && chk.checked) {
@@ -12656,7 +12622,6 @@ async function saveOnly() {
       }
     });
 
-    // 6. RESET INPUT PENDUKUNG
     if(document.getElementById('f_note_bayar')) document.getElementById('f_note_bayar').value = "";
     if(document.getElementById('f_disc_pro')) document.getElementById('f_disc_pro').value = "0";
     if(document.getElementById('f_admin_pro')) document.getElementById('f_admin_pro').value = "0";
@@ -12674,6 +12639,185 @@ async function saveOnly() {
   }
 }
 
+// --- B. FUNGSI UPDATE STATUS (Proses, Edar, Lunas) LANGSUNG TANPA RPC ---
+async function updateStatus(idPay, action) {
+  const config = {
+    'proses': { title: 'Konfirmasi Proses', text: `Ubah status ID ${idPay} menjadi PROSES?`, color: '#3b82f6', newStatus: 'Proses' },
+    'edar': { title: 'Konfirmasi Edar', text: `Apakah Anda yakin ingin mengubah status ID ${idPay} menjadi BEREDAR?`, color: '#f59e0b', newStatus: 'Beredar' },
+    'lunas': { title: 'Konfirmasi Cair', text: `Apakah dana untuk ID ${idPay} sudah CAIR/LUNAS?`, color: '#10b981', newStatus: 'Lunas' }
+  };
+
+  const cfg = config[action.toLowerCase()];
+  if (!cfg) { showUINotif("Action tidak dikenali", "error"); return; }
+
+  Swal.fire({
+    title: cfg.title, text: cfg.text, icon: 'question', showCancelButton: true,
+    confirmButtonColor: cfg.color, cancelButtonColor: '#374151',
+    confirmButtonText: 'Ya, Update!', cancelButtonText: 'Batal',
+    background: '#1a1a1a', color: '#fff', iconColor: cfg.color
+  }).then(async (result) => {
+    if (result.isConfirmed) {
+      Swal.fire({ title: 'Updating...', allowOutsideClick: false, showConfirmButton: false, background: '#1a1a1a', color: '#fff', didOpen: () => { Swal.showLoading(); } });
+
+      try {
+        const tglNow = new Date().toISOString().split('T')[0];
+        let updatePayload = { status: cfg.newStatus };
+        let beliPayload = { statusbeli: cfg.newStatus };
+
+        if (action === 'proses') {
+          updatePayload.tanggal_proses = tglNow;
+          beliPayload.tanggal_proses = tglNow;
+        }
+        if (action === 'edar') {
+          updatePayload.tanggal_edar = tglNow;
+          beliPayload.tanggal_edar = tglNow;
+        }
+        if (action === 'lunas') {
+          updatePayload.tanggal_lunas = tglNow;
+          beliPayload.tanggal_lunas = tglNow;
+        }
+
+        // 1. Update Data_Bayar
+        const { error } = await dbClient
+          .from('Data_Bayar')
+          .update(updatePayload)
+          .eq('id_bayar', idPay);
+
+        if (error) throw error;
+
+        // 2. Ambil no_invoice terkait lalu Update langsung Data_Beli
+        const { data: relatedRows } = await dbClient
+          .from('Data_Bayar')
+          .select('no_invoice')
+          .eq('id_bayar', idPay);
+
+        if (relatedRows && relatedRows.length > 0) {
+          const listInvNo = relatedRows.map(r => r.no_invoice).filter(Boolean);
+          if (listInvNo.length > 0) {
+            await dbClient
+              .from('Data_Beli')
+              .update(beliPayload)
+              .in('invbeli', listInvNo);
+          }
+        }
+
+        Swal.close();
+
+        const masterItem = fullPaymentData.find(x => x.id === idPay);
+        if (masterItem) {
+          masterItem.status = cfg.newStatus;
+          if (action === 'proses') masterItem.tglProses = tglNow;
+          if (action === 'edar')   masterItem.tglEdar = tglNow;
+          if (action === 'lunas')  masterItem.tglLunas = tglNow;
+        }
+
+        Swal.fire({ icon: 'success', title: 'Updated', timer: 800, showConfirmButton: false, background: '#1a1a1a', color: '#fff' });
+        updateSingleRowUI(idPay);
+
+      } catch (err) {
+        Swal.close();
+        console.error("Gagal update status:", err);
+        Swal.fire("Gagal", err.message || 'Terjadi kesalahan sistem', "error");
+      }
+    }
+  });
+}
+
+// --- C. BULK UNDO STATUS ---
+async function triggerUndo(idPay) {
+  const masterItem = fullPaymentData.find(x => x.id === idPay);
+  if (!masterItem) return;
+
+  let prevStatus = 'Draft';
+  if (masterItem.status === 'Lunas') prevStatus = 'Beredar';
+  else if (masterItem.status === 'Beredar') prevStatus = 'Proses';
+  else if (masterItem.status === 'Proses') prevStatus = 'Draft';
+  else {
+    showUINotif("Status sudah berada di posisi paling awal (Draft)", "info");
+    return;
+  }
+
+  Swal.fire({
+    title: 'Undo Status?',
+    text: `Status akan dimundurkan dari ${masterItem.status} menjadi ${prevStatus}.`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#e11d48',
+    cancelButtonColor: '#374151',
+    confirmButtonText: 'Ya, Undo!',
+    cancelButtonText: 'Batal',
+    background: '#1a1a1a',
+    color: '#fff'
+  }).then(async (result) => {
+    if (result.isConfirmed) {
+      Swal.fire({
+        title: 'Memproses...',
+        allowOutsideClick: false,
+        showConfirmButton: false,
+        background: '#1a1a1a',
+        color: '#fff',
+        didOpen: () => { Swal.showLoading(); }
+      });
+      
+      try {
+        let updatePayload = { status: prevStatus };
+        let beliPayload = { statusbeli: prevStatus };
+
+        if (prevStatus === 'Proses') { 
+          updatePayload.tanggal_edar = null; updatePayload.tanggal_lunas = null; 
+          beliPayload.tanggal_edar = null; beliPayload.tanggal_lunas = null;
+        }
+        if (prevStatus === 'Beredar') { 
+          updatePayload.tanggal_lunas = null; 
+          beliPayload.tanggal_lunas = null;
+        }
+        if (prevStatus === 'Draft') { 
+          updatePayload.tanggal_proses = null; updatePayload.tanggal_edar = null; updatePayload.tanggal_lunas = null; 
+          beliPayload.tanggal_proses = null; beliPayload.tanggal_edar = null; beliPayload.tanggal_lunas = null;
+        }
+
+        const { error } = await dbClient
+          .from('Data_Bayar')
+          .update(updatePayload)
+          .eq('id_bayar', idPay);
+
+        if (error) throw error;
+
+        const { data: relatedRows } = await dbClient
+          .from('Data_Bayar')
+          .select('no_invoice')
+          .eq('id_bayar', idPay);
+
+        if (relatedRows && relatedRows.length > 0) {
+          const listInvNo = relatedRows.map(r => r.no_invoice).filter(Boolean);
+          if (listInvNo.length > 0) {
+            await dbClient
+              .from('Data_Beli')
+              .update(beliPayload)
+              .in('invbeli', listInvNo);
+          }
+        }
+
+        Swal.close();
+
+        masterItem.status = prevStatus;
+        if (prevStatus === 'Proses') { masterItem.tglEdar = ""; masterItem.tglLunas = ""; }
+        if (prevStatus === 'Beredar') { masterItem.tglLunas = ""; }
+        if (prevStatus === 'Draft') { masterItem.tglProses = ""; masterItem.tglEdar = ""; masterItem.tglLunas = ""; }
+        
+        Swal.fire({ icon: 'success', title: 'Berhasil di-undo', timer: 800, showConfirmButton: false, background: '#1a1a1a', color: '#fff' });
+        updateSingleRowUI(idPay);
+
+      } catch (err) {
+        Swal.close();
+        console.error("Gagal Undo status:", err);
+        Swal.fire("Gagal", err.message || 'Terjadi kesalahan sistem', "error");
+      }
+    }
+  });
+}
+
+// --- D. HELPER UI ---
 function toggleAllCheckboxes(source) {
   const checkboxes = document.querySelectorAll('.inv-chk-pro');
   checkboxes.forEach(checkbox => {
@@ -12764,128 +12908,6 @@ function closeModalBayar() {
     modal.classList.add('hidden');
     modal.style.display = 'none';
   }
-}
-
-// --- D. UPDATE STATUS & INSTAN UI REFRESH (TERHUBUNG KE SUPABASE) ---
-async function updateStatus(idPay, action) {
-  const config = {
-    'proses': { title: 'Konfirmasi Proses', text: `Ubah status ID ${idPay} menjadi PROSES?`, color: '#3b82f6', newStatus: 'Proses' },
-    'edar': { title: 'Konfirmasi Edar', text: `Apakah Anda yakin ingin mengubah status ID ${idPay} menjadi BEREDAR?`, color: '#f59e0b', newStatus: 'Beredar' },
-    'lunas': { title: 'Konfirmasi Cair', text: `Apakah dana untuk ID ${idPay} sudah CAIR/LUNAS?`, color: '#10b981', newStatus: 'Lunas' }
-  };
-
-  const cfg = config[action.toLowerCase()];
-  if (!cfg) { showUINotif("Action tidak dikenali", "error"); return; }
-
-  Swal.fire({
-    title: cfg.title, text: cfg.text, icon: 'question', showCancelButton: true,
-    confirmButtonColor: cfg.color, cancelButtonColor: '#374151',
-    confirmButtonText: 'Ya, Update!', cancelButtonText: 'Batal',
-    background: '#1a1a1a', color: '#fff', iconColor: cfg.color
-  }).then(async (result) => {
-    if (result.isConfirmed) {
-      Swal.fire({ title: 'Updating...', allowOutsideClick: false, showConfirmButton: false, background: '#1a1a1a', color: '#fff', didOpen: () => { Swal.showLoading(); } });
-
-      try {
-        const tglNow = new Date().toISOString().split('T')[0];
-        let updatePayload = { status: cfg.newStatus };
-        if (action === 'proses') updatePayload.tanggal_proses = tglNow;
-        if (action === 'edar')   updatePayload.tanggal_edar = tglNow;
-        if (action === 'lunas')  updatePayload.tanggal_lunas = tglNow;
-
-        // Menggunakan eq('id_bayar', idPay) agar seluruh baris dengan id_bayar tersebut terupdate di Supabase
-        const { error } = await dbClient
-          .from('Data_Bayar')
-          .update(updatePayload)
-          .eq('id_bayar', idPay);
-
-        Swal.close();
-        if (error) throw error;
-
-        const masterItem = fullPaymentData.find(x => x.id === idPay);
-        if (masterItem) {
-          masterItem.status = cfg.newStatus;
-          if (action === 'proses') masterItem.tglProses = tglNow;
-          if (action === 'edar')   masterItem.tglEdar = tglNow;
-          if (action === 'lunas')  masterItem.tglLunas = tglNow;
-        }
-
-        Swal.fire({ icon: 'success', title: 'Updated', timer: 800, showConfirmButton: false, background: '#1a1a1a', color: '#fff' });
-        updateSingleRowUI(idPay);
-
-      } catch (err) {
-        Swal.close();
-        console.error("Gagal update status:", err);
-        Swal.fire("Gagal", err.message || 'Terjadi kesalahan sistem', "error");
-      }
-    }
-  });
-}
-
-async function triggerUndo(idPay) {
-  const masterItem = fullPaymentData.find(x => x.id === idPay);
-  if (!masterItem) return;
-
-  let prevStatus = 'Draft';
-  if (masterItem.status === 'Lunas') prevStatus = 'Beredar';
-  else if (masterItem.status === 'Beredar') prevStatus = 'Proses';
-  else if (masterItem.status === 'Proses') prevStatus = 'Draft';
-  else {
-    showUINotif("Status sudah berada di posisi paling awal (Draft)", "info");
-    return;
-  }
-
-  Swal.fire({
-    title: 'Undo Status?',
-    text: `Status akan dimundurkan dari ${masterItem.status} menjadi ${prevStatus}.`,
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonColor: '#e11d48',
-    cancelButtonColor: '#374151',
-    confirmButtonText: 'Ya, Undo!',
-    cancelButtonText: 'Batal',
-    background: '#1a1a1a',
-    color: '#fff'
-  }).then(async (result) => {
-    if (result.isConfirmed) {
-      Swal.fire({
-        title: 'Memproses...',
-        allowOutsideClick: false,
-        showConfirmButton: false,
-        background: '#1a1a1a',
-        color: '#fff',
-        didOpen: () => { Swal.showLoading(); }
-      });
-      
-      try {
-        let updatePayload = { status: prevStatus };
-        if (prevStatus === 'Proses') { updatePayload.tanggal_edar = null; updatePayload.tanggal_lunas = null; }
-        if (prevStatus === 'Beredar') { updatePayload.tanggal_lunas = null; }
-        if (prevStatus === 'Draft') { updatePayload.tanggal_proses = null; updatePayload.tanggal_edar = null; updatePayload.tanggal_lunas = null; }
-
-        const { error } = await dbClient
-          .from('Data_Bayar')
-          .update(updatePayload)
-          .eq('id_bayar', idPay);
-
-        Swal.close();
-        if (error) throw error;
-
-        masterItem.status = prevStatus;
-        if (prevStatus === 'Proses') { masterItem.tglEdar = ""; masterItem.tglLunas = ""; }
-        if (prevStatus === 'Beredar') { masterItem.tglLunas = ""; }
-        if (prevStatus === 'Draft') { masterItem.tglProses = ""; masterItem.tglEdar = ""; masterItem.tglLunas = ""; }
-        
-        Swal.fire({ icon: 'success', title: 'Berhasil di-undo', timer: 800, showConfirmButton: false, background: '#1a1a1a', color: '#fff' });
-        updateSingleRowUI(idPay);
-
-      } catch (err) {
-        Swal.close();
-        console.error("Gagal Undo status:", err);
-        Swal.fire("Gagal", err.message || 'Terjadi kesalahan sistem', "error");
-      }
-    }
-  });
 }
 
 function updateSingleRowUI(idPay) {
@@ -13004,7 +13026,6 @@ function closeRevisiCepat() {
   }
 }
 
-// Proses Update Full Data ke Supabase & Sinkronisasi Lokal Tanpa Reload
 async function prosesUpdateEstimasi() {
   const idBaru = document.getElementById('f_rev_id_edit').value.trim();
   const sumberRekBaru = document.getElementById('f_rev_sumber_rek').value; 
@@ -13046,13 +13067,27 @@ async function prosesUpdateEstimasi() {
           admin: adminBaru
         };
 
-        // Menggunakan eq('id_bayar', currentRevId) agar update permanen ke database Supabase
         const { error } = await dbClient
           .from('Data_Bayar')
           .update(updatePayload)
           .eq('id_bayar', currentRevId);
 
         if (error) throw error;
+
+        const { data: relatedRows } = await dbClient
+          .from('Data_Bayar')
+          .select('no_invoice')
+          .eq('id_bayar', idBaru);
+
+        if (relatedRows && relatedRows.length > 0) {
+          const listInvNo = relatedRows.map(r => r.no_invoice).filter(Boolean);
+          if (listInvNo.length > 0) {
+            await dbClient
+              .from('Data_Beli')
+              .update({ estimasi_bayar: dateInput })
+              .in('invbeli', listInvNo);
+          }
+        }
 
         Swal.close();
         if (typeof showUINotif === "function") showUINotif("Data pembayaran berhasil diperbarui!", "success");
@@ -13083,6 +13118,7 @@ async function prosesUpdateEstimasi() {
   });
 }
 
+// --- F. HAPUS PAYMENT & RESET Data_Beli MENJADI 'SIMPAN' ---
 async function hapusSeluruhPayment() {
   if (!currentRevId) return;
 
@@ -13105,13 +13141,37 @@ async function hapusSeluruhPayment() {
       });
 
       try {
-        // Hapus permanen dari Supabase berdasarkan id_bayar
-        const { error } = await dbClient
+        const { data: relatedRows, error: fetchErr } = await dbClient
+          .from('Data_Bayar')
+          .select('no_invoice')
+          .eq('id_bayar', currentRevId);
+
+        if (fetchErr) throw fetchErr;
+
+        // 1. Hapus dari Data_Bayar
+        const { error: deleteError } = await dbClient
           .from('Data_Bayar')
           .delete()
           .eq('id_bayar', currentRevId);
 
-        if (error) throw error;
+        if (deleteError) throw deleteError;
+
+        // 2. Reset Data_Beli ke 'SIMPAN' secara langsung tanpa RPC
+        if (relatedRows && relatedRows.length > 0) {
+          const listInvNo = relatedRows.map(r => r.no_invoice).filter(Boolean);
+          if (listInvNo.length > 0) {
+            await dbClient
+              .from('Data_Beli')
+              .update({
+                statusbeli: 'SIMPAN',
+                estimasi_bayar: null,
+                tanggal_proses: null,
+                tanggal_edar: null,
+                tanggal_lunas: null
+              })
+              .in('invbeli', listInvNo);
+          }
+        }
 
         Swal.close();
         if (typeof showUINotif === "function") showUINotif("Data pembayaran berhasil dihapus", "success");
@@ -13129,7 +13189,6 @@ async function hapusSeluruhPayment() {
   });
 }
 
-// --- F. EDIT CATATAN INLINE ---
 function makeEditableCatatan(div, id) {
   if (div.querySelector('input')) return;
 
@@ -13184,9 +13243,6 @@ async function saveCatatanGiro(input, id) {
   }
 }
 
-// ==========================================
-// G. DETAIL INVOICE & CETAK NOTA INSTAN
-// ==========================================
 function showDetailInvoice(idBayar) {
   const target = fullPaymentData.find(item => item.id === idBayar);
   if (!target) return;
@@ -13265,7 +13321,6 @@ function showDetailInvoice(idBayar) {
   });
 }
 
-// --- FUNGSI CETAK NOTA INSTAN LANGSUNG BERDASARKAN ID (SUPABASE) ---
 async function cetakNotaSatuanLangsung(idBayar) {
   if (!idBayar) {
     return Swal.fire({ 
@@ -13286,7 +13341,6 @@ async function cetakNotaSatuanLangsung(idBayar) {
   });
 
   try {
-    // 1. Siapkan parameter filter persis seperti proses cetak masal/checklist
     const filterParams = {
       id_list: [idBayar],
       id_payment: "",
@@ -13295,7 +13349,6 @@ async function cetakNotaSatuanLangsung(idBayar) {
       tgl_selesai: ""
     };
 
-    // 2. Ambil data pembayaran dari Supabase dan profil perusahaan secara bersamaan
     const [dataListFinal, companyInfo] = await Promise.all([
       fetchCetakDataFromSupabase(filterParams),
       getCompanyProfileAndLogo()
@@ -13313,11 +13366,7 @@ async function cetakNotaSatuanLangsung(idBayar) {
     }
 
     Swal.close();
-
-    // 3. Generate HTML menggunakan template resmi Anda
     const contentHtml = generateTemplateHTML(dataListFinal, companyInfo.profil, companyInfo.logoBase64);
-
-    // 4. Buka jendela preview cetak native
     bukaJendelaPreview(contentHtml);
 
   } catch (err) {
@@ -13331,6 +13380,7 @@ async function cetakNotaSatuanLangsung(idBayar) {
     });
   }
 }
+
 function showUINotif(msg, type) {
   Swal.fire({
     title: type === 'success' ? 'Berhasil!' : 'Perhatian',
