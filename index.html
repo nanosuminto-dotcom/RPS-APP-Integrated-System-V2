@@ -12053,23 +12053,57 @@ function generateRowHTML(r) {
     </td>
   </tr>`;
 }
+// ==========================================
+// FUNGSI SORTING KOLOM TABEL
+// ==========================================
+function sortData(column) {
+    // Jika kolom yang sama diklik lagi, balik urutannya (Ascending <-> Descending)
+    if (currentSort.col === column) {
+        currentSort.asc = !currentSort.asc;
+    } else {
+        currentSort.col = column;
+        currentSort.asc = true; // Default ascending untuk klik pertama
+    }
 
+    renderTable(currentFilteredData);
+}
+// --- B. RENDERING BARIS TABEL & PAGINATION (MENDUKUNG SORTING DINAMIS) ---
 function renderTable(data) {
   const tbody = document.getElementById('pembayaranTableBody');
   if (!tbody) return;
 
+  // Lakukan pengurutan (sorting) berdasarkan state `currentSort` yang sedang aktif
   const sortedData = [...data].sort((a, b) => {
-    const rawDateA = (a.tanggal || '').replace(/-/g, '');
-    const rawDateB = (b.tanggal || '').replace(/-/g, '');
-    
-    const numDateA = parseInt(rawDateA) || 0;
-    const numDateB = parseInt(rawDateB) || 0;
-    
-    if (numDateB !== numDateA) {
-      return numDateB - numDateA; 
+    let valA = a[currentSort.col] || "";
+    let valB = b[currentSort.col] || "";
+
+    // Penanganan khusus jika kolom berupa angka/ID/tanggal
+    if (currentSort.col === 'tanggal' || currentSort.col === 'estimasi') {
+      valA = String(valA).replace(/-/g, '');
+      valB = String(valB).replace(/-/g, '');
+    } else if (currentSort.col === 'id') {
+      valA = String(valA);
+      valB = String(valB);
     }
-    return (b.dbId || b.id || 0) - (a.dbId || a.id || 0);
+
+    if (typeof valA === 'string') {
+      valA = valA.toLowerCase();
+      valB = valB.toLowerCase();
+    }
+
+    if (valA < valB) {
+      return currentSort.asc ? -1 : 1;
+    }
+    if (valA > valB) {
+      return currentSort.asc ? 1 : -1;
+    }
+    return 0;
   });
+
+  // Jika belum pernah diklik sama sekali, default urutan pertama kali load adalah ID / Tanggal terbaru di atas
+  if (!currentSort.col) {
+    sortedData.sort((a, b) => (b.dbId || b.id || 0) - (a.dbId || a.id || 0));
+  }
 
   const total = sortedData.length;
   const start = (paymentCurrentPage - 1) * paymentPageSize;
@@ -12127,14 +12161,11 @@ function applyFilters() {
   currentFilteredData = fullPaymentData.filter(r => {
     const rId = String(r.id || "").toLowerCase();
     const rKodeSupp = String(r.kodeSupp || "").toLowerCase();
-    const rNamalog = String(r.namalog || "").toLowerCase();
-    const rBankRekAn = String(r.bankRekAn || "").toLowerCase();
 
+    // PENCARIAN DIPERKETAT: HANYA MENCARI PADA ID_BAYAR DAN KODE_SUPP SAJA
     const idMatch = sText === "" || 
                     rId.includes(sText) || 
-                    rKodeSupp.includes(sText) || 
-                    rNamalog.includes(sText) || 
-                    rBankRekAn.includes(sText);
+                    rKodeSupp.includes(sText);
 
     const bulMatch = (fBul === "" || (r.tanggal && r.tanggal.split('-')[1] === fBul));
     const supMatch = (fSup === "" || rKodeSupp.includes(fSup));
