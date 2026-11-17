@@ -11891,13 +11891,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
 let fullPaymentData = []; 
 let currentFilteredData = [];
-let currentSort = { col: 'id', asc: false };
+let currentSort = { col: '', asc: false }; // Ubah col menjadi string kosong ('') agar saat load pertama menggunakan urutan terbaru
 let currentRevId = ""; // Penampung ID Global untuk Modal Revisi/Edit
 
 // Variabel Pagination
 let paymentCurrentPage = 1;
-let paymentPageSize = 25; 
-
+let paymentPageSize = 25;
 // --- A. INISIALISASI & LOAD DARI SUPABASE (GROUPING ID_BAYAR PRESISI) ---
 document.addEventListener('DOMContentLoaded', function() {
   loadDaftarPembayaran();
@@ -12067,47 +12066,62 @@ function sortData(column) {
 
     renderTable(currentFilteredData);
 }
-// --- B. RENDERING BARIS TABEL & PAGINATION (MENDUKUNG SORTING DINAMIS) ---
+// --- B. RENDERING BARIS TABEL & PAGINATION (FULL VIEW SAAT FILTER/SEARCH) ---
 function renderTable(data) {
   const tbody = document.getElementById('pembayaranTableBody');
   if (!tbody) return;
 
-  // Lakukan pengurutan (sorting) berdasarkan state `currentSort` yang sedang aktif
-  const sortedData = [...data].sort((a, b) => {
-    let valA = a[currentSort.col] || "";
-    let valB = b[currentSort.col] || "";
+  // Lakukan pengurutan (sorting) berdasarkan state `currentSort`
+  const sortedData = [...data];
 
-    // Penanganan khusus jika kolom berupa angka/ID/tanggal
-    if (currentSort.col === 'tanggal' || currentSort.col === 'estimasi') {
-      valA = String(valA).replace(/-/g, '');
-      valB = String(valB).replace(/-/g, '');
-    } else if (currentSort.col === 'id') {
-      valA = String(valA);
-      valB = String(valB);
-    }
+  if (currentSort.col !== "") {
+    sortedData.sort((a, b) => {
+      let valA = a[currentSort.col] || "";
+      let valB = b[currentSort.col] || "";
 
-    if (typeof valA === 'string') {
-      valA = valA.toLowerCase();
-      valB = valB.toLowerCase();
-    }
+      if (currentSort.col === 'tanggal' || currentSort.col === 'estimasi') {
+        valA = String(valA).replace(/-/g, '');
+        valB = String(valB).replace(/-/g, '');
+      } else if (currentSort.col === 'id') {
+        valA = String(valA);
+        valB = String(valB);
+      }
 
-    if (valA < valB) {
-      return currentSort.asc ? -1 : 1;
-    }
-    if (valA > valB) {
-      return currentSort.asc ? 1 : -1;
-    }
-    return 0;
-  });
+      if (typeof valA === 'string') {
+        valA = valA.toLowerCase();
+        valB = valB.toLowerCase();
+      }
 
-  // Jika belum pernah diklik sama sekali, default urutan pertama kali load adalah ID / Tanggal terbaru di atas
-  if (!currentSort.col) {
-    sortedData.sort((a, b) => (b.dbId || b.id || 0) - (a.dbId || a.id || 0));
+      if (valA < valB) return currentSort.asc ? -1 : 1;
+      if (valA > valB) return currentSort.asc ? 1 : -1;
+      return 0;
+    });
+  } else {
+    // DEFAULT LOAD PERTAMA: Urutkan berdasarkan ID/Tanggal terbaru di atas
+    sortedData.sort((a, b) => {
+      const rawDateA = (a.tanggal || '').replace(/-/g, '');
+      const rawDateB = (b.tanggal || '').replace(/-/g, '');
+      const numDateA = parseInt(rawDateA) || 0;
+      const numDateB = parseInt(rawDateB) || 0;
+      
+      if (numDateB !== numDateA) return numDateB - numDateA; 
+      return (b.dbId || b.id || 0) - (a.dbId || a.id || 0);
+    });
   }
 
+  // Cek apakah sedang ada teks pencarian atau filter aktif
+  const sText = document.getElementById('paySearch')?.value.toLowerCase().trim() || "";
+  const fBul  = document.getElementById('fBulan')?.value || "";
+  const fSup  = document.getElementById('fSuppCode')?.value.toLowerCase().trim() || "";
+  const fJen  = document.getElementById('fJenis')?.value || "";
+  const fSta  = document.getElementById('fStatus')?.value || "";
+  const isFiltering = sText !== "" || fBul !== "" || fSup !== "" || fJen !== "" || fSta !== "";
+
   const total = sortedData.length;
-  const start = (paymentCurrentPage - 1) * paymentPageSize;
-  const end = Math.min(start + paymentPageSize, total);
+  
+  // Jika sedang mencari/filter, paksa tampilkan SEMUA data sekaligus (tanpa batasan halaman)
+  const start = isFiltering ? 0 : (paymentCurrentPage - 1) * paymentPageSize;
+  const end = isFiltering ? total : Math.min(start + paymentPageSize, total);
   const dataToDisplay = sortedData.slice(start, end);
 
   const elRange = document.getElementById('paymentRange');
@@ -12117,13 +12131,13 @@ function renderTable(data) {
   if (elRange) elRange.innerText = `${total > 0 ? start + 1 : 0}-${end}`;
   if (elTotal) elTotal.innerText = total;
   
-  const totalPages = Math.ceil(total / paymentPageSize) || 1;
-  if (elPageInfo) elPageInfo.innerText = `${paymentCurrentPage} / ${totalPages}`;
+  const totalPages = isFiltering ? 1 : (Math.ceil(total / paymentPageSize) || 1);
+  if (elPageInfo) elPageInfo.innerText = isFiltering ? `1 / 1 (Semua Ditampilkan)` : `${paymentCurrentPage} / ${totalPages}`;
 
   const btnPrev = document.getElementById('btnPaymentPrev');
   const btnNext = document.getElementById('btnPaymentNext');
-  if (btnPrev) btnPrev.disabled = (paymentCurrentPage === 1);
-  if (btnNext) btnNext.disabled = (end >= total || total === 0);
+  if (btnPrev) btnPrev.disabled = isFiltering || (paymentCurrentPage === 1);
+  if (btnNext) btnNext.disabled = isFiltering || (end >= total || total === 0);
 
   if (!dataToDisplay || dataToDisplay.length === 0) {
     tbody.innerHTML = '<tr><td colspan="10" class="p-8 text-center text-rose-400 font-bold uppercase text-[10px]">Data Tidak Ditemukan</td></tr>';
@@ -12134,7 +12148,6 @@ function renderTable(data) {
     return generateRowHTML(r);
   }).join('');
 }
-
 function prevPaymentPage() {
   if (paymentCurrentPage > 1) {
     paymentCurrentPage--;
@@ -12150,7 +12163,7 @@ function nextPaymentPage() {
   }
 }
 
-// --- C. FILTER & PENCARIAN GLOBAL ---
+// --- C. FILTER & PENCARIAN GLOBAL (MENAMPILKAN SEMUA DALAM 1 TAMPILAN) ---
 function applyFilters() {
   const sText = document.getElementById('paySearch')?.value.toLowerCase().trim() || "";
   const fBul  = document.getElementById('fBulan')?.value || "";
