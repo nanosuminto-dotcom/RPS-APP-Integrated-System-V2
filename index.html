@@ -1505,6 +1505,29 @@ select option {
   background-color: #0f1115;
   color: #ffffff;
 }
+/* ========================================================================= */
+/* KONTRAS OTOMATIS TEKS GRAFIK (DARK & LIGHT MODE)                          */
+/* ========================================================================= */
+
+/* 1. Default (Mode Gelap): Teks di dalam grafik otomatis putih */
+svg text, 
+.chart-container text, 
+canvas {
+  fill: #f8fafc !important; 
+  color: #f8fafc !important;
+}
+
+/* 2. Saat Mode Terang Aktif (Mendukung berbagai penamaan kelas light mode) */
+html.light svg text,
+body.light svg text,
+.light-mode svg text,
+[data-theme="light"] svg text,
+html.light-mode .chart-container text,
+body.light-mode canvas,
+.light-mode canvas {
+  fill: #0f172a !important; /* Hitam / Abu-abu sangat gelap */
+  color: #0f172a !important;
+}
   </style>
 </head>
 
@@ -5156,6 +5179,11 @@ select option {
     if (themeIcon) themeIcon.innerText = '☀️';
     if (themeText) themeText.innerText = 'Terang';
     localStorage.setItem('theme', 'dark');
+  }
+
+  // TAMBAHAN: Update grafik bar secara otomatis saat mode berganti
+  if (typeof updateBarChartDashboard === 'function') {
+    updateBarChartDashboard();
   }
 }
 
@@ -9114,15 +9142,22 @@ function renderBarChartUI(dataObj, startStr, endStr) {
     renderBarChartsCanvas(rows);
 }
 
-// --- 5. RENDER CHART CANVAS ---
+// --- 5. RENDER CHART CANVAS DENGAN KONTROL WARNA DINAMIS AKURAT ---
 function renderBarChartsCanvas(rows) {
     const labels = rows.map(r => r.label);
     const salesData = rows.map(r => r.sales);
     const freqData = rows.map(r => r.freq);
-    const isLight = document.body.classList.contains('light-mode');
+
+    // Deteksi akurat apakah bodi atau dokumen sedang dalam mode terang (light mode)
+    const isLight = document.body.classList.contains('light-mode') || 
+                    document.body.classList.contains('light') || 
+                    document.documentElement.classList.contains('light') ||
+                    document.documentElement.getAttribute('data-theme') === 'light';
+    
+    // Warna teks: Hitam pekat (#0f172a) saat terang, Putih terang (#ffffff) saat gelap
     const textColor = isLight ? '#0f172a' : '#ffffff';
-    const gridColor = isLight ? 'rgba(15,23,42,0.10)' : 'rgba(255,255,255,0.1)';
-    const labelColor = isLight ? '#334155' : '#ffffff';
+    const labelColor = isLight ? '#334155' : '#f8fafc';
+    const gridColor = isLight ? 'rgba(15, 23, 42, 0.12)' : 'rgba(255, 255, 255, 0.08)';
     
     const formatSmart = (value) => {
         if (value >= 1000000) {
@@ -9139,7 +9174,7 @@ function renderBarChartsCanvas(rows) {
             labels: labels,
             datasets: [{
                 data: dataValues,
-                backgroundColor: isCurrency ? 'rgba(16, 185, 129, 0.7)' : 'rgba(168, 85, 247, 0.7)',
+                backgroundColor: isCurrency ? 'rgba(16, 185, 129, 0.75)' : 'rgba(168, 85, 247, 0.75)',
                 borderColor: isCurrency ? 'rgba(16, 185, 129, 1)' : 'rgba(168, 85, 247, 1)',
                 borderWidth: 1,
                 borderRadius: 4
@@ -9153,7 +9188,7 @@ function renderBarChartsCanvas(rows) {
                 datalabels: {
                     anchor: 'end',      
                     align: 'top',      
-                    color: textColor,   
+                    color: textColor, // Menggunakan warna dinamis yang akurat
                     font: {
                         size: 10,
                         weight: 'bold'
@@ -9163,10 +9198,10 @@ function renderBarChartsCanvas(rows) {
                     }
                 },
                 tooltip: {
-                    backgroundColor: isLight ? '#f8fafc' : '#1a1d23',
-                    titleColor: isLight ? '#0f172a' : '#fff',
-                    bodyColor: isLight ? '#0f172a' : '#fff',
-                    borderColor: isLight ? 'rgba(148,163,184,0.22)' : 'rgba(255,255,255,0.08)',
+                    backgroundColor: isLight ? '#ffffff' : '#1a1d23',
+                    titleColor: isLight ? '#0f172a' : '#ffffff',
+                    bodyColor: isLight ? '#0f172a' : '#ffffff',
+                    borderColor: isLight ? 'rgba(148, 163, 184, 0.3)' : 'rgba(255, 255, 255, 0.1)',
                     borderWidth: 1,
                     callbacks: {
                         label: function(context) {
@@ -9178,7 +9213,10 @@ function renderBarChartsCanvas(rows) {
             },
             scales: {
                 x: { 
-                    ticks: { color: labelColor, font: { size: 10, weight: 'bold' } }, 
+                    ticks: { 
+                        color: labelColor, 
+                        font: { size: 10, weight: 'bold' } 
+                    }, 
                     grid: { display: false } 
                 },
                 y: { 
