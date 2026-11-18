@@ -1484,23 +1484,28 @@
       color: #0f172a !important;
     }
 
-    /* Styling SweetAlert untuk Mode Terang & Gelap (Pop-up Saja, Tombol Tetap Asli) */
-    body.dark .swal2-popup, 
-    html.dark .swal2-popup {
-      background-color: #1a1a1a !important;
-      color: #ffffff !important;
-    }
+    /* ========================================================================= */
+/* STYLING SWEETALERT UNTUK MODE GELAP & TERANG (DIPERBAIKI)                */
+/* ========================================================================= */
 
-    body.light-mode .swal2-popup, 
-    body:not(.dark):not(.light-mode) .swal2-popup {
-      background-color: #ffffff !important;
-      color: #1f2937 !important;
-    }
+/* 1. Default / Mode Gelap (Saat tidak ada class light-mode di body) */
+.swal2-popup {
+  background-color: #111622 !important; /* Hitam / Gelap */
+  color: #f1f5f9 !important;          /* Teks terang */
+}
 
-    .swal2-title, .swal2-html-container {
-      color: inherit !important;
-    }
-    /* Memastikan opsi di dalam select dropdown terbaca jelas dengan teks putih dan background gelap */
+/* 2. Saat Mode Terang Aktif (Hanya ketika body memiliki class light-mode) */
+body.light-mode .swal2-popup {
+  background-color: #ffffff !important; /* Putih bersih */
+  color: #0f172a !important;          /* Teks gelap */
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+}
+
+.swal2-title, .swal2-html-container {
+  color: inherit !important;
+}
+
+/* Memastikan opsi di dalam select dropdown terbaca jelas */
 select option {
   background-color: #0f1115;
   color: #ffffff;
@@ -1527,6 +1532,55 @@ body.light-mode canvas,
 .light-mode canvas {
   fill: #0f172a !important; /* Hitam / Abu-abu sangat gelap */
   color: #0f172a !important;
+}
+/* ========================================================================= */
+/* OTOMATIS WARNA SEMUA MODAL & SHOW DETAIL (DARK & LIGHT MODE)             */
+/* ========================================================================= */
+
+/* 1. Default (Mode Gelap) */
+.modal, 
+.modal-content, 
+.modal-box,
+.detail-modal,
+div[id*="modal"],
+div[class*="modal"] {
+  background-color: #111622 !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* 2. Saat Mode Terang Aktif (body.light-mode) */
+body.light-mode .modal,
+body.light-mode .modal-content,
+body.light-mode .modal-box,
+body.light-mode .detail-modal,
+body.light-mode div[id*="modal"],
+body.light-mode div[class*="modal"] {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: rgba(15, 23, 42, 0.15) !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+}
+
+/* Menyesuaikan teks label atau sub-teks di dalam modal saat mode terang */
+body.light-mode .modal label,
+body.light-mode .modal-content span,
+body.light-mode .modal-box p,
+body.light-mode div[id*="modal"] .text-gray-400 {
+  color: #475569 !important;
+}
+
+/* Menyesuaikan baris tabel di dalam modal saat mode terang */
+body.light-mode .modal table th,
+body.light-mode .modal-box table th {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+body.light-mode .modal table td,
+body.light-mode .modal-box table td {
+  border-color: #e2e8f0 !important;
+  color: #1e293b !important;
 }
   </style>
 </head>
@@ -13361,15 +13415,27 @@ function showDetailInvoice(idBayar) {
 
   const fmt = (num) => "Rp " + Number(num || 0).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   
+  // Deteksi mode terang atau gelap secara akurat
+  const isLight = document.body.classList.contains('light-mode') || 
+                  document.body.classList.contains('light') || 
+                  document.documentElement.classList.contains('light');
+
+  // Warna dinamis: Hitam/Gelap saat mode malam, Putih saat mode terang
+  const bgColor = isLight ? '#ffffff' : '#111622'; 
+  const textColor = isLight ? '#0f172a' : '#f1f5f9';
+  const mutedColor = isLight ? '#64748b' : '#94a3b8';
+  const borderColor = isLight ? '#e2e8f0' : 'rgba(255, 255, 255, 0.1)';
+  const tableHeadBg = isLight ? '#f1f5f9' : 'rgba(0, 0, 0, 0.2)';
+
   let detailRows = "";
   target.detailInvoices.forEach((inv, i) => {
     detailRows += `
-      <tr class="border-b border-white/5 text-left text-xs hover:bg-white/5">
-        <td class="p-2 text-cyan-500">${i + 1}</td>
-        <td class="p-2 text-white font-bold">${inv.noInvoice || '-'}</td>
-        <td class="p-2 text-slate-300 italic text-[10px]">${inv.cabang || '-'}</td>
+      <tr style="border-bottom: 1px solid ${borderColor};" class="text-left text-xs hover:bg-white/5">
+        <td class="p-2 text-cyan-500 font-bold">${i + 1}</td>
+        <td class="p-2 font-bold" style="color: ${textColor};">${inv.noInvoice || '-'}</td>
+        <td class="p-2 italic text-[10px]" style="color: ${mutedColor};">${inv.cabang || '-'}</td>
         <td class="p-2 text-emerald-400 font-mono font-bold text-right">${fmt(inv.nominal)}</td>
-        <td class="p-2 text-slate-400 italic">${inv.catatan || '-'}</td>
+        <td class="p-2 italic" style="color: ${mutedColor};">${inv.catatan || '-'}</td>
       </tr>`;
   });
 
@@ -13378,32 +13444,32 @@ function showDetailInvoice(idBayar) {
   const totalNet = target.totalBersih;
 
   Swal.fire({
-    title: `<span class="text-white font-black tracking-wider uppercase text-[15px]">Detail ID: ${target.id}</span>`,
-    background: '#1e293b',
-    color: '#f1f5f9',
+    title: `<span class="font-black tracking-wider uppercase text-[15px]" style="color: ${textColor};">Detail ID: ${target.id}</span>`,
+    background: bgColor, // <-- Mengatur background popup secara langsung di sini
+    color: textColor,    // <-- Mengatur warna teks utama popup
     width: '700px',
     showCloseButton: true,
     closeButtonHtml: '<span class="bg-rose-600 hover:bg-rose-500 text-white text-[11px] font-bold px-3 py-1.5 rounded shadow-lg transition-all flex items-center justify-center mt-3 mr-4">X</span>',
     html: `
-      <div class="text-left text-xs space-y-1 border-b border-white/10 pb-3 mb-3 font-mono mt-2">
+      <div class="text-left text-xs space-y-1 pb-3 mb-3 font-mono mt-2" style="border-bottom: 1px solid ${borderColor};">
         <div class="flex gap-2">
-          <span class="text-slate-500 w-24">SUPPLIER:</span>
-          <span class="text-white font-bold flex-1">${target.kodeSupp}</span>
-          <span class="text-slate-500 w-24">BANK:</span>
-          <span class="text-white font-bold flex-1">${target.bankRekAn || '-'}</span>
+          <span class="w-24" style="color: ${mutedColor};">SUPPLIER:</span>
+          <span class="font-bold flex-1" style="color: ${textColor};">${target.kodeSupp}</span>
+          <span class="w-24" style="color: ${mutedColor};">BANK:</span>
+          <span class="font-bold flex-1" style="color: ${textColor};">${target.bankRekAn || '-'}</span>
         </div>
         <div class="flex gap-2">
-          <span class="text-slate-500 w-24">ESTIMASI:</span>
-          <span class="text-white font-bold flex-1">${target.estimasi || '-'}</span>
-          <span class="text-slate-500 w-24">JENIS:</span>
-          <span class="text-white font-bold flex-1">${target.jenis}</span>
+          <span class="w-24" style="color: ${mutedColor};">ESTIMASI:</span>
+          <span class="font-bold flex-1" style="color: ${textColor};">${target.estimasi || '-'}</span>
+          <span class="w-24" style="color: ${mutedColor};">JENIS:</span>
+          <span class="font-bold flex-1" style="color: ${textColor};">${target.jenis}</span>
         </div>
       </div>
       
       <div class="max-h-[250px] overflow-y-auto custom-scrollbar">
         <table class="w-full border-collapse">
           <thead>
-            <tr class="bg-slate-900/50 text-slate-400 uppercase text-[9px]">
+            <tr class="uppercase text-[9px]" style="background-color: ${tableHeadBg}; color: ${mutedColor};">
               <th class="p-2 text-left">No</th>
               <th class="p-2 text-left">No. Invoice</th>
               <th class="p-2 text-left">Cabang</th>
@@ -13415,11 +13481,11 @@ function showDetailInvoice(idBayar) {
         </table>
       </div>
       
-      <div class="text-right pt-3 mt-2 border-t border-white/10 space-y-1">
-        ${potongan > 0 ? `<div><span class="text-slate-400 text-[10px] mr-3">Potongan</span><span class="text-rose-400 font-mono">- ${fmt(potongan)}</span></div>` : ''}
-        ${admin > 0 ? `<div><span class="text-slate-400 text-[10px] mr-3">Admin</span><span class="text-blue-400 font-mono">+ ${fmt(admin)}</span></div>` : ''}
-        <div class="pt-2 border-t border-white/5">
-          <span class="text-slate-200 text-[10px] uppercase font-bold mr-3">Total Bersih (Nett)</span>
+      <div class="text-right pt-3 mt-2 space-y-1" style="border-top: 1px solid ${borderColor};">
+        ${potongan > 0 ? `<div><span class="text-[10px] mr-3" style="color: ${mutedColor};">Potongan</span><span class="text-rose-500 font-mono">- ${fmt(potongan)}</span></div>` : ''}
+        ${admin > 0 ? `<div><span class="text-[10px] mr-3" style="color: ${mutedColor};">Admin</span><span class="text-blue-500 font-mono">+ ${fmt(admin)}</span></div>` : ''}
+        <div class="pt-2" style="border-top: 1px solid ${borderColor};">
+          <span class="text-[10px] uppercase font-bold mr-3" style="color: ${textColor};">Total Bersih (Nett)</span>
           <span class="text-emerald-400 font-black text-lg font-mono">${fmt(totalNet)}</span>
         </div>
       </div>
@@ -13432,7 +13498,6 @@ function showDetailInvoice(idBayar) {
     }
   });
 }
-
 async function cetakNotaSatuanLangsung(idBayar) {
   if (!idBayar) {
     return Swal.fire({ 
@@ -15073,46 +15138,59 @@ function showFinanceDetail(id, encodedData) {
     try {
         const data = JSON.parse(decodeURIComponent(encodedData));
         
+        // Deteksi apakah sedang dalam mode terang (light-mode)
+        const isLight = document.body.classList.contains('light-mode') || 
+                        document.body.classList.contains('light') || 
+                        document.documentElement.classList.contains('light');
+
+        // Warna dinamis: Terang saat mode light, Gelap saat mode dark
+        const bgColor = isLight ? '#ffffff' : '#111622';
+        const boxBgColor = isLight ? '#f8fafc' : '#12141a';
+        const textColor = isLight ? '#0f172a' : '#ffffff';
+        const labelColor = isLight ? '#64748b' : '#94a3b8';
+        const borderColor = isLight ? '#e2e8f0' : 'rgba(255, 255, 255, 0.1)';
+        const borderSubColor = isLight ? '#f1f5f9' : 'rgba(255, 255, 255, 0.05)';
+
         Swal.fire({
-            title: `<span class="text-cyan-400 text-sm font-black uppercase">DETAIL MUTASI ID: ${id}</span>`,
+            title: `<span class="text-cyan-500 text-sm font-black uppercase">DETAIL MUTASI ID: ${id}</span>`,
+            background: bgColor,
+            color: textColor,
             html: `
-                <div class="text-left bg-[#12141a] p-4 rounded-xl border border-white/10 space-y-2 text-xs">
-                    <div class="flex justify-between border-b border-white/5 pb-2">
-                        <span class="text-gray-400 font-medium">Transfer KGD:</span>
-                        <span class="font-mono font-bold text-white">${Number(data.kgd || 0).toLocaleString('id-ID')}</span>
+                <div class="text-left p-4 rounded-xl space-y-2 text-xs" style="background-color: ${boxBgColor}; border: 1px solid ${borderColor};">
+                    <div class="flex justify-between pb-2" style="border-bottom: 1px solid ${borderSubColor};">
+                        <span class="font-medium" style="color: ${labelColor};">Transfer KGD:</span>
+                        <span class="font-mono font-bold" style="color: ${textColor};">${Number(data.kgd || 0).toLocaleString('id-ID')}</span>
                     </div>
-                    <div class="flex justify-between border-b border-white/5 pb-2">
-                        <span class="text-gray-400 font-medium">Transfer CDK:</span>
-                        <span class="font-mono font-bold text-white">${Number(data.cdk || 0).toLocaleString('id-ID')}</span>
+                    <div class="flex justify-between pb-2" style="border-bottom: 1px solid ${borderSubColor};">
+                        <span class="font-medium" style="color: ${labelColor};">Transfer CDK:</span>
+                        <span class="font-mono font-bold" style="color: ${textColor};">${Number(data.cdk || 0).toLocaleString('id-ID')}</span>
                     </div>
-                    <div class="flex justify-between border-b border-white/5 pb-2">
-                        <span class="text-gray-400 font-medium">Transfer PKP:</span>
-                        <span class="font-mono font-bold text-white">${Number(data.pkp || 0).toLocaleString('id-ID')}</span>
+                    <div class="flex justify-between pb-2" style="border-bottom: 1px solid ${borderSubColor};">
+                        <span class="font-medium" style="color: ${labelColor};">Transfer PKP:</span>
+                        <span class="font-mono font-bold" style="color: ${textColor};">${Number(data.pkp || 0).toLocaleString('id-ID')}</span>
                     </div>
-                    <div class="flex justify-between border-b border-white/5 pb-2">
-                        <span class="text-gray-400 font-medium">Transfer CPY:</span>
-                        <span class="font-mono font-bold text-white">${Number(data.cpy || 0).toLocaleString('id-ID')}</span>
+                    <div class="flex justify-between pb-2" style="border-bottom: 1px solid ${borderSubColor};">
+                        <span class="font-medium" style="color: ${labelColor};">Transfer CPY:</span>
+                        <span class="font-mono font-bold" style="color: ${textColor};">${Number(data.cpy || 0).toLocaleString('id-ID')}</span>
                     </div>
-                    <div class="flex justify-between border-b border-white/5 pb-2">
-                        <span class="text-gray-400 font-medium">Office:</span>
-                        <span class="font-mono font-bold text-emerald-400">${Number(data.office || 0).toLocaleString('id-ID')}</span>
+                    <div class="flex justify-between pb-2" style="border-bottom: 1px solid ${borderSubColor};">
+                        <span class="font-medium" style="color: ${labelColor};">Office:</span>
+                        <span class="font-mono font-bold text-emerald-500">${Number(data.office || 0).toLocaleString('id-ID')}</span>
                     </div>
-                    <div class="flex justify-between border-b border-white/5 pb-2">
-                        <span class="text-gray-400 font-medium">Keterangan:</span>
-                        <span class="text-white italic">${data.keterangan || '-'}</span>
+                    <div class="flex justify-between pb-2" style="border-bottom: 1px solid ${borderSubColor};">
+                        <span class="font-medium" style="color: ${labelColor};">Keterangan:</span>
+                        <span class="italic" style="color: ${textColor};">${data.keterangan || '-'}</span>
                     </div>
-                    <div class="flex justify-between border-b border-white/5 pb-2">
-                        <span class="text-gray-400 font-medium">Office Debit:</span>
-                        <span class="font-mono font-bold text-rose-400">${Number(data.office_debit || 0).toLocaleString('id-ID')}</span>
+                    <div class="flex justify-between pb-2" style="border-bottom: 1px solid ${borderSubColor};">
+                        <span class="font-medium" style="color: ${labelColor};">Office Debit:</span>
+                        <span class="font-mono font-bold text-rose-500">${Number(data.office_debit || 0).toLocaleString('id-ID')}</span>
                     </div>
                     <div class="flex justify-between pb-1">
-                        <span class="text-gray-400 font-medium">Keterangan Debit:</span>
-                        <span class="text-white italic">${data.keterangan_debit || '-'}</span>
+                        <span class="font-medium" style="color: ${labelColor};">Keterangan Debit:</span>
+                        <span class="italic" style="color: ${textColor};">${data.keterangan_debit || '-'}</span>
                     </div>
                 </div>
             `,
-            background: '#1a1d23',
-            color: '#ffffff',
             confirmButtonColor: '#06b6d4',
             confirmButtonText: 'Tutup'
         });
