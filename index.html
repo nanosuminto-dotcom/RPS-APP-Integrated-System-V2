@@ -7432,10 +7432,10 @@ async function initReportBranchDropdown() {
 
     branchSelect.innerHTML = '<option value="all">SEMUA CABANG</option>';
     cabangRows.forEach(r => {
-      let bCode = r.ID_Cabang.toString().trim().toUpperCase();
+      let bCode = r.ID_Cabang.toString().trim();
       let opt = document.createElement('option');
-      opt.value = bCode.toLowerCase();
-      opt.innerText = bCode;
+      opt.value = bCode; // Menggunakan nilai aslinya tanpa dipaksa lowercase/uppercase di value
+      opt.innerText = bCode.toUpperCase(); // Tampilan tetap rapi huruf besar
       branchSelect.appendChild(opt);
     });
   } catch (e) {
@@ -7500,7 +7500,8 @@ async function runSearch() {
         .range(offset, offset + limit - 1); // Menggunakan range pagination Supabase
 
       if (branch && branch !== 'all') {
-        query = query.eq('ID_Cabang', branch); 
+        // Menggunakan .ilike agar pencarian cabang case-insensitive (besar/kecil huruf diabaikan)
+        query = query.ilike('ID_Cabang', branch); 
       }
 
       let { data, error } = await query;
@@ -7883,7 +7884,7 @@ function setAnaTab(mode) {
 }
 
 
-// --- 2. AMBIL & PROSES DATA ANALISA DARI SUPABASE (TANPA BATASAN 1000 BARIS) ---
+// --- 2. AMBIL & PROSES DATA ANALISA DARI SUPABASE (TOLERAN HURUF BESAR/KECIL & SPASI) ---
 async function runAnalysis() {
   const baseStart = document.getElementById('anaBaseStart').value;
   const baseEnd = document.getElementById('anaBaseEnd').value;
@@ -7907,7 +7908,7 @@ async function runAnalysis() {
     let activeBranches = (cabangRes.data || []).filter(r => {
       let id = String(r.ID_Cabang || '').trim().toLowerCase();
       return id !== 'office' && id !== 'online';
-    }).map(r => r.ID_Cabang.toString().trim().toUpperCase());
+    }).map(r => String(r.ID_Cabang).trim().toUpperCase());
 
     let limit = 1000;
 
@@ -7966,9 +7967,11 @@ async function runAnalysis() {
       };
     });
 
-    // Hitung Range Baru (A)
+    // Hitung Range Baru (A) - ID_Cabang dibersihkan dengan trim() dan dijadikan uppercase
     baseDataRows.forEach(row => {
-      let b = (row.ID_Cabang || '').toUpperCase();
+      let b = String(row.ID_Cabang || '').trim().toUpperCase();
+      if (!b) return; // Lewati jika kosong
+      
       if (!branchMap[b]) {
         branchMap[b] = {
           branch: b,
@@ -7986,9 +7989,11 @@ async function runAnalysis() {
       branchMap[b].posV.countBaru += 1;
     });
 
-    // Hitung Range Pembanding (B)
+    // Hitung Range Pembanding (B) - ID_Cabang dibersihkan dengan trim() dan dijadikan uppercase
     compDataRows.forEach(row => {
-      let b = (row.ID_Cabang || '').toUpperCase();
+      let b = String(row.ID_Cabang || '').trim().toUpperCase();
+      if (!b) return; // Lewati jika kosong
+
       if (!branchMap[b]) {
         branchMap[b] = {
           branch: b,
