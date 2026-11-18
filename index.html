@@ -5181,9 +5181,17 @@ body.light-mode canvas,
     localStorage.setItem('theme', 'dark');
   }
 
-  // TAMBAHAN: Update grafik bar secara otomatis saat mode berganti
+  // 1. Update grafik bar secara otomatis saat mode berganti
   if (typeof updateBarChartDashboard === 'function') {
     updateBarChartDashboard();
+  }
+
+  // 2. Update grafik YoY secara otomatis saat mode berganti 
+  // (Sesuaikan nama fungsi pemanggil YoY Anda jika menggunakan nama lain, misal: loadYoYData() atau runYoYAnalysis())
+  if (typeof loadYoYData === 'function') {
+    loadYoYData();
+  } else if (typeof updateYoYDashboard === 'function') {
+    updateYoYDashboard();
   }
 }
 
@@ -8710,14 +8718,22 @@ function renderAccTable(accArray, year, metric = 'sales') {
   body.innerHTML = html;
 }
 
+// --- RENDER YoY CHART DENGAN KONTROL WARNA OTOMATIS (DARK & LIGHT MODE) ---
 function renderYoYChart(canvasId, yearData, labelText, defaultColor = '#06b6d4') {
   const canvas = document.getElementById(canvasId);
   if(!canvas) return;
   const ctx = canvas.getContext('2d');
-  const isLight = document.body.classList.contains('light-mode');
-  const textColor = isLight ? '#0f172a' : 'rgba(255,255,255,0.8)';
-  const mutedColor = isLight ? '#475569' : 'rgba(255,255,255,0.5)';
-  const gridColor = isLight ? 'rgba(15,23,42,0.08)' : 'rgba(255,255,255,0.03)';
+
+  // Deteksi akurat apakah halaman sedang dalam mode terang (light-mode)
+  const isLight = document.body.classList.contains('light-mode') || 
+                  document.body.classList.contains('light') || 
+                  document.documentElement.classList.contains('light') ||
+                  document.documentElement.getAttribute('data-theme') === 'light';
+
+  // Warna dinamis: Gelap kontras saat mode terang, Terang/Abu terang saat mode gelap
+  const textColor = isLight ? '#0f172a' : 'rgba(255,255,255,0.9)';
+  const mutedColor = isLight ? '#475569' : 'rgba(255,255,255,0.6)';
+  const gridColor = isLight ? 'rgba(15,23,42,0.10)' : 'rgba(255,255,255,0.05)';
   
   if (window['myChart' + canvasId]) window['myChart' + canvasId].destroy();
 
@@ -8753,14 +8769,14 @@ function renderYoYChart(canvasId, yearData, labelText, defaultColor = '#06b6d4')
         legend: { 
           position: 'top', 
           align: 'end', 
-          labels: { color: textColor, font: { size: 9 }, usePointStyle: true, boxWidth: 6 } 
+          labels: { color: textColor, font: { size: 9, weight: 'bold' }, usePointStyle: true, boxWidth: 6 } 
         },
         tooltip: { 
           enabled: true,
-          backgroundColor: isLight ? '#f8fafc' : '#1a1d23', 
-          titleColor: isLight ? '#0f172a' : '#fff', 
-          bodyColor: isLight ? '#0f172a' : '#fff',
-          borderColor: isLight ? 'rgba(148,163,184,0.22)' : 'rgba(255,255,255,0.08)',
+          backgroundColor: isLight ? '#ffffff' : '#1a1d23', 
+          titleColor: isLight ? '#0f172a' : '#ffffff', 
+          bodyColor: isLight ? '#0f172a' : '#ffffff',
+          borderColor: isLight ? 'rgba(148,163,184,0.3)' : 'rgba(255,255,255,0.1)',
           borderWidth: 1,
           callbacks: {
             label: function(context) {
@@ -8776,8 +8792,14 @@ function renderYoYChart(canvasId, yearData, labelText, defaultColor = '#06b6d4')
         }
       },
       scales: {
-        y: { grid: { color: gridColor }, ticks: { color: mutedColor, font: { size: 8 } } },
-        x: { grid: { display: false }, ticks: { color: mutedColor, font: { size: 8 } } }
+        y: { 
+          grid: { color: gridColor }, 
+          ticks: { color: mutedColor, font: { size: 8, weight: 'bold' } } 
+        },
+        x: { 
+          grid: { display: false }, 
+          ticks: { color: mutedColor, font: { size: 8, weight: 'bold' } } 
+        }
       }
     }
   });
