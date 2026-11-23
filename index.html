@@ -12320,6 +12320,10 @@ function resetAllFilters() {
 }
 
 // --- C. FUNGSI MODAL & FORM (SUPABASE NATIVE) ---
+function getRekTujuanDropdown() {
+  return document.getElementById('f_rek_tujuan_sup') || document.getElementById('f_rek_tujuan');
+}
+
 function openModalBayar() {
   const id = "PAY-NEW-" + new Date().getTime().toString().slice(-6);
   const mDisplay = document.getElementById('m_id_display');
@@ -12329,13 +12333,13 @@ function openModalBayar() {
   if (mDisplay) mDisplay.innerText = "ID: " + id;
   if (fNoBayar) fNoBayar.value = id;
   if (fTglBayar) fTglBayar.value = new Date().toISOString().split('T')[0];
-  
+
   const modal = document.getElementById('modalBayar');
   if (modal) {
     modal.classList.remove('hidden');
     modal.style.display = 'flex';
   }
-  
+
   loadInitialDataPro();
   renderHistory();
 }
@@ -12346,8 +12350,68 @@ function generatePayId(kodeSupp) {
   const mm = String(now.getMonth() + 1).padStart(2, '0');
   const dd = String(now.getDate()).padStart(2, '0');
   const randomNum = Math.floor(1000 + Math.random() * 9000);
-  
+
   return `PAY-${kodeSupp}${yy}${mm}${dd}${randomNum}`;
+}
+
+// Helper: Memecah data bank, norek, dan namarek yang dipisah koma (,) menjadi opsi terpisah
+function buildRekOptionsFromSupplier(sup) {
+  if (!sup) return [];
+
+  const banks = String(sup.bank || '')
+    .split(',')
+    .map(v => v.trim())
+    .filter(Boolean);
+
+  const noreks = String(sup.norek || '')
+    .split(',')
+    .map(v => v.trim())
+    .filter(Boolean);
+
+  const namareks = String(sup.namarek || '')
+    .split(',')
+    .map(v => v.trim())
+    .filter(Boolean);
+
+  const maxLen = Math.max(banks.length, noreks.length, namareks.length);
+  const options = [];
+
+  for (let i = 0; i < maxLen; i++) {
+    const b = banks[i] || banks[0] || '';
+    const r = noreks[i] || '';
+    const an = namareks[i] || namareks[0] || '';
+
+    if (!b && !r && !an) continue;
+
+    const label = `${b || 'BANK'}${r ? ' - ' + r : ''}${an ? ' (a/n ' + an + ')' : ''}`;
+    const value = `${b} | ${r} | ${an}`;
+
+    options.push({ value, label, bank: b, norek: r, namarek: an });
+  }
+
+  return options;
+}
+
+function populateRekTujuanDropdown(supData) {
+  const rekTujuanEl = getRekTujuanDropdown();
+  if (!rekTujuanEl) return;
+
+  rekTujuanEl.multiple = false;
+
+  const listRek = buildRekOptionsFromSupplier(supData);
+
+  if (listRek.length === 0) {
+    rekTujuanEl.innerHTML = '<option value="-">Tanpa Rekening Terdaftar</option>';
+    return;
+  }
+
+  rekTujuanEl.innerHTML =
+    '<option value="">-- PILIH REKENING TUJUAN --</option>' +
+    listRek.map((item, idx) => `
+      <option value="${item.value}" ${idx === 0 ? 'selected' : ''}>
+        ${item.label}
+      </option>
+    `).join('');
 }
 
 async function loadInitialDataPro() {
@@ -12361,15 +12425,25 @@ async function loadInitialDataPro() {
 
     const el = document.getElementById('f_sup_select');
     if (el && suppliers) {
-      el.innerHTML = '<option value="">-- PILIH KODE SUPPLIER --</option>' + 
+      el.innerHTML = '<option value="">-- PILIH KODE SUPPLIER --</option>' +
         suppliers.map(s => `
-          <option value="${s.kodesupp}" 
-            data-bank="${s.bank || ''}" 
-            data-rek="${s.norek || ''}" 
+          <option value="${s.kodesupp}"
+            data-bank="${s.bank || ''}"
+            data-rek="${s.norek || ''}"
             data-an="${s.namarek || ''}">
             ${s.kodesupp}
           </option>
         `).join("");
+
+      el.onchange = function () {
+        handleSupplierChangePro();
+      };
+
+      if (el.value) {
+        handleSupplierChangePro();
+      } else {
+        populateRekTujuanDropdown(null);
+      }
     }
   } catch (supErr) {
     console.error("Gagal memuat Ref_Supp:", supErr);
@@ -12385,7 +12459,7 @@ async function loadInitialDataPro() {
     const elRek = document.getElementById('f_rek_asal');
     if (elRek) {
       if (reks && reks.length > 0) {
-        elRek.innerHTML = '<option value="">-- PILIH REK SUMBER --</option>' + 
+        elRek.innerHTML = '<option value="">-- PILIH REK SUMBER --</option>' +
           reks.map(r => `
             <option value="${r.rekbank}">${r.rekbank}</option>
           `).join("");
@@ -12406,7 +12480,7 @@ function filterSupplierDropdown(keyword) {
   const selectEl = document.getElementById('f_sup_select');
   const dropdown = document.getElementById('supplierCustomDropdown');
   if (!dropdown || !selectEl) return;
-  
+
   dropdown.innerHTML = '';
   dropdown.classList.remove('hidden');
 
@@ -12422,14 +12496,15 @@ function filterSupplierDropdown(keyword) {
       const item = document.createElement('div');
       item.className = "px-3 py-2 text-xs text-white hover:bg-cyan-500/20 cursor-pointer border-b border-gray-800 transition-colors";
       item.innerText = optText;
-      
-      item.onclick = function() {
-        document.getElementById('f_sup_search').value = optText;
+
+      item.onclick = function () {
+        const searchInput = document.getElementById('f_sup_search');
+        if (searchInput) searchInput.value = optText;
         selectEl.value = optVal;
         dropdown.classList.add('hidden');
         handleSupplierChangePro();
       };
-      
+
       dropdown.appendChild(item);
     }
   }
@@ -12439,7 +12514,7 @@ function filterSupplierDropdown(keyword) {
   }
 }
 
-document.addEventListener('click', function(e) {
+document.addEventListener('click', function (e) {
   const container = document.getElementById('f_sup_search')?.closest('div');
   const dropdown = document.getElementById('supplierCustomDropdown');
   if (container && !container.contains(e.target)) {
@@ -12449,37 +12524,35 @@ document.addEventListener('click', function(e) {
 
 function handleSupplierChangePro() {
   const sel = document.getElementById('f_sup_select');
-  const rekDropdown = document.getElementById('f_rek_tujuan_sup');
-  if(!sel || !sel.value) return;
+  if (!sel || !sel.value) {
+    populateRekTujuanDropdown(null);
+    return;
+  }
 
   const kodeSupp = sel.value;
   const newPayId = generatePayId(kodeSupp);
   const fNoBayar = document.getElementById('f_no_bayar');
   const mDisplay = document.getElementById('m_id_display');
-  
+
   if (fNoBayar) fNoBayar.value = newPayId;
   if (mDisplay) mDisplay.innerText = "ID: " + newPayId;
 
   const opt = sel.options[sel.selectedIndex];
-  const bank = opt.dataset.bank || "";
-  const rek = opt.dataset.rek || "";
-  const an = opt.dataset.an || "";
+  populateRekTujuanDropdown({
+    bank: opt?.dataset.bank || '',
+    norek: opt?.dataset.rek || '',
+    namarek: opt?.dataset.an || ''
+  });
 
-  if (bank && rek) {
-    rekDropdown.innerHTML = `<option value="${bank} | ${rek} | ${an}">${bank}\n${rek} (a/n ${an})</option>`;
-  } else {
-    rekDropdown.innerHTML = '<option value="-">Tanpa Rekening Terdaftar</option>';
-  }
-  
   fetchHutangDetailsPro(kodeSupp);
 }
 
 async function fetchHutangDetailsPro(supId) {
   const tbody = document.getElementById('invTableBodyPro');
   if (!tbody) return;
-  
+
   tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-white/20 uppercase text-[9px]">Mencari data tagihan dari Supabase...</td></tr>`;
-  
+
   try {
     let { data: invs, error } = await dbClient
       .from('Data_Beli')
@@ -12493,7 +12566,7 @@ async function fetchHutangDetailsPro(supId) {
       tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-rose-500 uppercase text-[9px]">Tidak ada hutang aktif dengan status Simpan</td></tr>`;
       return;
     }
-    
+
     tbody.innerHTML = invs.map(i => {
       const nom = Number(i.nombeli || 0);
       const invNo = i.invbeli || '-';
@@ -12504,11 +12577,11 @@ async function fetchHutangDetailsPro(supId) {
       return `
       <tr class="border-b border-white/5">
         <td class="p-3 text-center">
-          <input type="checkbox" class="inv-chk-pro" 
-            data-id="${invNo}" 
-            data-tglinv="${tglInvVal}" 
-            data-tempo="${tglJtVal}" 
-            data-cabang="${cabangVal}" 
+          <input type="checkbox" class="inv-chk-pro"
+            data-id="${invNo}"
+            data-tglinv="${tglInvVal}"
+            data-tempo="${tglJtVal}"
+            data-cabang="${cabangVal}"
             onchange="calcNettoPro(); hitungJadwalOtomatis();">
         </td>
         <td class="p-3 text-white font-bold">${invNo}</td>
@@ -12517,9 +12590,9 @@ async function fetchHutangDetailsPro(supId) {
         <td class="p-3 text-orange-400 font-mono text-[11px]">${tglJtVal}</td>
         <td class="p-3 text-right text-white/60">Rp ${nom.toLocaleString('id-ID')}</td>
         <td class="p-3 text-right">
-          <input type="text" 
-            class="pay-input-pro bg-black/40 border border-white/10 text-right w-28 text-cyan-400 font-bold outline-none font-mono text-[12px] py-1 px-2 focus:border-cyan-500/50" 
-            value="${nom.toLocaleString('id-ID')}" 
+          <input type="text"
+            class="pay-input-pro bg-black/40 border border-white/10 text-right w-28 text-cyan-400 font-bold outline-none font-mono text-[12px] py-1 px-2 focus:border-cyan-500/50"
+            value="${nom.toLocaleString('id-ID')}"
             oninput="formatRupiahInput(this); calcNettoPro();">
         </td>
       </tr>`;
