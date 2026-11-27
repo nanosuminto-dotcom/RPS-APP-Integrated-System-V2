@@ -15128,6 +15128,8 @@ async function simpanBatchFinance() {
 // =========================================================================
 // 5. MODUL RUCD TABLE: loadFinanceHistoryTable, Detail, Edit, & Hapus dari Supabase
 // =========================================================================
+window._financeHistoryMap = window._financeHistoryMap || {};
+
 function onFailure(error) {
     Swal.fire({
         icon: 'error',
@@ -15140,7 +15142,7 @@ function onFailure(error) {
 async function loadFinanceHistoryTable() {
     const tbody = document.getElementById('bodyBatchFinance');
     if (!tbody) return;
-    
+
     tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-cyan-400 animate-pulse font-bold">Memuat 25 history mutasi terakhir...</td></tr>';
 
     try {
@@ -15154,39 +15156,34 @@ async function loadFinanceHistoryTable() {
         if (error) throw error;
 
         tbody.innerHTML = '';
+        window._financeHistoryMap = {};
+
         if (!data || data.length === 0) {
             tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-gray-500">Data kosong</td></tr>';
             return;
         }
 
         data.forEach(row => {
-            const creditTot = (row.kgd_tunai || 0) + (row.kgd_db_bca || 0) + (row.kgd_cr_bca || 0) + 
-                              (row.kgd_cicilan_bca || 0) + (row.kgd_qr_bca || 0) + (row.cdk_tunai || 0) + 
-                              (row.grabmart_kgd || 0) + (row.grabmart_cdk || 0) + (row.grabmart_pkp || 0) + (row.grabmart_cpy || 0) + 
-                              (row.transfer_kgd || 0) + (row.transfer_cdk || 0) + (row.transfer_pkp || 0) + (row.transfer_cpy || 0) + 
-                              (row.office || 0);
+            const mutasiId = String(row.id_mutasi || '').trim();
+            if (mutasiId) {
+                window._financeHistoryMap[mutasiId] = row;
+            }
 
-            const debitTot = row.office_debit || 0;
+            const creditTot = (Number(row.kgd_tunai) || 0) + (Number(row.kgd_db_bca) || 0) + (Number(row.kgd_cr_bca) || 0) +
+                              (Number(row.kgd_cicilan_bca) || 0) + (Number(row.kgd_qr_bca) || 0) + (Number(row.cdk_tunai) || 0) +
+                              (Number(row.grabmart_kgd) || 0) + (Number(row.grabmart_cdk) || 0) + (Number(row.grabmart_pkp) || 0) + (Number(row.grabmart_cpy) || 0) +
+                              (Number(row.transfer_kgd) || 0) + (Number(row.transfer_cdk) || 0) + (Number(row.transfer_pkp) || 0) + (Number(row.transfer_cpy) || 0) +
+                              (Number(row.office) || 0);
 
-            const detailData = {
-                kgd: (row.grabmart_kgd || 0) + (row.transfer_kgd || 0),
-                cdk: (row.grabmart_cdk || 0) + (row.transfer_cdk || 0),
-                pkp: (row.grabmart_pkp || 0) + (row.transfer_pkp || 0),
-                cpy: (row.grabmart_cpy || 0) + (row.transfer_cpy || 0),
-                office: row.office || 0,
-                keterangan: row.keterangan || '',
-                office_debit: row.office_debit || 0,
-                keterangan_debit: row.keterangan_debit || ''
-            };
+            const debitTot = Number(row.office_debit) || 0;
 
-            const detailString = encodeURIComponent(JSON.stringify(detailData));
-            const mutasiId = row.id_mutasi || '';
+            const safeId = mutasiId.replace(/'/g, "\\'");
 
             tbody.innerHTML += `
                 <tr class="hover:bg-white/5 border-b border-white/5">
                     <td class="p-3 text-[10px] text-slate-300">${row.tanggal || ''}</td>
                     <td class="p-3 text-[10px] font-mono">
-                        <button onclick="showFinanceDetail('${mutasiId}', '${detailString}')" class="text-cyan-400 hover:text-cyan-300 hover:underline font-bold text-left transition-all flex items-center gap-1">
+                        <button onclick="showFinanceDetail('${safeId}')" class="text-cyan-400 hover:text-cyan-300 hover:underline font-bold text-left transition-all flex items-center gap-1">
                             <i class="fas fa-info-circle text-[9px]"></i> ${mutasiId}
                         </button>
                     </td>
@@ -15194,8 +15191,8 @@ async function loadFinanceHistoryTable() {
                     <td class="p-3 text-right text-rose-400 font-bold font-mono">Rp ${debitTot.toLocaleString('id-ID')}</td>
                     <td class="p-3 text-center">
                         <div class="flex justify-center gap-2">
-                            <button onclick="editHistoryFinance('${mutasiId}')" class="text-amber-400 font-bold text-[9px] uppercase border border-amber-500/30 px-2 py-1 rounded hover:bg-amber-500/20 transition-all">Edit</button>
-                            <button onclick="hapusHistoryFinance('${mutasiId}')" class="text-rose-400 font-bold text-[9px] uppercase border border-rose-500/30 px-2 py-1 rounded hover:bg-rose-500/20 transition-all">Hapus</button>
+                            <button onclick="editHistoryFinance('${safeId}')" class="text-amber-400 font-bold text-[9px] uppercase border border-amber-500/30 px-2 py-1 rounded hover:bg-amber-500/20 transition-all">Edit</button>
+                            <button onclick="hapusHistoryFinance('${safeId}')" class="text-rose-400 font-bold text-[9px] uppercase border border-rose-500/30 px-2 py-1 rounded hover:bg-rose-500/20 transition-all">Hapus</button>
                         </div>
                     </td>
                 </tr>`;
@@ -15207,16 +15204,15 @@ async function loadFinanceHistoryTable() {
     }
 }
 
-function showFinanceDetail(id, encodedData) {
+async function showFinanceDetail(id, encodedData) {
     try {
-        const data = JSON.parse(decodeURIComponent(encodedData));
-        
+        const targetId = String(id ?? '').trim();
+
         // Deteksi apakah sedang dalam mode terang (light-mode)
-        const isLight = document.body.classList.contains('light-mode') || 
-                        document.body.classList.contains('light') || 
+        const isLight = document.body.classList.contains('light-mode') ||
+                        document.body.classList.contains('light') ||
                         document.documentElement.classList.contains('light');
 
-        // Warna dinamis: Terang saat mode light, Gelap saat mode dark
         const bgColor = isLight ? '#ffffff' : '#111622';
         const boxBgColor = isLight ? '#f8fafc' : '#12141a';
         const textColor = isLight ? '#0f172a' : '#ffffff';
@@ -15224,43 +15220,127 @@ function showFinanceDetail(id, encodedData) {
         const borderColor = isLight ? '#e2e8f0' : 'rgba(255, 255, 255, 0.1)';
         const borderSubColor = isLight ? '#f1f5f9' : 'rgba(255, 255, 255, 0.05)';
 
+        let src = {};
+
+        // 1. Ambil dari map cache berdasarkan id_mutasi jika tersedia
+        if (targetId && window._financeHistoryMap && window._financeHistoryMap[targetId]) {
+            src = { ...window._financeHistoryMap[targetId] };
+        }
+
+        // 2. Fallback parse encodedData jika dikirim
+        if (Object.keys(src).length === 0 && encodedData !== undefined && encodedData !== null && String(encodedData) !== '') {
+            try {
+                let raw = typeof encodedData === 'string'
+                    ? decodeURIComponent(encodedData)
+                    : JSON.stringify(encodedData);
+
+                if (typeof raw === 'string' && raw.trim().startsWith('%7B')) {
+                    raw = decodeURIComponent(raw);
+                }
+
+                const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+                const candidate =
+                    (parsed && typeof parsed.Data_Mutasi === 'object' && parsed.Data_Mutasi !== null) ? parsed.Data_Mutasi :
+                    (parsed && typeof parsed.data_mutasi === 'object' && parsed.data_mutasi !== null) ? parsed.data_mutasi :
+                    (parsed && typeof parsed.data === 'object' && parsed.data !== null) ? parsed.data :
+                    parsed;
+
+                if (candidate && typeof candidate === 'object') {
+                    src = candidate;
+                }
+            } catch (errEnc) {
+                console.warn('[showFinanceDetail] Gagal parse encodedData:', errEnc);
+            }
+        }
+
+        // 3. Query langsung ke Supabase memakai dbClient berdasarkan id_mutasi
+        const sb =
+            (typeof dbClient !== 'undefined' && dbClient) ? dbClient :
+            (window.dbClient || window.supabaseClient || window.sb || null);
+
+        if (sb && typeof sb.from === 'function' && targetId) {
+            const { data: rowData, error } = await sb
+                .from('Data_Mutasi')
+                .select('id_mutasi, transfer_kgd, transfer_cdk, transfer_pkp, transfer_cpy, office, keterangan, office_debit, keterangan_debit')
+                .eq('id_mutasi', targetId)
+                .maybeSingle();
+
+            if (error) {
+                console.warn('[showFinanceDetail] Error Supabase:', error);
+            } else if (rowData) {
+                src = { ...src, ...rowData };
+            }
+        }
+
+        const pickNum = (key) => {
+            const val = src[key];
+            if (val === undefined || val === null || val === '') return 0;
+            const num = Number(String(val).replace(/[^\d.-]/g, ''));
+            return Number.isNaN(num) ? 0 : num;
+        };
+
+        const pickText = (key) => {
+            const val = src[key];
+            if (val === undefined || val === null) return '-';
+            const str = String(val).trim();
+            return (str === '' || str.toUpperCase() === 'EMPTY' || str.toUpperCase() === 'NULL') ? '-' : str;
+        };
+
+        const displayId = pickText('id_mutasi') !== '-' ? pickText('id_mutasi') : targetId;
+        const transferKgd = pickNum('transfer_kgd');
+        const transferCdk = pickNum('transfer_cdk');
+        const transferPkp = pickNum('transfer_pkp');
+        const transferCpy = pickNum('transfer_cpy');
+        const office = pickNum('office');
+        const officeDebit = pickNum('office_debit');
+        const keterangan = pickText('keterangan');
+        const keteranganDebit = pickText('keterangan_debit');
+
+        const totalMutasi =
+            transferKgd + transferCdk + transferPkp + transferCpy +
+            office - officeDebit;
+
         Swal.fire({
-            title: `<span class="text-cyan-500 text-sm font-black uppercase">DETAIL MUTASI ID: ${id}</span>`,
+            title: `<span class="text-cyan-500 text-sm font-black uppercase">DETAIL MUTASI ID: ${displayId}</span>`,
             background: bgColor,
             color: textColor,
             html: `
                 <div class="text-left p-4 rounded-xl space-y-2 text-xs" style="background-color: ${boxBgColor}; border: 1px solid ${borderColor};">
                     <div class="flex justify-between pb-2" style="border-bottom: 1px solid ${borderSubColor};">
                         <span class="font-medium" style="color: ${labelColor};">Transfer KGD:</span>
-                        <span class="font-mono font-bold" style="color: ${textColor};">${Number(data.kgd || 0).toLocaleString('id-ID')}</span>
+                        <span class="font-mono font-bold" style="color: ${textColor};">${transferKgd.toLocaleString('id-ID')}</span>
                     </div>
                     <div class="flex justify-between pb-2" style="border-bottom: 1px solid ${borderSubColor};">
                         <span class="font-medium" style="color: ${labelColor};">Transfer CDK:</span>
-                        <span class="font-mono font-bold" style="color: ${textColor};">${Number(data.cdk || 0).toLocaleString('id-ID')}</span>
+                        <span class="font-mono font-bold" style="color: ${textColor};">${transferCdk.toLocaleString('id-ID')}</span>
                     </div>
                     <div class="flex justify-between pb-2" style="border-bottom: 1px solid ${borderSubColor};">
                         <span class="font-medium" style="color: ${labelColor};">Transfer PKP:</span>
-                        <span class="font-mono font-bold" style="color: ${textColor};">${Number(data.pkp || 0).toLocaleString('id-ID')}</span>
+                        <span class="font-mono font-bold" style="color: ${textColor};">${transferPkp.toLocaleString('id-ID')}</span>
                     </div>
                     <div class="flex justify-between pb-2" style="border-bottom: 1px solid ${borderSubColor};">
                         <span class="font-medium" style="color: ${labelColor};">Transfer CPY:</span>
-                        <span class="font-mono font-bold" style="color: ${textColor};">${Number(data.cpy || 0).toLocaleString('id-ID')}</span>
+                        <span class="font-mono font-bold" style="color: ${textColor};">${transferCpy.toLocaleString('id-ID')}</span>
                     </div>
                     <div class="flex justify-between pb-2" style="border-bottom: 1px solid ${borderSubColor};">
                         <span class="font-medium" style="color: ${labelColor};">Office:</span>
-                        <span class="font-mono font-bold text-emerald-500">${Number(data.office || 0).toLocaleString('id-ID')}</span>
+                        <span class="font-mono font-bold text-emerald-500">${office.toLocaleString('id-ID')}</span>
                     </div>
                     <div class="flex justify-between pb-2" style="border-bottom: 1px solid ${borderSubColor};">
                         <span class="font-medium" style="color: ${labelColor};">Keterangan:</span>
-                        <span class="italic" style="color: ${textColor};">${data.keterangan || '-'}</span>
+                        <span class="italic" style="color: ${textColor};">${keterangan}</span>
                     </div>
                     <div class="flex justify-between pb-2" style="border-bottom: 1px solid ${borderSubColor};">
                         <span class="font-medium" style="color: ${labelColor};">Office Debit:</span>
-                        <span class="font-mono font-bold text-rose-500">${Number(data.office_debit || 0).toLocaleString('id-ID')}</span>
+                        <span class="font-mono font-bold text-rose-500">${officeDebit.toLocaleString('id-ID')}</span>
                     </div>
-                    <div class="flex justify-between pb-1">
+                    <div class="flex justify-between pb-2" style="border-bottom: 1px solid ${borderSubColor};">
                         <span class="font-medium" style="color: ${labelColor};">Keterangan Debit:</span>
-                        <span class="italic" style="color: ${textColor};">${data.keterangan_debit || '-'}</span>
+                        <span class="italic" style="color: ${textColor};">${keteranganDebit}</span>
+                    </div>
+                    <div class="flex justify-between pt-1">
+                        <span class="font-bold" style="color: ${labelColor};">Total:</span>
+                        <span class="font-mono font-black text-cyan-500">${totalMutasi.toLocaleString('id-ID')}</span>
                     </div>
                 </div>
             `,
@@ -15271,7 +15351,6 @@ function showFinanceDetail(id, encodedData) {
         console.error("Gagal memparsing detail mutasi:", e);
     }
 }
-
 async function editHistoryFinance(idInputan) {
     Swal.fire({ title: 'Memuat data...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
     
